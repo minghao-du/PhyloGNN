@@ -3,9 +3,9 @@ Phylogenetic Tree to Graph Data Conversion
 
 This module provides a two-step pipeline for converting phylogenetic trees
 into graph neural network compatible data structures:
+    1. TreeFeatureEngineer: Adds features/attributes to tree nodes
+    2. TreeToGraphConverter: Converts tree structure to graph data
 
-TreeFeatureEngineer: Adds features/attributes to tree nodes
-TreeToGraphConverter: Converts tree structure to graph data
 This separation allows for flexible feature engineering and reusable conversion.
 
 Example (recommended workflow):
@@ -45,4 +45,4 @@ data = converter.convert(tree_with_features)
 from .feature_engineer import TreeFeatureEngineer
 from .converter import TreeToGraphConverter
 
-all = ['TreeFeatureEngineer', 'TreeToGraphConverter']
+__all__ = ['TreeFeatureEngineer', 'TreeToGraphConverter']

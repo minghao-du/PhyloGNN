@@ -29,5 +29,5 @@ For more examples, see the examples/ directory.
 from .data import TreeFeatureEngineer, TreeToGraphConverter
 
 version = "0.1.0"
-all = ['TreeFeatureEngineer', 'TreeToGraphConverter']
+__all__ = ['TreeFeatureEngineer', 'TreeToGraphConverter']
 
