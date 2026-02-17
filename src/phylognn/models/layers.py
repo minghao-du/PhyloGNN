@@ -123,3 +123,75 @@ class PositionalEncoding(nn.Module):
         """
         x = x + self.pe[:, :x.size(1)].to(x.device)
         return self.dropout(x)
+    
+class ResidualGATStack(nn.Module):
+    """
+    Stack of GAT blocks with residual connections.
+
+    Applies multiple GAT blocks sequentially with residual connections
+    to facilitate gradient flow and enable deeper architectures.
+
+    Args:
+        in_channels: Number of input features
+        hidden_channels: Number of hidden features per attention head
+        num_layers: Number of GAT blocks to stack
+        heads: Number of attention heads per block
+        dropout_prob: Dropout probability
+        
+    Example:
+        >>> stack = ResidualGATStack(
+        ...     in_channels=64,
+        ...     hidden_channels=32,
+        ...     num_layers=3,
+        ...     heads=4,
+        ...     dropout_prob=0.2
+        ... )
+        >>> x = torch.randn(100, 64)
+        >>> edge_index = torch.randint(0, 100, (2, 500))
+        >>> out = stack(x, edge_index)
+    """
+    
+    def __init__(
+        self,
+        in_channels: int,
+        hidden_channels: int,
+        num_layers: int = 3,
+        heads: int = 4,
+        dropout_prob: float = 0.2
+    ):
+        super(ResidualGATStack, self).__init__()
+        
+        self.blocks = nn.ModuleList()
+        
+        # First block: in_channels -> hidden_channels * heads
+        self.blocks.append(
+            GATBlock(in_channels, hidden_channels, heads, dropout_prob)
+        )
+        
+        # Subsequent blocks: hidden_channels * heads -> hidden_channels * heads
+        for _ in range(num_layers - 1):
+            self.blocks.append(
+                GATBlock(
+                    hidden_channels * heads,
+                    hidden_channels,
+                    heads,
+                    dropout_prob
+                )
+            )
+    
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass with residual connections.
+        
+        Args:
+            x: Node feature matrix of shape [num_nodes, in_channels]
+            edge_index: Graph connectivity in COO format of shape [2, num_edges]
+            
+        Returns:
+            Node embeddings with residual connections applied
+        """
+        x_residual = 0
+        for block in self.blocks:
+            x = block(x, edge_index)
+            x_residual = x_residual + x  # Accumulate residuals
+        return x_residual
