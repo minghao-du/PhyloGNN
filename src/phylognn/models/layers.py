@@ -73,3 +73,53 @@ class GATBlock(nn.Module):
         x = self.bn(x)
         x = self.dropout(x)
         return x
+
+class PositionalEncoding(nn.Module):
+    """
+    Sinusoidal positional encoding for sequence data.
+
+    Adds position-dependent patterns to input embeddings using sine and cosine
+    functions of different frequencies, as introduced in "Attention is All You Need".
+
+    Args:
+        d_model: Dimension of the model embeddings
+        dropout: Dropout probability
+        max_len: Maximum sequence length to pre-compute encodings for
+        
+    Example:
+        >>> pe = PositionalEncoding(d_model=128, dropout=0.1, max_len=1000)
+        >>> x = torch.randn(32, 100, 128)  # [batch, seq_len, d_model]
+        >>> x_with_pos = pe(x)
+    """
+    
+    def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        
+        # Compute positional encodings once in log space
+        position = torch.arange(0, max_len).unsqueeze(1).float()
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * 
+            (-torch.log(torch.tensor(10000.0)) / d_model)
+        )
+        
+        pe = torch.zeros(max_len, d_model)
+        pe[:, 0::2] = torch.sin(position * div_term)  # Even dimensions
+        pe[:, 1::2] = torch.cos(position * div_term)  # Odd dimensions
+        pe = pe.unsqueeze(0)  # Add batch dimension: [1, max_len, d_model]
+        
+        # Register as buffer (not a parameter, but part of state_dict)
+        self.register_buffer('pe', pe)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Add positional encoding to input embeddings.
+        
+        Args:
+            x: Input tensor of shape [batch_size, seq_len, d_model]
+            
+        Returns:
+            Tensor with positional encoding added, same shape as input
+        """
+        x = x + self.pe[:, :x.size(1)].to(x.device)
+        return self.dropout(x)
