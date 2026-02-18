@@ -195,3 +195,79 @@ class ResidualGATStack(nn.Module):
             x = block(x, edge_index)
             x_residual = x_residual + x  # Accumulate residuals
         return x_residual
+
+class MLPHead(nn.Module):
+    """
+    Multi-layer perceptron head for final predictions.
+
+    A flexible MLP with configurable hidden layers, batch normalization,
+    dropout, and optional output activation.
+
+    Args:
+        input_dim: Input feature dimension
+        hidden_dim: Hidden layer dimension
+        output_dim: Output dimension
+        num_hidden_layers: Number of hidden layers (default: 1)
+        dropout_prob: Dropout probability
+        output_activation: Optional output activation ('relu', 'sigmoid', 'tanh', None)
+        
+    Example:
+        >>> head = MLPHead(
+        ...     input_dim=128,
+        ...     hidden_dim=64,
+        ...     output_dim=2,
+        ...     dropout_prob=0.2,
+        ...     output_activation='relu'
+        ... )
+        >>> x = torch.randn(32, 128)
+        >>> out = head(x)  # Shape: [32, 2]
+    """
+    
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        output_dim: int,
+        num_hidden_layers: int = 1,
+        dropout_prob: float = 0.2,
+        output_activation: Optional[str] = None
+    ):
+        super(MLPHead, self).__init__()
+        
+        layers = []
+        
+        # Hidden layers
+        current_dim = input_dim
+        for _ in range(num_hidden_layers):
+            layers.extend([
+                nn.Linear(current_dim, hidden_dim),
+                nn.ReLU(),
+                nn.BatchNorm1d(hidden_dim),
+                nn.Dropout(dropout_prob)
+            ])
+            current_dim = hidden_dim
+        
+        # Output layer
+        layers.append(nn.Linear(current_dim, output_dim))
+        
+        # Optional output activation
+        if output_activation == 'relu':
+            layers.append(nn.ReLU())
+        elif output_activation == 'sigmoid':
+            layers.append(nn.Sigmoid())
+        elif output_activation == 'tanh':
+            layers.append(nn.Tanh())
+        
+        self.mlp = nn.Sequential(*layers)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through the MLP.
+        
+        Args:
+            x: Input tensor of shape [batch_size, input_dim]
+            
+        Returns:
+            Output predictions of shape [batch_size, output_dim]
+        """
+        return self.mlp(x)
