@@ -6,7 +6,7 @@ These features can then be used by the converter to create graph data.
 """
 
 import math
-from typing import Optional, List, Callable
+from typing import Optional, List, Callable, Set, Tuple
 from ete3 import Tree
 
 class TreeFeatureEngineer:
@@ -205,8 +205,8 @@ class TreeFeatureEngineer:
         
         return tree
 
-# Feature computation methods
-    
+    # Feature computation methods
+ 
     def _add_node_time(self, context: dict) -> None:
         """Add node_time feature"""
         node = context['node']
