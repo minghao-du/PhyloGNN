@@ -39,11 +39,40 @@ def example_basic_usage():
         print(f"  is_internal: {node.is_internal}")
         print(f"  branch_length: {node.branch_length:.4f}")
 
+    print("\n")
+
+def example_selective_features():
+    """Add only specific features"""
+    print("=" * 60)
+    print("Example 2: Selective Features")
+    print("=" * 60)
+    
+    tree = Tree("((A:1,B:2)C:3,D:4)E:0;", format=1)
+    engineer = TreeFeatureEngineer(num_time_bins=50)
+    
+    # Add only specific features
+    feature_names = ['node_time', 'is_tip', 'time_bin']
+    tree_with_features = engineer.add_features(
+        tree,
+        origin_time=10.0,
+        feature_names=feature_names,
+        rescale=False
+    )
+    
+    print(f"Added features: {feature_names}")
+    print("\nNode features:")
+    for node in tree_with_features.traverse():
+        node_name = node.name if node.name else "internal"
+        print(f"{node_name}: time={node.node_time:.4f}, "
+              f"bin={node.time_bin}, is_tip={node.is_tip}")
+    
+    print("\n")
+
 def main():
     """Run all examples"""
     examples = [
         example_basic_usage,
-        # example_selective_features,
+        example_selective_features,
         # example_rescaling,
         # example_fossil_detection,
         # example_sampled_ancestors,
