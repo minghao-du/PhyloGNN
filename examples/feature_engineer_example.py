@@ -68,18 +68,44 @@ def example_selective_features():
     
     print("\n")
 
+def example_rescaling():
+    """Demonstrate tree rescaling"""
+    print("=" * 60)
+    print("Example 3: Tree Rescaling")
+    print("=" * 60)
+    
+    tree = Tree("((A:1,B:2)C:3,D:4)E:0;", format=1)
+    engineer = TreeFeatureEngineer()
+    
+    print("Original branch lengths:")
+    for node in tree.traverse():
+        node_name = node.name if node.name else "internal"
+        print(f"  {node_name}: {node.dist:.4f}")
+    
+    # Rescale tree
+    rescaled_tree, scale_factor, new_origin = engineer.rescale_tree(
+        tree, 
+        origin_time=10.0,
+        inplace=False
+    )
+    
+    print(f"\nScale factor: {scale_factor:.4f}")
+    print(f"Original origin time: 10.0")
+    print(f"New origin time: {new_origin:.4f}")
+    
+    print("\nRescaled branch lengths:")
+    for node in rescaled_tree.traverse():
+        node_name = node.name if node.name else "internal"
+        print(f"  {node_name}: {node.dist:.4f}")
+    
+    print("\n")
+
 def main():
     """Run all examples"""
     examples = [
         example_basic_usage,
         example_selective_features,
-        # example_rescaling,
-        # example_fossil_detection,
-        # example_sampled_ancestors,
-        # example_time_bins,
-        # example_custom_features,
-        # example_sampling_probability,
-        # example_inplace_vs_copy
+        example_rescaling,
     ]
     
     for example in examples:
