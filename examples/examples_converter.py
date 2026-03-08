@@ -3,8 +3,10 @@ Examples for TreeToGraphConverter
 
 This module demonstrates various use cases of the TreeToGraphConverter class
 for converting phylogenetic trees with node features into PyTorch Geometric
-Data objects.
+Data objects, including saving and loading graph data.
 """
+
+from pathlib import Path
 
 from ete3 import Tree
 from phylognn.data import TreeFeatureEngineer, TreeToGraphConverter
@@ -219,63 +221,47 @@ def example_graph_attributes():
     print()
 
 
-def example_batch_conversion():
-    """Convert multiple trees and merge them into a PyG Batch."""
+def example_save_and_load():
+    """Convert a tree, save the graph, and load it back."""
     print("=" * 60)
-    print("Example 5: Batch Conversion")
+    print("Example 5: Save and Load PyG Data")
     print("=" * 60)
 
-    trees = [
-        Tree("((A:1,B:1)C:1,D:1)E:0;", format=1),
-        Tree("((X:2,Y:1)Z:2,W:3)R:0;", format=1),
-    ]
+    tree = Tree("((A:1,B:1)C:1,D:1)E:0;", format=1)
 
     engineer = TreeFeatureEngineer(num_time_bins=6)
-
-    trees_with_features = [
-        engineer.add_features(
-            tree,
-            origin_time=3.0,
-            rescale=False,
-            inplace=True,
-        )
-        for tree in trees
-    ]
+    tree = engineer.add_features(
+        tree,
+        origin_time=2.0,
+        rescale=False,
+        inplace=True,
+    )
 
     converter = TreeToGraphConverter(
         feature_names=engineer.feature_names,
-        add_virtual_nodes=False,
+        add_virtual_nodes=True,
+        num_time_bins=engineer.num_time_bins,
         traversal_strategy=engineer.traversal_strategy,
     )
 
-    data_list = converter.convert_batch(
-        trees_with_features,
-        graph_attrs_list=[
-            {"tree_id": "tree_1"},
-            {"tree_id": "tree_2"},
-        ],
+    save_path = Path("example_outputs/tree_graph.pt")
+
+    data = converter.convert_and_save(
+        tree,
+        path=save_path,
+        graph_attrs={"tree_id": "saved_tree_example"},
     )
 
-    batch = converter.convert_to_batch(
-        trees_with_features,
-        graph_attrs_list=[
-            {"tree_id": "tree_1"},
-            {"tree_id": "tree_2"},
-        ],
-    )
+    print(f"Saved graph to: {save_path}")
+    _print_data_summary(data, converter)
 
-    print(f"Number of graphs: {len(data_list)}")
-    for i, data in enumerate(data_list):
-        print(f"\nGraph {i}:")
-        _print_data_summary(data, converter)
-        if hasattr(data, "tree_id"):
-            print(f"  tree_id: {data.tree_id}")
-
-    print("\nBatch summary:")
-    print(f"  batch.num_graphs: {batch.num_graphs}")
-    print(f"  batch.x.shape: {tuple(batch.x.shape)}")
-    print(f"  batch.edge_index.shape: {tuple(batch.edge_index.shape)}")
-    print(f"  batch.batch.shape: {tuple(batch.batch.shape)}")
+    loaded_data = TreeToGraphConverter.load_data(save_path)
+    print("\nLoaded graph summary:")
+    print(f"  num_nodes: {loaded_data.num_nodes}")
+    print(f"  num_edges: {loaded_data.edge_index.size(1)}")
+    print(f"  x.shape: {tuple(loaded_data.x.shape)}")
+    if hasattr(loaded_data, "tree_id"):
+        print(f"  tree_id: {loaded_data.tree_id}")
     print()
 
 
@@ -286,7 +272,7 @@ def main():
         example_selective_feature_conversion,
         example_virtual_nodes,
         example_graph_attributes,
-        example_batch_conversion,
+        example_save_and_load,
     ]
 
     for example in examples:
