@@ -331,7 +331,7 @@ class TreeToGraphConverter:
         self,
         feature_names: Optional[List[str]] = None,
         add_virtual_nodes: bool = False,
-        num_time: Optional[int] = None,
+        num_time_bins: Optional[int] = None,
         traversal_strategy: str = "preorder",
         bidirectional: bool = True,
         connect_virtual_to_real: bool = True,
