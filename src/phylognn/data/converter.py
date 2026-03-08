@@ -1,247 +1,800 @@
 """
-Tree to Graph Converter Module
+Tree to graph conversion utilities.
 
-This module converts ETE Tree objects (with node attributes) into
-PyTorch Geometric Data objects.
+This module provides `TreeToGraphConverter`, which converts an `ete3.Tree`
+with precomputed numeric node attributes into a PyTorch Geometric graph.
+
+Overview
+--------
+The converter assumes that node-level features have already been attached to the
+tree, typically by `TreeFeatureEngineer`. It then:
+
+1. Traverses the tree in a stable order
+2. Extracts the requested node attributes into a feature matrix
+3. Builds graph edges from the tree structure
+4. Optionally adds one virtual node per time bin
+5. Returns a `torch_geometric.data.Data` object
+
+Intended pipeline
+-----------------
+Typical use:
+
+    engineer = TreeFeatureEngineer(...)
+    tree = engineer.add_features(tree, origin_time=..., ...)
+
+    converter = TreeToGraphConverter(
+        feature_names=engineer.feature_names,
+        add_virtual_nodes=True,
+        num_time_bins=engineer.num_time_bins,
+    )
+    data = converter.convert(tree)
+
+Input contract
+--------------
+Each node in the input tree must already contain every attribute named in
+`feature_names`, and each attribute value must be numeric.
+
+Supported numeric types
+-----------------------
+The converter accepts values that are instances of `numbers.Real`, such as:
+- int
+- float
+- bool
+- numpy numeric scalar types compatible with numbers.Real
+
+Graph semantics
+---------------
+Original tree nodes become graph nodes. Parent-child relationships become graph
+edges.
+
+If enabled, virtual nodes are additionally created to represent time bins.
+These virtual nodes can be:
+- connected to original nodes that share the same `time_bin`
+- connected to neighboring virtual nodes in a temporal chain
+
+Produced graph fields
+---------------------
+The returned `Data` object contains at least:
+- x
+- edge_index
+
+It may additionally contain:
+- edge_type
+- original_num_nodes
+- virtual_node_mask
+- node_type
+- node_names
+- num_time_bins
+- any user-supplied graph-level attributes
+
+Edge type semantics
+-------------------
+- 0 : tree edge
+- 1 : virtual-to-real edge
+- 2 : virtual-chain edge
+
+Node type semantics
+-------------------
+- 0 : original tree node
+- 1 : virtual node
+
+Notes on virtual node features
+------------------------------
+Virtual nodes are initialized with zero features, then certain fields are filled
+when available:
+- `time_bin` is set to the corresponding bin index
+- `extant_sampling_probability` may optionally be copied from original nodes
+- `is_virtual_node` is set to 1.0 if appended as an extra feature
+
+Other feature values on virtual nodes remain zero unless explicitly defined by
+future extensions.
+
+Scope of responsibility
+-----------------------
+This class converts node attributes into graph tensors. It does not compute
+biological features itself and does not validate phylogenetic semantics beyond
+the structural and numeric requirements described here.
 """
 
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional, Sequence, Tuple
+import numbers
+
 import torch
-from torch_geometric.data import Data
+from torch_geometric.data import Batch, Data
 from ete3 import Tree
 
+
 class TreeToGraphConverter:
-    """Converter for transforming trees with attributes into graph data
-
-    This class reads attributes from ETE Tree nodes and converts the tree
-    structure into a PyTorch Geometric Data object. It expects nodes to
-    already have the necessary attributes (added by TreeFeatureEngineer or manually).
-
-    Attributes:
-        feature_names: List of node attribute names to extract as features
-        add_virtual_nodes: Whether to add virtual nodes for time bins
-        num_time_bins: Number of time bins (required if add_virtual_nodes=True)
-
-    Example:
-        >>> from phylognn.data import TreeFeatureEngineer, TreeToGraphConverter
-        >>> 
-        >>> # Step 1: Add features to tree
-        >>> engineer = TreeFeatureEngineer(num_time_bins=101)
-        >>> tree = Tree("((A:1,B:2)C:3,D:4)E;")
-        >>> tree_with_features = engineer.add_features(tree, origin_time=10.0)
-        >>> 
-        >>> # Step 2: Convert to graph
-        >>> converter = TreeToGraphConverter(feature_names=engineer.feature_names)
-        >>> data = converter.convert(tree_with_features)
     """
+    Convert an ETE Tree with node attributes into a PyTorch Geometric graph.
+
+    Parameters
+    ----------
+    feature_names : Optional[List[str]], default=None
+        Ordered list of node attribute names to extract from each tree node.
+
+        Semantics:
+        - The order of `feature_names` defines the column order of `data.x`.
+        - All nodes must contain every listed attribute.
+
+        If None, the following default order is used:
+        - node_time
+        - time_bin
+        - is_internal
+        - is_tip
+        - is_fossil
+        - is_extant
+        - is_sampled_ancestor
+        - is_not_sampled_ancestor
+        - branch_length
+        - extant_sampling_probability
+
+        Recommendation:
+        - Use `TreeFeatureEngineer.feature_names` for stable compatibility.
+
+    add_virtual_nodes : bool, default=False
+        Whether to add one virtual node per time bin.
+
+        If True:
+        - `feature_names` must include `"time_bin"`
+        - `num_time_bins` may be provided explicitly or inferred from the tree
+
+    num_time_bins : Optional[int], default=None
+        Number of time bins used for virtual nodes.
+
+        Behavior:
+        - If `add_virtual_nodes=False`, this argument is ignored.
+        - If `add_virtual_nodes=True` and `num_time_bins` is provided:
+              it must be at least 2
+        - If `add_virtual_nodes=True` and `num_time_bins` is None:
+              it is inferred from the maximum observed original-node `time_bin`
+              as `max(time_bin) + 1`
+
+    traversal_strategy : str, default="preorder"
+        Node traversal strategy used to assign graph node indices.
+
+        Allowed values:
+        - "preorder"
+        - "postorder"
+        - "levelorder"
+
+        This parameter affects node indexing order and any metadata aligned with
+        that order, such as `node_names`.
+
+    bidirectional : bool, default=True
+        Whether every constructed edge should be added in both directions.
+
+        If True:
+        - each tree edge parent->child is accompanied by child->parent
+        - the same applies to virtual edges
+
+    connect_virtual_to_real : bool, default=True
+        Only relevant when `add_virtual_nodes=True`.
+
+        If True:
+        - for each time bin `b`, the virtual node representing bin `b` is
+          connected to every original node whose `time_bin == b`
+
+    connect_virtual_chain : bool, default=True
+        Only relevant when `add_virtual_nodes=True`.
+
+        If True:
+        - virtual node `b` is connected to virtual node `b + 1` for all adjacent
+          time bins
+
+    append_is_virtual_feature : bool, default=True
+        Whether to append an extra feature column named `is_virtual_node`.
+
+        Semantics:
+        - original nodes receive value 0.0
+        - virtual nodes receive value 1.0
+
+        This modifies the final output feature dimensionality.
+
+    preserve_node_names : bool, default=True
+        Whether to attach `data.node_names`.
+
+        If enabled:
+        - original node names are taken from `node.name`
+        - unnamed original nodes become empty strings
+        - virtual node names are generated as:
+              "__virtual_time_bin_i__"
+
+    copy_sampling_prob_to_virtual : bool, default=True
+        When virtual nodes are used and `extant_sampling_probability` is present
+        in `feature_names`, this flag controls whether that feature is copied
+        from the first original node to all virtual nodes.
+
+    Attributes
+    ----------
+    feature_names : List[str]
+        Ordered input feature names extracted from original nodes.
+
+    output_feature_names : List[str]
+        Ordered output feature names in `data.x`. This equals `feature_names`
+        unless `append_is_virtual_feature=True`, in which case the final column
+        is `"is_virtual_node"`.
+
+    Constants
+    ---------
+    EDGE_TYPE_TREE = 0
+    EDGE_TYPE_VIRTUAL_TO_REAL = 1
+    EDGE_TYPE_VIRTUAL_CHAIN = 2
+
+    NODE_TYPE_ORIGINAL = 0
+    NODE_TYPE_VIRTUAL = 1
+
+    Output contract
+    ---------------
+    `convert()` returns a `torch_geometric.data.Data` object containing:
+
+    Required fields:
+    - x : FloatTensor of shape [num_nodes, num_features]
+    - edge_index : LongTensor of shape [2, num_edges]
+
+    Additional standard fields:
+    - edge_type : LongTensor of shape [num_edges]
+    - original_num_nodes : int
+    - virtual_node_mask : BoolTensor of shape [num_nodes]
+    - node_type : LongTensor of shape [num_nodes]
+
+    Optional fields:
+    - node_names : List[str], if `preserve_node_names=True`
+    - num_time_bins : int, if virtual nodes are added
+    - arbitrary graph-level attributes passed via `graph_attrs`
+
+    Examples
+    --------
+    Basic conversion:
+
+    >>> converter = TreeToGraphConverter(
+    ...     feature_names=["node_time", "time_bin", "is_tip"],
+    ...     add_virtual_nodes=False,
+    ... )
+    >>> data = converter.convert(tree)
+
+    With virtual nodes:
+
+    >>> converter = TreeToGraphConverter(
+    ...     feature_names=engineer.feature_names,
+    ...     add_virtual_nodes=True,
+    ...     num_time_bins=engineer.num_time_bins,
+    ... )
+    >>> data = converter.convert(tree)
+
+    Batch conversion:
+
+    >>> batch = converter.convert_to_batch([tree1, tree2, tree3])
+    """
+
+    DEFAULT_FEATURE_NAMES = [
+        "node_time",
+        "time_bin",
+        "is_internal",
+        "is_tip",
+        "is_fossil",
+        "is_extant",
+        "is_sampled_ancestor",
+        "is_not_sampled_ancestor",
+        "branch_length",
+        "extant_sampling_probability",
+    ]
+
+    EDGE_TYPE_TREE = 0
+    EDGE_TYPE_VIRTUAL_TO_REAL = 1
+    EDGE_TYPE_VIRTUAL_CHAIN = 2
+
+    NODE_TYPE_ORIGINAL = 0
+    NODE_TYPE_VIRTUAL = 1
+
+    VALID_TRAVERSALS = {"preorder", "postorder", "levelorder"}
 
     def __init__(
         self,
         feature_names: Optional[List[str]] = None,
-        add_virtual_nodes: bool = True,
-        num_time_bins: Optional[int] = None
+        add_virtual_nodes: bool = False,
+        num_time_bins: Optional[int] = None,
+        traversal_strategy: str = "preorder",
+        bidirectional: bool = True,
+        connect_virtual_to_real: bool = True,
+        connect_virtual_chain: bool = True,
+        append_is_virtual_feature: bool = True,
+        preserve_node_names: bool = True,
+        copy_sampling_prob_to_virtual: bool = True,
     ):
-        """Initialize the converter
-        
-        Args:
-            feature_names: List of node attribute names to use as features.
-                        If None, uses default features (default: None)
-            add_virtual_nodes: Whether to add virtual nodes (default: True)
-            num_time_bins: Number of time bins, required if add_virtual_nodes=True
-        
-        Raises:
-            ValueError: If add_virtual_nodes=True but num_time_bins is None
-        """
-        if feature_names is None:
-            # Default features (standard phylogenetic features)
-            self.feature_names = [
-                'node_time',
-                'time_bin',
-                'is_internal',
-                'is_tip',
-                'is_fossil',
-                'is_extant',
-                'is_sampled_ancestor',
-                'is_not_sampled_ancestor',
-                'branch_length',
-                'extant_sampling_probability'
-            ]
-        else:
-            self.feature_names = feature_names
-        
+        self.feature_names = (
+            feature_names.copy()
+            if feature_names is not None
+            else self.DEFAULT_FEATURE_NAMES.copy()
+        )
         self.add_virtual_nodes = add_virtual_nodes
         self.num_time_bins = num_time_bins
-        
-        if add_virtual_nodes and num_time_bins is None:
-            raise ValueError("num_time_bins must be provided when add_virtual_nodes=True")
+        self.traversal_strategy = traversal_strategy
+        self.bidirectional = bidirectional
+        self.connect_virtual_to_real = connect_virtual_to_real
+        self.connect_virtual_chain = connect_virtual_chain
+        self.append_is_virtual_feature = append_is_virtual_feature
+        self.preserve_node_names = preserve_node_names
+        self.copy_sampling_prob_to_virtual = copy_sampling_prob_to_virtual
 
-    def convert(self, tree: Tree) -> Data:
-        """Convert an ETE Tree with attributes to PyTorch Geometric Data
-        
-        Args:
-            tree: ETE Tree object with node attributes
-        
-        Returns:
-            Data: PyTorch Geometric Data object with:
-                - x: Node features [num_nodes, num_features]
-                - edge_index: Edge connectivity [2, num_edges]
-        
-        Raises:
-            AttributeError: If tree nodes are missing required attributes
-        
-        Example:
-            >>> converter = TreeToGraphConverter(
-            ...     feature_names=['node_time', 'time_bin', 'is_tip']
-            ... )
-            >>> data = converter.convert(tree_with_features)
-            >>> print(data.x.shape)  # [num_nodes, 3]
+        self._validate_init_params()
+
+    @property
+    def output_feature_names(self) -> List[str]:
         """
-        # Extract features and build graph structure
-        node_features, edge_index = self._extract_features_and_edges(tree)
-        
-        # Create Data object
-        data = Data(x=node_features, edge_index=edge_index)
-        
-        # Add virtual nodes if configured
+        Final ordered feature names in `data.x`.
+
+        Returns
+        -------
+        List[str]
+            If `append_is_virtual_feature=False`, this equals `feature_names`.
+
+            If `append_is_virtual_feature=True`, the final column is:
+            - "is_virtual_node"
+        """
+        names = self.feature_names.copy()
+        if self.append_is_virtual_feature:
+            names.append("is_virtual_node")
+        return names
+
+    def convert(
+        self,
+        tree: Tree,
+        graph_attrs: Optional[Dict[str, object]] = None,
+    ) -> Data:
+        """
+        Convert a single ETE Tree into a PyTorch Geometric `Data` object.
+
+        Parameters
+        ----------
+        tree : ete3.Tree
+            Input tree whose nodes already contain all required features.
+
+        graph_attrs : Optional[Dict[str, object]], default=None
+            Optional graph-level attributes to attach to the returned `Data`
+            object.
+
+            Example:
+                {
+                    "tree_id": "tree_001",
+                    "origin_time": 10.0
+                }
+
+        Returns
+        -------
+        torch_geometric.data.Data
+            Graph representation of the input tree.
+
+        Raises
+        ------
+        ValueError
+            If the tree is empty.
+
+        AttributeError
+            If any node is missing a required feature.
+
+        TypeError
+            If any feature value is non-numeric.
+
+        ValueError
+            If virtual-node construction is requested but required settings are
+            invalid.
+
+        Output fields
+        -------------
+        The returned `Data` includes at least:
+        - x
+        - edge_index
+        - edge_type
+        - original_num_nodes
+        - virtual_node_mask
+        - node_type
+
+        It may additionally include:
+        - node_names
+        - num_time_bins
+        - user-provided graph_attrs
+        """
+        nodes = list(tree.traverse(self.traversal_strategy))
+        if not nodes:
+            raise ValueError("Cannot convert an empty tree")
+
+        x, edge_index, edge_type, node_names = self._extract_features_and_edges(nodes)
+        num_original_nodes = x.size(0)
+
+        if self.append_is_virtual_feature:
+            x = torch.cat([x, torch.zeros((num_original_nodes, 1), dtype=x.dtype)], dim=1)
+
+        data = Data(x=x, edge_index=edge_index)
+        data.edge_type = edge_type
+        data.original_num_nodes = num_original_nodes
+
+        if self.preserve_node_names:
+            data.node_names = node_names
+
+        if graph_attrs:
+            for key, value in graph_attrs.items():
+                setattr(data, key, value)
+
         if self.add_virtual_nodes:
             data = self._add_virtual_nodes(data)
-        
+
+        data.virtual_node_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+        data.virtual_node_mask[data.original_num_nodes:] = True
+
+        data.node_type = torch.full(
+            (data.num_nodes,),
+            self.NODE_TYPE_ORIGINAL,
+            dtype=torch.long,
+        )
+        data.node_type[data.original_num_nodes:] = self.NODE_TYPE_VIRTUAL
+
         return data
 
-    def convert_batch(self, trees: List[Tree]) -> List[Data]:
-        """Convert multiple trees to graph data
-        
-        Args:
-            trees: List of ETE Tree objects with attributes
-        
-        Returns:
-            List of PyTorch Geometric Data objects
-        
-        Example:
-            >>> trees = [tree1, tree2, tree3]  # All with features
-            >>> data_list = converter.convert_batch(trees)
+    def convert_batch(
+        self,
+        trees: Sequence[Tree],
+        graph_attrs_list: Optional[Sequence[Optional[Dict[str, object]]]] = None,
+    ) -> List[Data]:
         """
-        return [self.convert(tree) for tree in trees]
+        Convert multiple trees into a list of `Data` objects.
 
-    def _extract_features_and_edges(self, tree: Tree) -> tuple[torch.Tensor, torch.Tensor]:
-        """Extract node features and edge indices from tree
-        
-        Args:
-            tree: ETE Tree with node attributes
-        
-        Returns:
-            Tuple of (node_features, edge_index)
-        
-        Raises:
-            AttributeError: If nodes are missing required attributes
+        Parameters
+        ----------
+        trees : Sequence[ete3.Tree]
+            Trees to convert.
+
+        graph_attrs_list : Optional[Sequence[Optional[Dict[str, object]]]], default=None
+            Optional graph-level attributes aligned with `trees`.
+
+            Rules:
+            - If None, no extra graph attributes are attached.
+            - If provided, it must have the same length as `trees`.
+
+        Returns
+        -------
+        List[torch_geometric.data.Data]
+            One graph object per tree.
+
+        Raises
+        ------
+        ValueError
+            If `graph_attrs_list` is provided and has a different length from
+            `trees`.
         """
-        # Map nodes to indices
-        node_to_idx: Dict[Tree, int] = {
-            node: idx for idx, node in enumerate(tree.traverse())
-        }
-        
-        # Extract features
-        feature_matrix = []
-        edge_index = []
-        
-        for node in tree.traverse():
-            # Extract features for this node
-            node_feature_vector = []
+        if graph_attrs_list is None:
+            return [self.convert(tree) for tree in trees]
+
+        if len(trees) != len(graph_attrs_list):
+            raise ValueError("trees and graph_attrs_list must have the same length")
+
+        return [
+            self.convert(tree, graph_attrs=attrs)
+            for tree, attrs in zip(trees, graph_attrs_list)
+        ]
+
+    def convert_to_batch(
+        self,
+        trees: Sequence[Tree],
+        graph_attrs_list: Optional[Sequence[Optional[Dict[str, object]]]] = None,
+    ) -> Batch:
+        """
+        Convert multiple trees into a single PyTorch Geometric `Batch`.
+
+        Parameters
+        ----------
+        trees : Sequence[ete3.Tree]
+            Trees to convert.
+
+        graph_attrs_list : Optional[Sequence[Optional[Dict[str, object]]]], default=None
+            Optional graph-level attributes aligned with `trees`.
+
+        Returns
+        -------
+        torch_geometric.data.Batch
+            Batch object created from the list of converted graphs.
+        """
+        return Batch.from_data_list(self.convert_batch(trees, graph_attrs_list))
+
+    def _extract_features_and_edges(
+        self,
+        nodes: List[Tree],
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[str]]:
+        """
+        Extract node features and tree edges from an ordered node list.
+
+        Parameters
+        ----------
+        nodes : List[ete3.Tree]
+            Ordered nodes produced by tree traversal.
+
+        Returns
+        -------
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[str]]
+            A tuple:
+            - x : FloatTensor [num_nodes, num_features]
+            - edge_index : LongTensor [2, num_edges]
+            - edge_type : LongTensor [num_edges]
+            - node_names : List[str]
+
+        Validation performed
+        --------------------
+        For every node and every requested feature:
+        - the attribute must exist
+        - the attribute value must be numeric
+
+        Tree edge construction
+        ----------------------
+        For every parent-child relation:
+        - add parent -> child
+        - if bidirectional=True, also add child -> parent
+
+        All such edges receive edge type:
+        - EDGE_TYPE_TREE = 0
+        """
+        node_to_idx = {node: idx for idx, node in enumerate(nodes)}
+
+        feature_matrix: List[List[float]] = []
+        edge_list: List[List[int]] = []
+        edge_types: List[int] = []
+        node_names: List[str] = []
+
+        for node in nodes:
+            node_names.append(node.name if getattr(node, "name", None) else "")
+
+            row: List[float] = []
             for feature_name in self.feature_names:
                 if not hasattr(node, feature_name):
                     raise AttributeError(
-                        f"Node is missing required attribute '{feature_name}'. "
+                        f"Node '{node.name}' is missing required attribute '{feature_name}'. "
                         f"Did you forget to run TreeFeatureEngineer.add_features()?"
                     )
-                node_feature_vector.append(getattr(node, feature_name))
-            
-            feature_matrix.append(node_feature_vector)
-            
-            # Build edges (bidirectional)
+
+                value = getattr(node, feature_name)
+                if not isinstance(value, numbers.Real):
+                    raise TypeError(
+                        f"Feature '{feature_name}' on node '{node.name}' must be numeric, "
+                        f"got {type(value).__name__}"
+                    )
+
+                row.append(float(value))
+
+            feature_matrix.append(row)
+
+            parent_idx = node_to_idx[node]
             for child in node.children:
-                parent_idx = node_to_idx[node]
                 child_idx = node_to_idx[child]
-                edge_index.append([parent_idx, child_idx])
-                edge_index.append([child_idx, parent_idx])
-        
-        # Convert to tensors
-        features = torch.tensor(feature_matrix, dtype=torch.float32)
-        edges = torch.tensor(edge_index, dtype=torch.long).t().contiguous() if edge_index else torch.empty((2, 0), dtype=torch.long)
-        
-        return features, edges
-    
-    # TODO: More general virtual node addition that doesn't assume specific feature indices for time and time_bin
-    def _add_virtual_nodes(self, data: Data) -> Data:
-        """Add virtual nodes representing time bins
-        
-        Args:
-            data: Original graph data
-        
-        Returns:
-            Data: Graph with virtual nodes added
+                edge_list.append([parent_idx, child_idx])
+                edge_types.append(self.EDGE_TYPE_TREE)
+
+                if self.bidirectional:
+                    edge_list.append([child_idx, parent_idx])
+                    edge_types.append(self.EDGE_TYPE_TREE)
+
+        x = torch.tensor(feature_matrix, dtype=torch.float32)
+
+        if edge_list:
+            edge_index = torch.tensor(edge_list, dtype=torch.long).t().contiguous()
+            edge_type = torch.tensor(edge_types, dtype=torch.long)
+        else:
+            edge_index = torch.empty((2, 0), dtype=torch.long)
+            edge_type = torch.empty((0,), dtype=torch.long)
+
+        return x, edge_index, edge_type, node_names
+
+    def _infer_num_time_bins(self, data: Data) -> int:
         """
-        num_original_nodes = data.num_nodes
-        num_features = data.x.size(1)
-        
-        # Create virtual node features
-        virtual_features = torch.zeros((self.num_time_bins, num_features))
-        
-        # Set features for virtual nodes
-        # Assumes feature_names[0] is time-related and feature_names[1] is time_bin
-        for i in range(self.num_time_bins):
-            virtual_features[i, 0] = float(i)  # time (using bin index)
-            virtual_features[i, 1] = float(i)  # time_bin
-            # Copy other features from first node if they exist
-            if num_features > 9:
-                virtual_features[i, 9] = data.x[0, 9].item()  # sampling_prob
-        
-        # Concatenate features
-        data.x = torch.cat([data.x, virtual_features], dim=0)
-        
-        # Get time bins (assumes time_bin is feature index 1)
-        original_time_bins = data.x[:num_original_nodes, 1]
-        virtual_time_bins = data.x[num_original_nodes:, 1]
-        
-        new_edges = []
-        
-        # Connect virtual nodes to original nodes
-        for virtual_idx, virtual_bin in enumerate(virtual_time_bins):
-            matching_nodes = (original_time_bins == virtual_bin).nonzero(as_tuple=True)[0]
-            virtual_node_idx = num_original_nodes + virtual_idx
-            
-            for node_idx in matching_nodes:
-                new_edges.append([virtual_node_idx, node_idx.item()])
-                new_edges.append([node_idx.item(), virtual_node_idx])
-        
-        # Connect adjacent virtual nodes
-        virtual_node_indices = torch.arange(
-            num_original_nodes,
-            num_original_nodes + self.num_time_bins
+        Infer the number of time bins from original-node `time_bin` values.
+
+        Rule
+        ----
+        If original-node time bins are:
+            {b1, b2, ..., bk}
+
+        then:
+            inferred_num_time_bins = max(b1, ..., bk) + 1
+
+        Returns
+        -------
+        int
+            Inferred number of time bins.
+
+        Raises
+        ------
+        ValueError
+            If `time_bin` is not available in `feature_names`.
+
+        ValueError
+            If the original node set is empty.
+
+        ValueError
+            If the inferred result is less than 2.
+        """
+        if "time_bin" not in self.feature_names:
+            raise ValueError("Cannot infer num_time_bins without 'time_bin' in feature_names")
+
+        time_bin_idx = self.feature_names.index("time_bin")
+        original_time_bins = data.x[:data.original_num_nodes, time_bin_idx]
+
+        if original_time_bins.numel() == 0:
+            raise ValueError("Cannot infer num_time_bins from empty original node set")
+
+        inferred = int(torch.max(original_time_bins).item()) + 1
+        if inferred < 2:
+            raise ValueError(f"Inferred num_time_bins={inferred}, but it must be at least 2")
+
+        return inferred
+
+    def _add_virtual_nodes(self, data: Data) -> Data:
+        """
+        Add virtual time-bin nodes to an existing graph.
+
+        Preconditions
+        -------------
+        - `feature_names` must contain "time_bin"
+        - `data` must already represent original tree nodes
+
+        Virtual node indexing
+        ---------------------
+        If the graph currently has `original_num_nodes` original nodes, then the
+        virtual node for time bin `b` receives index:
+
+            original_num_nodes + b
+
+        Virtual feature construction
+        ----------------------------
+        Virtual node feature vectors are initialized to zeros, then:
+        - `time_bin` is set to the bin index
+        - `extant_sampling_probability` may optionally be copied
+        - if appended, `is_virtual_node` is set to 1.0
+
+        Edge construction
+        -----------------
+        1. Virtual-to-real edges
+           For each time bin `b`, connect virtual node `V_b` to every original
+           node with `time_bin == b`.
+
+           Edge type:
+           - EDGE_TYPE_VIRTUAL_TO_REAL = 1
+
+        2. Virtual chain edges
+           For each adjacent pair `(b, b+1)`, connect `V_b` to `V_(b+1)`.
+
+           Edge type:
+           - EDGE_TYPE_VIRTUAL_CHAIN = 2
+
+        Returns
+        -------
+        torch_geometric.data.Data
+            The updated graph with virtual nodes and corresponding edges.
+
+        Raises
+        ------
+        ValueError
+            If `"time_bin"` is not present in `feature_names`.
+        """
+        if "time_bin" not in self.feature_names:
+            raise ValueError(
+                "feature_names must include 'time_bin' when add_virtual_nodes=True"
+            )
+
+        num_time_bins = (
+            self.num_time_bins
+            if self.num_time_bins is not None
+            else self._infer_num_time_bins(data)
         )
-        
-        for i in range(self.num_time_bins):
-            current_bin = virtual_time_bins[i]
-            current_idx = virtual_node_indices[i]
-            
-            neighbor_bin = current_bin + 1
-            if 0 <= neighbor_bin < self.num_time_bins:
-                neighbor_indices = (virtual_time_bins == neighbor_bin).nonzero(as_tuple=True)[0]
-                neighbor_global_indices = virtual_node_indices[neighbor_indices]
-                
-                for neighbor_idx in neighbor_global_indices:
-                    new_edges.append([current_idx.item(), neighbor_idx.item()])
-                    new_edges.append([neighbor_idx.item(), current_idx.item()])
-        
-        # Add new edges
+
+        num_original_nodes = data.original_num_nodes
+        total_num_features = data.x.size(1)
+        time_bin_idx = self.feature_names.index("time_bin")
+
+        virtual_x = torch.zeros(
+            (num_time_bins, total_num_features),
+            dtype=data.x.dtype,
+            device=data.x.device,
+        )
+
+        for bin_idx in range(num_time_bins):
+            virtual_x[bin_idx, time_bin_idx] = float(bin_idx)
+
+        if (
+            self.copy_sampling_prob_to_virtual
+            and "extant_sampling_probability" in self.feature_names
+            and num_original_nodes > 0
+        ):
+            prob_idx = self.feature_names.index("extant_sampling_probability")
+            virtual_x[:, prob_idx] = data.x[0, prob_idx]
+
+        if self.append_is_virtual_feature:
+            virtual_x[:, -1] = 1.0
+
+        new_edges: List[List[int]] = []
+        new_edge_types: List[int] = []
+
+        original_time_bins = data.x[:num_original_nodes, time_bin_idx].long()
+        bin_to_node_indices = {i: [] for i in range(num_time_bins)}
+
+        for node_idx, bin_value in enumerate(original_time_bins.tolist()):
+            if 0 <= bin_value < num_time_bins:
+                bin_to_node_indices[bin_value].append(node_idx)
+
+        if self.connect_virtual_to_real:
+            for bin_idx in range(num_time_bins):
+                virtual_idx = num_original_nodes + bin_idx
+                for node_idx in bin_to_node_indices[bin_idx]:
+                    new_edges.append([virtual_idx, node_idx])
+                    new_edge_types.append(self.EDGE_TYPE_VIRTUAL_TO_REAL)
+
+                    if self.bidirectional:
+                        new_edges.append([node_idx, virtual_idx])
+                        new_edge_types.append(self.EDGE_TYPE_VIRTUAL_TO_REAL)
+
+        if self.connect_virtual_chain:
+            for bin_idx in range(num_time_bins - 1):
+                a = num_original_nodes + bin_idx
+                b = num_original_nodes + bin_idx + 1
+                new_edges.append([a, b])
+                new_edge_types.append(self.EDGE_TYPE_VIRTUAL_CHAIN)
+
+                if self.bidirectional:
+                    new_edges.append([b, a])
+                    new_edge_types.append(self.EDGE_TYPE_VIRTUAL_CHAIN)
+
+        data.x = torch.cat([data.x, virtual_x], dim=0)
+
         if new_edges:
-            new_edge_index = torch.tensor(new_edges, dtype=torch.long).t().contiguous()
+            new_edge_index = torch.tensor(
+                new_edges,
+                dtype=torch.long,
+                device=data.x.device,
+            ).t().contiguous()
+            new_edge_type = torch.tensor(
+                new_edge_types,
+                dtype=torch.long,
+                device=data.x.device,
+            )
             data.edge_index = torch.cat([data.edge_index, new_edge_index], dim=1)
-        
+            data.edge_type = torch.cat([data.edge_type, new_edge_type], dim=0)
+
+        if self.preserve_node_names and hasattr(data, "node_names"):
+            data.node_names = data.node_names + [
+                f"__virtual_time_bin_{i}__" for i in range(num_time_bins)
+            ]
+
+        data.num_time_bins = num_time_bins
         return data
-    
+
+    def _validate_init_params(self) -> None:
+        """Validate initialization parameters."""
+        if not self.feature_names:
+            raise ValueError("feature_names must contain at least one feature")
+
+        if self.traversal_strategy not in self.VALID_TRAVERSALS:
+            raise ValueError(
+                f"Invalid traversal_strategy='{self.traversal_strategy}'. "
+                f"Valid options: {sorted(self.VALID_TRAVERSALS)}"
+            )
+
+        if self.add_virtual_nodes:
+            if "time_bin" not in self.feature_names:
+                raise ValueError(
+                    "feature_names must include 'time_bin' when add_virtual_nodes=True"
+                )
+            if self.num_time_bins is not None and self.num_time_bins < 2:
+                raise ValueError(
+                    f"num_time_bins must be at least 2, got {self.num_time_bins}"
+                )
+
     def __repr__(self) -> str:
         return (
-            f"TreeToGraphConverter("
+            "TreeToGraphConverter("
             f"num_features={len(self.feature_names)}, "
-            f"add_virtual_nodes={self.add_virtual_nodes})"
-        )    
+            f"output_num_features={len(self.output_feature_names)}, "
+            f"add_virtual_nodes={self.add_virtual_nodes}, "
+            f"num_time_bins={self.num_time_bins}, "
+            f"traversal_strategy='{self.traversal_strategy}', "
+            f"bidirectional={self.bidirectional}, "
+            f"connect_virtual_to_real={self.connect_virtual_to_real}, "
+            f"connect_virtual_chain={self.connect_virtual_chain}, "
+            f"append_is_virtual_feature={self.append_is_virtual_feature})"
+        )
