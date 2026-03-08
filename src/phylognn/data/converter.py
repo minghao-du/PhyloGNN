@@ -2,7 +2,7 @@
 Tree to graph conversion utilities.
 
 This module provides `TreeToGraphConverter`, which converts an `ete3.Tree`
-with precomputed numeric node attributes into a PyTorch Geometric graph.
+with precomputed numeric node attributes into a PyTorch Geometric `Data` object.
 
 Overview
 --------
@@ -14,10 +14,11 @@ tree, typically by `TreeFeatureEngineer`. It then:
 3. Builds graph edges from the tree structure
 4. Optionally adds one virtual node per time bin
 5. Returns a `torch_geometric.data.Data` object
+6. Optionally saves the resulting `Data` object to disk
 
-Intended pipeline
------------------
-Typical use:
+Typical pipeline
+----------------
+A common workflow is:
 
     engineer = TreeFeatureEngineer(...)
     tree = engineer.add_features(tree, origin_time=..., ...)
@@ -27,7 +28,13 @@ Typical use:
         add_virtual_nodes=True,
         num_time_bins=engineer.num_time_bins,
     )
+
     data = converter.convert(tree)
+    converter.save_data(data, "graph.pt")
+
+Or directly:
+
+    data = converter.convert_and_save(tree, "graph.pt")
 
 Input contract
 --------------
@@ -89,19 +96,35 @@ when available:
 Other feature values on virtual nodes remain zero unless explicitly defined by
 future extensions.
 
+Save / load support
+-------------------
+This module also provides helper methods to save and load PyG `Data` objects:
+
+- `save_data(data, path)`
+- `load_data(path)`
+- `convert_and_save(tree, path, graph_attrs=None)`
+
+These methods are intended to support preprocessing pipelines where graph data
+is generated once and reused multiple times.
+
 Scope of responsibility
 -----------------------
-This class converts node attributes into graph tensors. It does not compute
-biological features itself and does not validate phylogenetic semantics beyond
-the structural and numeric requirements described here.
+This class converts node attributes into graph tensors and optionally saves them.
+It does not compute biological features itself and does not validate
+phylogenetic semantics beyond the structural and numeric requirements described
+here.
 """
 
-from typing import Dict, List, Optional, Sequence, Tuple
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union
 import numbers
 
 import torch
-from torch_geometric.data import Batch, Data
+from torch_geometric.data import Data
 from ete3 import Tree
+
+
+PathLike = Union[str, Path]
 
 
 class TreeToGraphConverter:
@@ -243,6 +266,17 @@ class TreeToGraphConverter:
     - num_time_bins : int, if virtual nodes are added
     - arbitrary graph-level attributes passed via `graph_attrs`
 
+    Save/load methods
+    -----------------
+    - `save_data(data, path)`:
+        Save a PyG Data object to disk using `torch.save`.
+
+    - `load_data(path)`:
+        Load a previously saved PyG Data object from disk using `torch.load`.
+
+    - `convert_and_save(tree, path, graph_attrs=None)`:
+        Convert a tree to `Data`, save it, and return the saved object.
+
     Examples
     --------
     Basic conversion:
@@ -262,9 +296,13 @@ class TreeToGraphConverter:
     ... )
     >>> data = converter.convert(tree)
 
-    Batch conversion:
+    Save to disk:
 
-    >>> batch = converter.convert_to_batch([tree1, tree2, tree3])
+    >>> converter.save_data(data, "graph.pt")
+
+    Convert and save in one step:
+
+    >>> data = converter.convert_and_save(tree, "graph.pt")
     """
 
     DEFAULT_FEATURE_NAMES = [
@@ -293,7 +331,7 @@ class TreeToGraphConverter:
         self,
         feature_names: Optional[List[str]] = None,
         add_virtual_nodes: bool = False,
-        num_time_bins: Optional[int] = None,
+        num_time: Optional[int] = None,
         traversal_strategy: str = "preorder",
         bidirectional: bool = True,
         connect_virtual_to_real: bool = True,
@@ -334,7 +372,7 @@ class TreeToGraphConverter:
         """
         names = self.feature_names.copy()
         if self.append_is_virtual_feature:
-            names.append("is_virtual_node")
+            names.append("is_virtual")
         return names
 
     def convert(
@@ -402,6 +440,8 @@ class TreeToGraphConverter:
         x, edge_index, edge_type, node_names = self._extract_features_and_edges(nodes)
         num_original_nodes = x.size(0)
 
+        # Optionally append a binary feature that marks whether a node is virtual.
+        # At this stage all nodes are original tree nodes, so the appended value is 0.
         if self.append_is_virtual_feature:
             x = torch.cat([x, torch.zeros((num_original_nodes, 1), dtype=x.dtype)], dim=1)
 
@@ -412,6 +452,7 @@ class TreeToGraphConverter:
         if self.preserve_node_names:
             data.node_names = node_names
 
+        # Attach arbitrary user-defined graph-level metadata.
         if graph_attrs:
             for key, value in graph_attrs.items():
                 setattr(data, key, value)
@@ -419,9 +460,13 @@ class TreeToGraphConverter:
         if self.add_virtual_nodes:
             data = self._add_virtual_nodes(data)
 
+        # Mark virtual nodes explicitly for downstream convenience.
         data.virtual_node_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
         data.virtual_node_mask[data.original_num_nodes:] = True
 
+        # Node type coding:
+        # 0 = original tree node
+        # 1 = virtual node
         data.node_type = torch.full(
             (data.num_nodes,),
             self.NODE_TYPE_ORIGINAL,
@@ -431,77 +476,130 @@ class TreeToGraphConverter:
 
         return data
 
-    def convert_batch(
+    def convert_and_save(
         self,
-        trees: Sequence[Tree],
-        graph_attrs_list: Optional[Sequence[Optional[Dict[str, object]]]] = None,
-    ) -> List[Data]:
+        tree: Tree,
+        path: PathLike,
+        graph_attrs: Optional[Dict[str, object]] = None,
+        create_dirs: bool = True,
+    ) -> Data:
         """
-        Convert multiple trees into a list of `Data` objects.
+        Convert a tree to a PyG `Data` object and save it to disk.
+
+        This is a convenience wrapper equivalent to:
+
+            data = converter.convert(tree, graph_attrs=graph_attrs)
+            converter.save_data(data, path, create_dirs=create_dirs)
 
         Parameters
         ----------
-        trees : Sequence[ete3.Tree]
-            Trees to convert.
+        tree : ete3.Tree
+            Input tree whose nodes already contain all required features.
 
-        graph_attrs_list : Optional[Sequence[Optional[Dict[str, object]]]], default=None
-            Optional graph-level attributes aligned with `trees`.
+        path : str or pathlib.Path
+            Output file path. Typical extension is `.pt`.
 
-            Rules:
-            - If None, no extra graph attributes are attached.
-            - If provided, it must have the same length as `trees`.
+        graph_attrs : Optional[Dict[str, object]], default=None
+            Optional graph-level attributes to attach before saving.
+
+        create_dirs : bool, default=True
+            If True, automatically create parent directories if they do not exist.
 
         Returns
         -------
-        List[torch_geometric.data.Data]
-            One graph object per tree.
+        torch_geometric.data.Data
+            The converted and saved `Data` object.
+        """
+        data = self.convert(tree, graph_attrs=graph_attrs)
+        self.save_data(data, path=path, create_dirs=create_dirs)
+        return data
+
+    def save_data(
+        self,
+        data: Data,
+        path: PathLike,
+        create_dirs: bool = True,
+    ) -> None:
+        """
+        Save a PyTorch Geometric `Data` object to disk.
+
+        Storage format
+        --------------
+        This method uses `torch.save(data, path)`, which serializes the complete
+        `Data` object for later reuse.
+
+        Parameters
+        ----------
+        data : torch_geometric.data.Data
+            The graph object to save.
+
+        path : str or pathlib.Path
+            Destination path.
+
+        create_dirs : bool, default=True
+            If True, create the parent directory/directories automatically.
 
         Raises
         ------
-        ValueError
-            If `graph_attrs_list` is provided and has a different length from
-            `trees`.
+        TypeError
+            If `data` is not a PyG `Data` object.
+
+        Notes
+        -----
+        Saved files can be loaded later using `load_data(path)`.
         """
-        if graph_attrs_list is None:
-            return [self.convert(tree) for tree in trees]
+        if not isinstance(data, Data):
+            raise TypeError(
+                f"data must be a torch_geometric.data.Data instance, got {type(data).__name__}"
+            )
 
-        if len(trees) != len(graph_attrs_list):
-            raise ValueError("trees and graph_attrs_list must have the same length")
+        path = Path(path)
+        if create_dirs:
+            path.parent.mkdir(parents=True, exist_ok=True)
 
-        return [
-            self.convert(tree, graph_attrs=attrs)
-            for tree, attrs in zip(trees, graph_attrs_list)
-        ]
+        torch.save(data, path)
 
-    def convert_to_batch(
-        self,
-        trees: Sequence[Tree],
-        graph_attrs_list: Optional[Sequence[Optional[Dict[str, object]]]] = None,
-    ) -> Batch:
+    @staticmethod
+    def load_data(path: PathLike, map_location=None) -> Data:
         """
-        Convert multiple trees into a single PyTorch Geometric `Batch`.
+        Load a previously saved PyTorch Geometric `Data` object from disk.
 
         Parameters
         ----------
-        trees : Sequence[ete3.Tree]
-            Trees to convert.
+        path : str or pathlib.Path
+            Path to a file previously saved by `save_data()` or `convert_and_save()`.
 
-        graph_attrs_list : Optional[Sequence[Optional[Dict[str, object]]]], default=None
-            Optional graph-level attributes aligned with `trees`.
+        map_location : optional
+            Passed through to `torch.load`. Useful when loading data saved on a
+            different device.
 
         Returns
         -------
-        torch_geometric.data.Batch
-            Batch object created from the list of converted graphs.
+        torch_geometric.data.Data
+            The loaded graph object.
+
+        Raises
+        ------
+        TypeError
+            If the loaded object is not a PyG `Data` instance.
         """
-        return Batch.from_data_list(self.convert_batch(trees, graph_attrs_list))
+        path = Path(path)
+        data = torch.load(path, map_location=map_location)
+
+        if not isinstance(data, Data):
+            raise TypeError(
+                f"Loaded object is not a torch_geometric.data.Data instance, "
+                f"got {type(data).__name__}"
+            )
+
+        return data
 
     def _extract_features_and_edges(
         self,
         nodes: List[Tree],
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[str]]:
         """
-        Extract node features and tree edges from an ordered node list.
+        Extract node features and tree edges from an ordered list.
 
         Parameters
         ----------
@@ -540,7 +638,7 @@ class TreeToGraphConverter:
         node_names: List[str] = []
 
         for node in nodes:
-            node_names.append(node.name if getattr(node, "name", None) else "")
+            node_names.append(node.name if getattr(node, "", None) else "")
 
             row: List[float] = []
             for feature_name in self.feature_names:
@@ -688,15 +786,18 @@ class TreeToGraphConverter:
         total_num_features = data.x.size(1)
         time_bin_idx = self.feature_names.index("time_bin")
 
+        # Initialize virtual node features to zeros.
         virtual_x = torch.zeros(
             (num_time_bins, total_num_features),
             dtype=data.x.dtype,
             device=data.x.device,
         )
 
+        # Fill the time_bin feature for each virtual node.
         for bin_idx in range(num_time_bins):
             virtual_x[bin_idx, time_bin_idx] = float(bin_idx)
 
+        # Optionally copy extant_sampling_probability from the first original node.
         if (
             self.copy_sampling_prob_to_virtual
             and "extant_sampling_probability" in self.feature_names
@@ -705,6 +806,7 @@ class TreeToGraphConverter:
             prob_idx = self.feature_names.index("extant_sampling_probability")
             virtual_x[:, prob_idx] = data.x[0, prob_idx]
 
+        # If enabled, mark virtual nodes in the appended feature column.
         if self.append_is_virtual_feature:
             virtual_x[:, -1] = 1.0
 
@@ -718,6 +820,7 @@ class TreeToGraphConverter:
             if 0 <= bin_value < num_time_bins:
                 bin_to_node_indices[bin_value].append(node_idx)
 
+        # Connect each virtual node to original nodes in the same time bin.
         if self.connect_virtual_to_real:
             for bin_idx in range(num_time_bins):
                 virtual_idx = num_original_nodes + bin_idx
@@ -729,6 +832,7 @@ class TreeToGraphConverter:
                         new_edges.append([node_idx, virtual_idx])
                         new_edge_types.append(self.EDGE_TYPE_VIRTUAL_TO_REAL)
 
+        # Connect adjacent virtual nodes as a chain through time bins.
         if self.connect_virtual_chain:
             for bin_idx in range(num_time_bins - 1):
                 a = num_original_nodes + bin_idx
