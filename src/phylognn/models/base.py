@@ -1,20 +1,30 @@
 """
-Base model classes for phylogenetic GNN architectures.
+Base model abstractions for phylogenetic GNN architectures.
 
 This module defines abstract base classes and shared utilities for building
 phylogenetic tree analysis models with PyTorch and PyTorch Geometric.
 
 Design goals:
     1. Provide a consistent interface for all phylogenetic GNN models.
-    2. Centralize common logic such as parameter counting, freezing, and
-       graph input validation.
-    3. Make encoder-only reuse easy for transfer learning and downstream tasks.
+    2. Centralize common logic such as parameter counting, freezing, resetting,
+       and graph input validation.
+    3. Make encoder reuse easy for transfer learning and downstream tasks.
+
+Conventions:
+    - All graph inputs are expected to be `torch_geometric.data.Data`.
+    - Node-level encoders should expose `encode(...)` and `get_embedding_dim()`.
+    - Graph-level or task-specific prediction is implemented in subclasses.
+
+Notes:
+    - This module does not assume any particular downstream task.
+    - Freezing behavior is based on explicit encoder/head module boundaries,
+      not fragile parameter-name heuristics.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Iterable, Optional
 
 import torch
 import torch.nn as nn
@@ -25,10 +35,15 @@ from .layers import ResidualGATStack
 
 def _reset_module_parameters(module: nn.Module) -> None:
     """
-    Safely reset parameters of a module if it implements `reset_parameters`.
+    Reset parameters of a module if it exposes `reset_parameters()`.
 
     Args:
-        module: PyTorch module.
+        module:
+            A PyTorch module instance.
+
+    Notes:
+        - This function is intentionally safe and no-op for modules that do not
+          implement `reset_parameters()`.
     """
     if hasattr(module, "reset_parameters") and callable(module.reset_parameters):
         module.reset_parameters()
@@ -38,19 +53,25 @@ class BasePhyloGNN(nn.Module, ABC):
     """
     Abstract base class for phylogenetic GNN models.
 
-    This class defines the common interface and shared utility methods used by
-    all phylogenetic GNN architectures in the package.
-
     Subclasses must implement:
         - forward(data): task-specific forward pass
-        - get_embedding_dim(): output embedding dimension of the encoder
+        - get_embedding_dim(): encoder output dimension
 
-    Notes:
-        - The input is expected to be a PyTorch Geometric `Data` object.
-        - By default, this base class assumes a model may contain an encoder
-          and a task-specific prediction head.
-        - The default `freeze_encoder()` behavior uses parameter-name heuristics.
-          Subclasses can override `_is_head_parameter()` for stricter control.
+    Common utilities provided:
+        - graph input validation
+        - parameter counting
+        - encoder freezing / full unfreezing
+        - module parameter resetting
+
+    Input contract:
+        `forward()` methods in subclasses should generally accept a PyG `Data`
+        object. Required fields depend on the concrete model.
+
+    Engineering notes:
+        - This base class does not rely on parameter-name heuristics to
+          separate encoder and head modules.
+        - Subclasses should override `get_encoder_modules()` and
+          `get_head_modules()` when they contain task-specific heads.
     """
 
     def __init__(self) -> None:
@@ -59,15 +80,11 @@ class BasePhyloGNN(nn.Module, ABC):
     @abstractmethod
     def forward(self, data: Data) -> torch.Tensor:
         """
-        Forward pass through the model.
+        Run the model forward pass.
 
         Args:
             data:
-                PyTorch Geometric Data object. Expected fields depend on the
-                concrete model, but typically include:
-                    - x: Node feature matrix [num_nodes, num_features]
-                    - edge_index: Graph connectivity [2, num_edges]
-                    - batch: Batch vector [num_nodes] (optional for some tasks)
+                PyTorch Geometric Data object.
 
         Returns:
             Model predictions.
@@ -77,114 +94,196 @@ class BasePhyloGNN(nn.Module, ABC):
     @abstractmethod
     def get_embedding_dim(self) -> int:
         """
-        Return the dimension of learned node embeddings.
+        Return the output dimension of learned node embeddings.
 
         Returns:
-            Embedding dimension as an integer.
+            Encoder output dimension.
         """
         raise NotImplementedError
 
     def validate_data(self, data: Data, require_batch: bool = False) -> None:
         """
-        Validate that a PyG Data object contains the required attributes.
+        Validate a PyG Data object for graph neural network processing.
+
+        Requirements:
+            - `data` is an instance of `torch_geometric.data.Data`
+            - `data.x` exists and is a 2D tensor: [num_nodes, num_features]
+            - `data.edge_index` exists and is a LongTensor: [2, num_edges]
+            - if `require_batch=True`, `data.batch` exists and is a LongTensor
+              of shape [num_nodes]
+
+        Additional consistency checks:
+            - number of nodes must be positive
+            - edge indices must be within [0, num_nodes - 1]
+            - if batch is required, `len(batch)` must equal number of nodes
 
         Args:
-            data: Input graph data.
-            require_batch: If True, also require `data.batch`.
+            data:
+                Input graph object.
+            require_batch:
+                Whether graph batch assignment is required.
 
         Raises:
-            TypeError: If `data` is not a `torch_geometric.data.Data` instance.
-            ValueError: If required fields are missing or malformed.
+            TypeError:
+                If object types or tensor dtypes are invalid.
+            ValueError:
+                If required fields are missing, malformed, or inconsistent.
         """
         if not isinstance(data, Data):
             raise TypeError(
-                f"Expected `data` to be an instance of torch_geometric.data.Data, "
-                f"but got {type(data).__name__}."
+                "Expected `data` to be an instance of "
+                f"`torch_geometric.data.Data`, got `{type(data).__name__}`."
             )
 
         if not hasattr(data, "x") or data.x is None:
             raise ValueError("Input `data` must contain node features `x`.")
+        if not torch.is_tensor(data.x):
+            raise TypeError("`data.x` must be a torch.Tensor.")
+        if data.x.dim() != 2:
+            raise ValueError(
+                "`data.x` must be a 2D tensor of shape "
+                f"[num_nodes, num_features], got shape {tuple(data.x.shape)}."
+            )
+        if data.x.size(0) <= 0:
+            raise ValueError("`data.x` must contain at least one node.")
 
         if not hasattr(data, "edge_index") or data.edge_index is None:
             raise ValueError("Input `data` must contain graph connectivity `edge_index`.")
-
-        if data.x.dim() != 2:
-            raise ValueError(
-                f"`data.x` must be a 2D tensor of shape [num_nodes, num_features], "
-                f"but got shape {tuple(data.x.shape)}."
+        if not torch.is_tensor(data.edge_index):
+            raise TypeError("`data.edge_index` must be a torch.Tensor.")
+        if data.edge_index.dtype != torch.long:
+            raise TypeError(
+                f"`data.edge_index` must have dtype torch.long, got {data.edge_index.dtype}."
             )
-
         if data.edge_index.dim() != 2 or data.edge_index.size(0) != 2:
             raise ValueError(
-                f"`data.edge_index` must have shape [2, num_edges], "
-                f"but got shape {tuple(data.edge_index.shape)}."
+                "`data.edge_index` must have shape [2, num_edges], "
+                f"got shape {tuple(data.edge_index.shape)}."
             )
+
+        self._validate_edge_index_bounds(data.edge_index, num_nodes=data.x.size(0))
 
         if require_batch:
             if not hasattr(data, "batch") or data.batch is None:
                 raise ValueError(
                     "Input `data` must contain `batch` for batched graph operations."
                 )
+            if not torch.is_tensor(data.batch):
+                raise TypeError("`data.batch` must be a torch.Tensor.")
+            if data.batch.dtype != torch.long:
+                raise TypeError(
+                    f"`data.batch` must have dtype torch.long, got {data.batch.dtype}."
+                )
+            if data.batch.dim() != 1:
+                raise ValueError(
+                    f"`data.batch` must be 1D of shape [num_nodes], got {tuple(data.batch.shape)}."
+                )
+            if data.batch.size(0) != data.x.size(0):
+                raise ValueError(
+                    "`data.batch` length must match number of nodes. "
+                    f"Got len(batch)={data.batch.size(0)} and num_nodes={data.x.size(0)}."
+                )
+
+    @staticmethod
+    def _validate_edge_index_bounds(edge_index: torch.Tensor, num_nodes: int) -> None:
+        """
+        Validate that `edge_index` references only valid node ids.
+
+        Args:
+            edge_index:
+                Edge index tensor of shape [2, num_edges].
+            num_nodes:
+                Number of nodes in the graph.
+
+        Raises:
+            ValueError:
+                If edge indices contain negative or out-of-range node ids.
+        """
+        if edge_index.numel() == 0:
+            return
+
+        min_idx = int(edge_index.min().item())
+        max_idx = int(edge_index.max().item())
+
+        if min_idx < 0 or max_idx >= num_nodes:
+            raise ValueError(
+                "`data.edge_index` contains node ids outside valid range "
+                f"[0, {num_nodes - 1}]. Found min={min_idx}, max={max_idx}."
+            )
 
     def get_num_parameters(self, trainable_only: bool = True) -> int:
         """
         Count model parameters.
 
         Args:
-            trainable_only: If True, count only parameters with
-                `requires_grad=True`. Otherwise count all parameters.
+            trainable_only:
+                If True, count only parameters with `requires_grad=True`.
 
         Returns:
-            Number of parameters.
+            Parameter count.
         """
         if trainable_only:
             return sum(p.numel() for p in self.parameters() if p.requires_grad)
         return sum(p.numel() for p in self.parameters())
 
-    def _is_head_parameter(self, name: str) -> bool:
+    def get_encoder_modules(self) -> Iterable[nn.Module]:
         """
-        Heuristic to identify whether a parameter belongs to a prediction head.
+        Return modules that belong to the transferable encoder.
 
-        Subclasses may override this method if they use a different naming
-        convention for task-specific modules.
-
-        Args:
-            name: Parameter name from `named_parameters()`.
+        Subclasses should override this method if they expose encoder modules.
 
         Returns:
-            True if the parameter is considered part of a prediction head.
+            Iterable of encoder modules.
         """
-        head_keywords = ("head", "fc", "classifier", "predictor", "readout", "mlp")
-        return any(keyword in name.lower() for keyword in head_keywords)
+        return []
+
+    def get_head_modules(self) -> Iterable[nn.Module]:
+        """
+        Return modules that belong to the task-specific prediction head.
+
+        Subclasses should override this method if they expose prediction heads.
+
+        Returns:
+            Iterable of head modules.
+        """
+        return []
 
     def freeze_encoder(self) -> None:
         """
-        Freeze encoder parameters for transfer learning.
+        Freeze encoder parameters while keeping head parameters trainable.
 
-        By default, parameters identified as belonging to the prediction head
-        remain trainable, while all other parameters are frozen.
+        Behavior:
+            - All parameters in `get_encoder_modules()` are frozen.
+            - All parameters in `get_head_modules()` remain trainable.
 
         Notes:
-            - This method relies on `_is_head_parameter()`.
-            - If your subclass uses a custom head naming scheme, override
-              `_is_head_parameter()` for precise behavior.
+            - If a subclass returns overlapping modules in both encoder and head
+              collections, the resulting behavior is undefined and should be avoided.
+            - Any parameters not included in either collection are left unchanged.
         """
-        for name, param in self.named_parameters():
-            param.requires_grad = self._is_head_parameter(name)
+        for module in self.get_encoder_modules():
+            for param in module.parameters():
+                param.requires_grad = False
+
+        for module in self.get_head_modules():
+            for param in module.parameters():
+                param.requires_grad = True
 
     def unfreeze_all(self) -> None:
         """
-        Unfreeze all model parameters.
+        Make all model parameters trainable.
         """
         for param in self.parameters():
             param.requires_grad = True
 
     def reset_parameters(self) -> None:
         """
-        Reset parameters of all child modules that implement `reset_parameters`.
+        Reset parameters of immediate child modules that expose `reset_parameters()`.
 
-        This is useful for repeated experiments, cross-validation, and
-        hyperparameter search.
+        Notes:
+            - This method only resets direct child modules.
+            - Nested reset behavior should be handled by each child module's own
+              `reset_parameters()` implementation.
         """
         for module in self.children():
             _reset_module_parameters(module)
@@ -192,47 +291,38 @@ class BasePhyloGNN(nn.Module, ABC):
 
 class BaseGATNet(BasePhyloGNN):
     """
-    Base GAT network with configurable architecture.
+    Base GAT encoder with optional feature preprocessing.
 
     Architecture:
-        input features
-            -> optional preprocessing layer
-            -> residual GAT encoder stack
-            -> optional dropout on encoded embeddings
-            -> task-specific head (implemented by subclasses)
+        input node features
+            -> optional preprocessing projection
+            -> dropout
+            -> residual GAT stack
+            -> dropout
+            -> node embeddings
+
+    This class provides reusable node-level encoding only. Subclasses are
+    responsible for graph-level pooling and task-specific prediction heads.
 
     Args:
-        input_dim: Dimension of input node features.
+        input_dim:
+            Input node feature dimension.
         preprocess_dim:
-            Output dimension of the preprocessing layer.
-            Required when `use_preprocessing=True`.
-        gat_hidden_dim: Hidden dimension per GAT head.
-        gat_heads: Number of attention heads.
-        num_gat_layers: Number of GAT layers in the encoder.
-        dropout_prob: Dropout probability applied in the base encoder pipeline.
-        use_preprocessing: Whether to apply a linear preprocessing layer before GAT.
+            Output dimension of the optional preprocessing layer.
+            Required if `use_preprocessing=True`.
+        gat_hidden_dim:
+            Hidden dimension per attention head in each GAT layer.
+        gat_heads:
+            Number of attention heads.
+        num_gat_layers:
+            Number of residual GAT blocks.
+        dropout_prob:
+            Dropout probability used in the encoder pipeline.
+        use_preprocessing:
+            Whether to apply a learnable preprocessing projection.
 
     Output embedding dimension:
         `gat_hidden_dim * gat_heads`
-
-    Example:
-        >>> class MyGATModel(BaseGATNet):
-        ...     def __init__(self, input_dim, num_classes):
-        ...         super().__init__(
-        ...             input_dim=input_dim,
-        ...             preprocess_dim=64,
-        ...             gat_hidden_dim=32,
-        ...             gat_heads=4,
-        ...             num_gat_layers=3,
-        ...             dropout_prob=0.2,
-        ...             use_preprocessing=True,
-        ...         )
-        ...         self.head = nn.Linear(self.get_embedding_dim(), num_classes)
-        ...
-        ...     def forward(self, data):
-        ...         self.validate_data(data, require_batch=False)
-        ...         x = self.encode_data(data)
-        ...         return self.head(x)
     """
 
     def __init__(
@@ -265,7 +355,6 @@ class BaseGATNet(BasePhyloGNN):
         self.dropout_prob = dropout_prob
         self.use_preprocessing = use_preprocessing
 
-        # Preprocessing layer
         if self.use_preprocessing:
             self.preprocess = nn.Sequential(
                 nn.Linear(input_dim, preprocess_dim),
@@ -276,7 +365,6 @@ class BaseGATNet(BasePhyloGNN):
             self.preprocess = nn.Identity()
             gat_input_dim = input_dim
 
-        # Residual GAT encoder
         self.gat_encoder = ResidualGATStack(
             in_channels=gat_input_dim,
             hidden_channels=gat_hidden_dim,
@@ -284,12 +372,7 @@ class BaseGATNet(BasePhyloGNN):
             heads=gat_heads,
             dropout_prob=dropout_prob,
         )
-
-        # Shared dropout for encoder pipeline
         self.dropout = nn.Dropout(dropout_prob)
-
-        # Ensure all resettable submodules are initialized explicitly
-        self.reset_parameters()
 
     @staticmethod
     def _validate_init_args(
@@ -302,10 +385,11 @@ class BaseGATNet(BasePhyloGNN):
         use_preprocessing: bool,
     ) -> None:
         """
-        Validate constructor arguments.
+        Validate encoder constructor arguments.
 
         Raises:
-            ValueError: If any argument is invalid.
+            ValueError:
+                If any argument is invalid.
         """
         if input_dim <= 0:
             raise ValueError(f"`input_dim` must be > 0, got {input_dim}.")
@@ -329,24 +413,44 @@ class BaseGATNet(BasePhyloGNN):
                     f"`preprocess_dim` must be > 0 when used, got {preprocess_dim}."
                 )
 
+    def get_encoder_modules(self) -> Iterable[nn.Module]:
+        """
+        Return transferable encoder modules.
+
+        Returns:
+            Encoder module collection.
+        """
+        return [self.preprocess, self.gat_encoder]
+
     def reset_parameters(self) -> None:
         """
-        Reset parameters of preprocessing and GAT encoder modules.
+        Reset preprocessing and GAT encoder parameters.
         """
         _reset_module_parameters(self.preprocess)
         _reset_module_parameters(self.gat_encoder)
 
     def encode(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
         """
-        Encode node features using preprocessing and GAT layers.
+        Encode node features into node-level embeddings.
+
+        Contract:
+            - `x`: [num_nodes, input_dim]
+            - `edge_index`: [2, num_edges]
+            - output: [num_nodes, gat_hidden_dim * gat_heads]
+
+        Notes:
+            - This method performs node-level encoding only.
+            - No graph-level pooling or prediction head is applied here.
+            - Dropout behavior follows standard PyTorch train/eval semantics.
 
         Args:
-            x: Node feature matrix of shape [num_nodes, input_dim].
-            edge_index: Graph connectivity tensor of shape [2, num_edges].
+            x:
+                Node feature matrix.
+            edge_index:
+                Graph connectivity in COO format.
 
         Returns:
-            Encoded node features of shape
-            [num_nodes, gat_hidden_dim * gat_heads].
+            Encoded node embeddings.
         """
         x = self.preprocess(x)
         x = self.dropout(x)
@@ -356,30 +460,34 @@ class BaseGATNet(BasePhyloGNN):
 
     def encode_data(self, data: Data) -> torch.Tensor:
         """
-        Convenience wrapper to encode directly from a PyG Data object.
+        Convenience wrapper that encodes directly from a PyG Data object.
+
+        Required fields:
+            - `data.x`
+            - `data.edge_index`
 
         Args:
-            data: PyTorch Geometric Data object containing at least
-                `x` and `edge_index`.
+            data:
+                Input graph data.
 
         Returns:
-            Encoded node embeddings.
+            Node embeddings of shape [num_nodes, embedding_dim].
         """
         self.validate_data(data, require_batch=False)
         return self.encode(data.x, data.edge_index)
 
     def get_embedding_dim(self) -> int:
         """
-        Return the output embedding dimension of the GAT encoder.
+        Return encoder output embedding dimension.
 
         Returns:
-            Embedding dimension = `gat_hidden_dim * gat_heads`.
+            `gat_hidden_dim * gat_heads`
         """
         return self.gat_hidden_dim * self.gat_heads
 
     def extra_repr(self) -> str:
         """
-        Extra string representation shown in `print(model)`.
+        Extra representation shown in `print(model)`.
         """
         return (
             f"input_dim={self.input_dim}, "
@@ -394,12 +502,13 @@ class BaseGATNet(BasePhyloGNN):
     @abstractmethod
     def forward(self, data: Data) -> torch.Tensor:
         """
-        Forward pass to be implemented by subclasses.
+        Subclass-defined task-specific forward pass.
 
         Args:
-            data: PyTorch Geometric Data object.
+            data:
+                PyG Data object.
 
         Returns:
-            Task-specific model output.
+            Task-specific output tensor.
         """
         raise NotImplementedError
