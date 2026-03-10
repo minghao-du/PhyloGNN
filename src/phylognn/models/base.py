@@ -16,7 +16,6 @@ Conventions:
     - Graph-level or task-specific prediction is implemented in subclasses.
 
 Notes:
-    - This module does not assume any particular downstream task.
     - Freezing behavior is based on explicit encoder/head module boundaries,
       not fragile parameter-name heuristics.
 """
@@ -24,13 +23,15 @@ Notes:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Optional
+from typing import Iterable, Literal, Optional
 
 import torch
 import torch.nn as nn
 from torch_geometric.data import Data
 
-from .layers import ResidualGATStack
+from .layers import build_gat_encoder
+
+GATEncoderType = Literal["gat", "res_gat"]
 
 
 def _reset_module_parameters(module: nn.Module) -> None:
@@ -42,8 +43,8 @@ def _reset_module_parameters(module: nn.Module) -> None:
             A PyTorch module instance.
 
     Notes:
-        - This function is intentionally safe and no-op for modules that do not
-          implement `reset_parameters()`.
+        - This function is safe for modules that do not implement
+          `reset_parameters()`: in that case it is a no-op.
     """
     if hasattr(module, "reset_parameters") and callable(module.reset_parameters):
         module.reset_parameters()
@@ -62,10 +63,6 @@ class BasePhyloGNN(nn.Module, ABC):
         - parameter counting
         - encoder freezing / full unfreezing
         - module parameter resetting
-
-    Input contract:
-        `forward()` methods in subclasses should generally accept a PyG `Data`
-        object. Required fields depend on the concrete model.
 
     Engineering notes:
         - This base class does not rely on parameter-name heuristics to
@@ -257,9 +254,8 @@ class BasePhyloGNN(nn.Module, ABC):
             - All parameters in `get_head_modules()` remain trainable.
 
         Notes:
-            - If a subclass returns overlapping modules in both encoder and head
-              collections, the resulting behavior is undefined and should be avoided.
             - Any parameters not included in either collection are left unchanged.
+            - Subclasses should avoid returning overlapping modules.
         """
         for module in self.get_encoder_modules():
             for param in module.parameters():
@@ -291,13 +287,13 @@ class BasePhyloGNN(nn.Module, ABC):
 
 class BaseGATNet(BasePhyloGNN):
     """
-    Base GAT encoder with optional feature preprocessing.
+    Base GAT encoder with optional feature preprocessing and pluggable GAT backbone.
 
     Architecture:
         input node features
             -> optional preprocessing projection
             -> dropout
-            -> residual GAT stack
+            -> GAT encoder stack (plain or residual)
             -> dropout
             -> node embeddings
 
@@ -315,11 +311,15 @@ class BaseGATNet(BasePhyloGNN):
         gat_heads:
             Number of attention heads.
         num_gat_layers:
-            Number of residual GAT blocks.
+            Number of GAT blocks in the encoder stack.
         dropout_prob:
             Dropout probability used in the encoder pipeline.
         use_preprocessing:
             Whether to apply a learnable preprocessing projection.
+        encoder_type:
+            Type of GAT encoder backbone:
+                - "gat": plain stacked GAT
+                - "res_gat": residual stacked GAT
 
     Output embedding dimension:
         `gat_hidden_dim * gat_heads`
@@ -334,6 +334,7 @@ class BaseGATNet(BasePhyloGNN):
         num_gat_layers: int = 3,
         dropout_prob: float = 0.2,
         use_preprocessing: bool = True,
+        encoder_type: GATEncoderType = "res_gat",
     ) -> None:
         super().__init__()
 
@@ -345,6 +346,7 @@ class BaseGATNet(BasePhyloGNN):
             num_gat_layers=num_gat_layers,
             dropout_prob=dropout_prob,
             use_preprocessing=use_preprocessing,
+            encoder_type=encoder_type,
         )
 
         self.input_dim = input_dim
@@ -354,6 +356,7 @@ class BaseGATNet(BasePhyloGNN):
         self.num_gat_layers = num_gat_layers
         self.dropout_prob = dropout_prob
         self.use_preprocessing = use_preprocessing
+        self.encoder_type = encoder_type
 
         if self.use_preprocessing:
             self.preprocess = nn.Sequential(
@@ -365,13 +368,15 @@ class BaseGATNet(BasePhyloGNN):
             self.preprocess = nn.Identity()
             gat_input_dim = input_dim
 
-        self.gat_encoder = ResidualGATStack(
+        self.gat_encoder = build_gat_encoder(
+            encoder_type=encoder_type,
             in_channels=gat_input_dim,
             hidden_channels=gat_hidden_dim,
             num_layers=num_gat_layers,
             heads=gat_heads,
             dropout_prob=dropout_prob,
         )
+
         self.dropout = nn.Dropout(dropout_prob)
 
     @staticmethod
@@ -383,6 +388,7 @@ class BaseGATNet(BasePhyloGNN):
         num_gat_layers: int,
         dropout_prob: float,
         use_preprocessing: bool,
+        encoder_type: GATEncoderType,
     ) -> None:
         """
         Validate encoder constructor arguments.
@@ -412,6 +418,10 @@ class BaseGATNet(BasePhyloGNN):
                 raise ValueError(
                     f"`preprocess_dim` must be > 0 when used, got {preprocess_dim}."
                 )
+        if encoder_type not in {"gat", "res_gat"}:
+            raise ValueError(
+                f"`encoder_type` must be one of ('gat', 'res_gat'), got {encoder_type!r}."
+            )
 
     def get_encoder_modules(self) -> Iterable[nn.Module]:
         """
@@ -496,7 +506,8 @@ class BaseGATNet(BasePhyloGNN):
             f"gat_heads={self.gat_heads}, "
             f"num_gat_layers={self.num_gat_layers}, "
             f"dropout_prob={self.dropout_prob}, "
-            f"use_preprocessing={self.use_preprocessing}"
+            f"use_preprocessing={self.use_preprocessing}, "
+            f"encoder_type={self.encoder_type}"
         )
 
     @abstractmethod
