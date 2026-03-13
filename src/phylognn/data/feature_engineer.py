@@ -422,9 +422,8 @@ class TreeFeatureEngineer:
 
         scale_factor = 1.0
         if rescale:
-            tree, scale_factor, origin_time = self.rescale_tree(
+            tree, scale_factor = self.rescale_tree(
                 tree=tree,
-                origin_time=origin_time,
                 inplace=True,
             )
 
