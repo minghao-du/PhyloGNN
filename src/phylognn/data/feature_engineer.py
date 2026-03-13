@@ -452,6 +452,59 @@ class TreeFeatureEngineer:
 
         return tree
     
+    def get_available_features(self) -> Tuple[str, ...]:
+        """
+        Return all currently registered feature names in a stable order.
+
+        Specification
+        -------------
+        This method provides the canonical public API for retrieving the full
+        set of available feature names from the engineer.
+
+        Return value
+        ------------
+        Tuple[str, ...]
+            An immutable ordered tuple of feature names.
+
+        Ordering guarantee
+        ------------------
+        The returned order is stable and matches the internal feature
+        registration order:
+        1. built-in features first
+        2. custom features afterwards, in the order they were registered
+
+        Consistency guarantee
+        ---------------------
+        The returned names are guaranteed to be consistent with:
+        - `self.feature_names`      : ordered representation
+        - `self.available_features` : set representation
+
+        Engineering rationale
+        ---------------------
+        - Returns an immutable tuple to avoid exposing mutable internal state.
+        - Performs an internal consistency check so that registry corruption or
+          accidental manual mutation of public attributes is detected early.
+
+        Raises
+        ------
+        RuntimeError
+            If the internal feature registry, `self.feature_names`, and
+            `self.available_features` are not mutually consistent.
+        """
+        registry_names = tuple(self._feature_registry.keys())
+
+        if (
+            tuple(self.feature_names) != registry_names
+            or set(registry_names) != self.available_features
+        ):
+            raise RuntimeError(
+                "Inconsistent feature registry state detected. "
+                "Expected `_feature_registry`, `feature_names`, and "
+                "`available_features` to describe the same feature set."
+            )
+
+        return registry_names
+    
     def _ensure_feature(self, context: dict, feature_name: str) -> None:
         """
         Ensure that a dependent feature exists on the current node.
