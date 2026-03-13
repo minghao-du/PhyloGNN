@@ -44,5 +44,6 @@ data = converter.convert(tree_with_features)
 
 from .feature_engineer import TreeFeatureEngineer
 from .converter import TreeToGraphConverter
+from .tree_io import read_tree_as_ete3
 
-__all__ = ['TreeFeatureEngineer', 'TreeToGraphConverter']
+__all__ = ['TreeFeatureEngineer', 'TreeToGraphConverter', 'read_tree_as_ete3']
