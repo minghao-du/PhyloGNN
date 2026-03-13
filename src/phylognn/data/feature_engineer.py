@@ -50,6 +50,7 @@ The following built-in features are registered by default:
 - is_sampled_ancestor
 - is_not_sampled_ancestor
 - branch_length
+- rescale_factor
 - extant_sampling_probability
 
 Feature dependency rules
@@ -77,6 +78,15 @@ Important notes
    If requested, branch lengths are rescaled so that the mean of all non-zero
    branch lengths becomes 1. The provided `origin_time` is rescaled by the same
    factor.
+
+   In addition, every node receives a node-level feature:
+
+       rescale_factor
+
+   whose value is the multiplicative factor applied during rescaling.
+
+   If no rescaling is applied, `rescale_factor` may still be requested as a
+   regular feature, in which case its value is `1.0` for every node.
 
 4. Floating-point tolerance
    Comparisons to zero and to `origin_time` use `time_tolerance` to avoid
@@ -242,6 +252,7 @@ class TreeFeatureEngineer:
             ("is_sampled_ancestor", self._add_is_sampled_ancestor),
             ("is_not_sampled_ancestor", self._add_is_not_sampled_ancestor),
             ("branch_length", self._add_branch_length),
+            ("rescale_factor", self._add_rescale_factor),
             ("extant_sampling_probability", self._add_extant_sampling_probability),
         ])
 
@@ -255,12 +266,11 @@ class TreeFeatureEngineer:
     def rescale_tree(
         self,
         tree: Tree,
-        origin_time: float,
         inplace: bool = True,
-    ) -> Tuple[Tree, float, float]:
+    ) -> Tuple[Tree, float]:
         """
         Rescale tree branch lengths so that the mean of all non-zero branch
-        lengths becomes 1.
+        lengths becomes 1, and attach the applied rescaling factor to every node.
 
         Formal definition
         -----------------
@@ -273,19 +283,14 @@ class TreeFeatureEngineer:
             mean_length = mean(L)
             scale_factor = 1 / mean_length
 
-        Every branch length is multiplied by `scale_factor`, and the provided
-        `origin_time` is also multiplied by the same factor.
+        Every branch length is multiplied by `scale_factor`, and every node receives:
+
+            node.rescale_factor = scale_factor
 
         Parameters
         ----------
         tree : ete3.Tree
             Input tree to rescale.
-
-        origin_time : float
-            Original origin time associated with the tree.
-
-            Constraint:
-            - Must be positive.
 
         inplace : bool, default=True
             If True, modify the input tree directly.
@@ -293,20 +298,15 @@ class TreeFeatureEngineer:
 
         Returns
         -------
-        Tuple[Tree, float, float]
+        Tuple[Tree, float]
             A tuple of:
             - rescaled_tree : Tree
                 The rescaled tree
             - scale_factor : float
                 The multiplicative factor applied to all branch lengths
-            - new_origin_time : float
-                The rescaled origin time
 
         Raises
         ------
-        ValueError
-            If `origin_time <= 0`.
-
         ValueError
             If the tree contains no non-zero branch lengths.
 
@@ -314,19 +314,14 @@ class TreeFeatureEngineer:
         ----------
         - All node distances are multiplied by the same scalar.
         - Zero-length edges remain zero.
+        - Every node receives the feature `rescale_factor`.
         - If `inplace=False`, the input tree is not modified.
         """
-        if origin_time <= 0:
-            raise ValueError(f"origin_time must be positive, got {origin_time}")
-
         if not inplace:
             tree = tree.copy()
 
-        non_zero_lengths = [
-            node.dist
-            for node in tree.traverse(self.traversal_strategy)
-            if node.dist > 0
-        ]
+        nodes = list(tree.traverse(self.traversal_strategy))
+        non_zero_lengths = [node.dist for node in nodes if node.dist > 0]
 
         if not non_zero_lengths:
             raise ValueError("Tree has no non-zero branch lengths to rescale")
@@ -334,11 +329,11 @@ class TreeFeatureEngineer:
         mean_length = sum(non_zero_lengths) / len(non_zero_lengths)
         scale_factor = 1.0 / mean_length
 
-        for node in tree.traverse(self.traversal_strategy):
+        for node in nodes:
             node.dist *= scale_factor
+            node.add_feature("rescale_factor", float(scale_factor))
 
-        new_origin_time = origin_time * scale_factor
-        return tree, scale_factor, new_origin_time
+        return tree, scale_factor
 
     def add_features(
         self,
@@ -386,7 +381,12 @@ class TreeFeatureEngineer:
             If True:
             - branch lengths are rescaled by `rescale_tree()`
             - origin_time is rescaled by the same factor
+            - every node receives `rescale_factor`
             - feature computation uses the rescaled values
+
+            If False:
+            - branch lengths remain unchanged
+            - `rescale_factor`, if requested, is defined as 1.0
 
         inplace : bool, default=True
             If True, modify the input tree in place.
@@ -420,8 +420,9 @@ class TreeFeatureEngineer:
         if not inplace:
             tree = tree.copy()
 
+        scale_factor = 1.0
         if rescale:
-            tree, _, origin_time = self.rescale_tree(
+            tree, scale_factor, origin_time = self.rescale_tree(
                 tree=tree,
                 origin_time=origin_time,
                 inplace=True,
@@ -445,12 +446,13 @@ class TreeFeatureEngineer:
                 "node": node,
                 "root": root,
                 "origin_time": origin_time,
+                "rescale_factor": scale_factor,
             }
             for feature_name in features_to_add:
                 self._feature_registry[feature_name](context)
 
         return tree
-
+    
     def _ensure_feature(self, context: dict, feature_name: str) -> None:
         """
         Ensure that a dependent feature exists on the current node.
@@ -685,6 +687,32 @@ class TreeFeatureEngineer:
             is_not_sampled_ancestor = 0
 
         node.add_feature("is_not_sampled_ancestor", is_not_sampled_ancestor)
+
+    def _add_rescale_factor(self, context: dict) -> None:
+        """
+        Add `rescale_factor` to the current node.
+
+        Definition
+        ----------
+        The value is the multiplicative factor applied to branch lengths during
+        rescaling.
+
+        Behavior
+        --------
+        - If `rescale_tree()` has already been executed, this method preserves the
+          existing node-level value.
+        - If no rescaling was applied, the value is set to `1.0`.
+
+        Engineering note
+        ----------------
+        This method is idempotent and safe to call multiple times.
+        """
+        node = context["node"]
+
+        if hasattr(node, "rescale_factor"):
+            return
+
+        node.add_feature("rescale_factor", float(context.get("rescale_factor", 1.0)))
 
     def _calculate_time_bin(self, node_time: float, origin_time: float) -> int:
         """
