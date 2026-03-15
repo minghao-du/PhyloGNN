@@ -653,31 +653,45 @@ class DatasetSplit:
 # ---------------------------------------------------------------------
 class SplitDatasetView(Dataset):
     """
-    Lightweight split-specific view over a base dataset.
+    Lightweight split-specific dataset view over a base dataset.
 
-    This class does not own graph storage. Instead, it references a base dataset
-    and a list of indices corresponding to one split.
+    This class does not own graph storage. It only stores:
+    1. a reference to the base dataset
+    2. a fixed mapping from split-local indices to base-dataset indices
+
+    Typical examples of such views are:
+    - train subset
+    - validation subset
+    - test subset
+
+    Design principles
+    -----------------
+    1. Lightweight
+       No graph duplication is performed here.
+
+    2. Stable
+       The order of samples in the view is exactly the order given by the
+       provided index list.
+
+    3. Safe
+       We intentionally avoid attribute names such as `indices` or `_indices`,
+       because PyG `Dataset` may internally use names with those semantics.
+       To avoid collisions, this class uses `_view_indices`.
 
     Parameters
     ----------
     base_dataset : _BaseSplitAwareDataset
-        The base dataset.
+        The underlying dataset that actually stores / loads samples.
 
     split_name : str
-        Name of the selected split, e.g. "train", "val", or "test".
+        Name of the split, e.g. "train", "val", or "test".
 
     indices : Sequence[int]
-        Base-dataset indices belonging to the selected split.
+        Base-dataset indices belonging to this split.
 
     transform : Optional[Callable], default=None
-        Optional override transform for the view. If None, the base dataset
-        transform behavior is used.
-
-    Specification
-    -------------
-    - `len(view)` equals the number of indices in the split
-    - `view.get(i)` delegates to the corresponding sample in the base dataset
-    - returned data is whatever the base dataset returns
+        Optional transform applied after retrieving a sample from the base
+        dataset.
     """
 
     def __init__(
@@ -687,43 +701,122 @@ class SplitDatasetView(Dataset):
         indices: Sequence[int],
         transform: Optional[Callable] = None,
     ) -> None:
-        self.base_dataset = base_dataset
-        self.split_name = split_name
-        self.indices = list(indices)
-        self._override_transform = transform
+        """
+        Initialize the split view.
+
+        Notes
+        -----
+        We call `super().__init__()` first, and only then assign view-specific
+        attributes. This prevents parent-class initialization from overwriting
+        our internal fields.
+        """
+        if not isinstance(split_name, str) or not split_name:
+            raise ValueError("split_name must be a non-empty string.")
+
+        if indices is None:
+            raise ValueError("indices must not be None.")
+
+        materialized_indices = list(indices)
+
+        if any(not isinstance(i, int) for i in materialized_indices):
+            bad_type = next(type(i).__name__ for i in materialized_indices if not isinstance(i, int))
+            raise TypeError(
+                f"indices must contain only integers, got element of type '{bad_type}'."
+            )
+
+        # Initialize PyG Dataset first to avoid accidental overwriting of our
+        # own attributes by the parent class.
         super().__init__(root=None, transform=transform, pre_transform=None)
 
+        self.base_dataset = base_dataset
+        self.split_name = split_name
+        self._view_indices = materialized_indices
+        self._override_transform = transform
+
     def len(self) -> int:
-        """Return number of samples in this split view."""
-        return len(self.indices)
+        """
+        Return the number of samples in this split view.
+
+        Returns
+        -------
+        int
+            Number of samples contained in this view.
+        """
+        return len(self._view_indices)
 
     def get(self, idx: int) -> Data:
         """
         Retrieve one sample from the split view.
 
+        Parameters
+        ----------
+        idx : int
+            Index within this split view.
+
+        Returns
+        -------
+        Data
+            The sample returned by the base dataset, optionally followed by
+            a view-specific transform.
+
         Notes
         -----
-        If a view-specific transform is provided, it is applied after the base
-        dataset retrieval. For this reason, the base dataset should ideally be
-        initialized with `transform=None` if split-specific transforms are used.
+        The retrieval flow is:
+
+        split-local index -> base dataset index -> base dataset sample
+
+        If `transform` was given when constructing the view, it is applied after
+        the base dataset retrieval.
+
+        Engineering note
+        ----------------
+        If the base dataset itself already has a transform, and this view also
+        has a transform, then both may be applied in sequence.
         """
-        data = self.base_dataset[self.indices[idx]]
+        base_idx = self._view_indices[idx]
+        data = self.base_dataset[base_idx]
+
         if self._override_transform is not None:
             data = self._override_transform(data)
+
         return data
 
     @property
     def sample_ids(self) -> List[str]:
         """
-        Return the ordered sample IDs in this split.
+        Return the ordered sample IDs contained in this split.
+
+        Returns
+        -------
+        List[str]
+            Sample IDs in the same order as the split view.
         """
-        return [self.base_dataset.sample_ids[i] for i in self.indices]
+        return [self.base_dataset.sample_ids[i] for i in self._view_indices]
+
+    @property
+    def split_indices(self) -> List[int]:
+        """
+        Return a copy of the underlying base-dataset indices.
+
+        Returns
+        -------
+        List[int]
+            Copy of the base-dataset index mapping for this split.
+
+        Notes
+        -----
+        A copy is returned to protect internal state from accidental mutation.
+        """
+        return list(self._view_indices)
 
     def __repr__(self) -> str:
+        """
+        Return a concise string representation for debugging.
+        """
         return (
             f"{self.__class__.__name__}("
             f"split_name='{self.split_name}', "
-            f"num_samples={len(self)}"
+            f"num_samples={self.len()}"
             f")"
         )
 
