@@ -116,7 +116,7 @@ here.
 """
 
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 import numbers
 
 import torch
@@ -133,7 +133,7 @@ class TreeToGraphConverter:
 
     Parameters
     ----------
-    feature_names : Optional[List[str]], default=None
+    feature_names : Optional[Sequence[str]], default=None
         Ordered list of node attribute names to extract from each tree node.
 
         Semantics:
@@ -230,7 +230,7 @@ class TreeToGraphConverter:
 
     Attributes
     ----------
-    feature_names : List[str]
+    feature_names : Tuple[str, ...]
         Ordered input feature names extracted from original nodes.
 
     output_feature_names : List[str]
@@ -305,7 +305,7 @@ class TreeToGraphConverter:
     >>> data = converter.convert_and_save(tree, "graph.pt")
     """
 
-    DEFAULT_FEATURE_NAMES = [
+    DEFAULT_FEATURE_NAMES = (
         "node_time",
         "time_bin",
         "is_internal",
@@ -316,7 +316,7 @@ class TreeToGraphConverter:
         "is_not_sampled_ancestor",
         "branch_length",
         "extant_sampling_probability",
-    ]
+    )
 
     EDGE_TYPE_TREE = 0
     EDGE_TYPE_VIRTUAL_TO_REAL = 1
@@ -329,7 +329,7 @@ class TreeToGraphConverter:
 
     def __init__(
         self,
-        feature_names: Optional[List[str]] = None,
+        feature_names: Optional[Sequence[str]] = None,
         add_virtual_nodes: bool = False,
         num_time_bins: Optional[int] = None,
         traversal_strategy: str = "preorder",
@@ -341,9 +341,9 @@ class TreeToGraphConverter:
         copy_sampling_prob_to_virtual: bool = True,
     ):
         self.feature_names = (
-            feature_names.copy()
+            tuple(feature_names)
             if feature_names is not None
-            else self.DEFAULT_FEATURE_NAMES.copy()
+            else self.DEFAULT_FEATURE_NAMES
         )
         self.add_virtual_nodes = add_virtual_nodes
         self.num_time_bins = num_time_bins
@@ -358,22 +358,21 @@ class TreeToGraphConverter:
         self._validate_init_params()
 
     @property
-    def output_feature_names(self) -> List[str]:
+    def output_feature_names(self) -> Tuple[str, ...]:
         """
         Final ordered feature names in `data.x`.
 
         Returns
         -------
-        List[str]
+        Tuple[str, ...]
             If `append_is_virtual_feature=False`, this equals `feature_names`.
 
             If `append_is_virtual_feature=True`, the final column is:
             - "is_virtual_node"
         """
-        names = self.feature_names.copy()
         if self.append_is_virtual_feature:
-            names.append("is_virtual")
-        return names
+            return self.feature_names + ("is_virtual",)
+        return self.feature_names
 
     def convert(
         self,
