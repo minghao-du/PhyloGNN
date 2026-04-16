@@ -74,9 +74,7 @@ class GATBlock(nn.Module):
         if heads <= 0:
             raise ValueError(f"`heads` must be > 0, got {heads}.")
         if not (0.0 <= dropout_prob < 1.0):
-            raise ValueError(
-                f"`dropout_prob` must be in [0, 1), got {dropout_prob}."
-            )
+            raise ValueError(f"`dropout_prob` must be in [0, 1), got {dropout_prob}.")
 
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -360,9 +358,7 @@ class ResidualGATStack(nn.Module):
         if in_channels <= 0:
             raise ValueError(f"`in_channels` must be > 0, got {in_channels}.")
         if hidden_channels <= 0:
-            raise ValueError(
-                f"`hidden_channels` must be > 0, got {hidden_channels}."
-            )
+            raise ValueError(f"`hidden_channels` must be > 0, got {hidden_channels}.")
         if num_layers <= 0:
             raise ValueError(f"`num_layers` must be > 0, got {num_layers}.")
         if heads <= 0:
@@ -474,8 +470,7 @@ def build_gat_encoder(
         )
 
     raise ValueError(
-        f"Unsupported `encoder_type`: {encoder_type!r}. "
-        "Expected one of ('gat', 'res_gat')."
+        f"Unsupported `encoder_type`: {encoder_type!r}. " "Expected one of ('gat', 'res_gat')."
     )
 
 
@@ -518,8 +513,7 @@ class PositionalEncoding(nn.Module):
 
         position = torch.arange(0, max_len).unsqueeze(1).float()
         div_term = torch.exp(
-            torch.arange(0, d_model, 2).float()
-            * (-torch.log(torch.tensor(10000.0)) / d_model)
+            torch.arange(0, d_model, 2).float() * (-torch.log(torch.tensor(10000.0)) / d_model)
         )
 
         pe = torch.zeros(max_len, d_model)
@@ -553,15 +547,13 @@ class PositionalEncoding(nn.Module):
                 f"`x` must be 3D [batch_size, seq_len, d_model], got shape {tuple(x.shape)}."
             )
         if x.size(1) > self.max_len:
-            raise ValueError(
-                f"Input sequence length {x.size(1)} exceeds max_len={self.max_len}."
-            )
+            raise ValueError(f"Input sequence length {x.size(1)} exceeds max_len={self.max_len}.")
         if x.size(2) != self.d_model:
             raise ValueError(
                 f"Input feature dim must equal d_model={self.d_model}, got {x.size(2)}."
             )
 
-        x = x + self.pe[:, :x.size(1)]
+        x = x + self.pe[:, : x.size(1)]
         return self.dropout(x)
 
 
@@ -616,18 +608,13 @@ class MLPHead(nn.Module):
         if output_dim <= 0:
             raise ValueError(f"`output_dim` must be > 0, got {output_dim}.")
         if num_hidden_layers < 0:
-            raise ValueError(
-                f"`num_hidden_layers` must be >= 0, got {num_hidden_layers}."
-            )
+            raise ValueError(f"`num_hidden_layers` must be >= 0, got {num_hidden_layers}.")
         if not (0.0 <= dropout_prob < 1.0):
-            raise ValueError(
-                f"`dropout_prob` must be in [0, 1), got {dropout_prob}."
-            )
+            raise ValueError(f"`dropout_prob` must be in [0, 1), got {dropout_prob}.")
         if num_hidden_layers > 0:
             if hidden_dim is None or hidden_dim <= 0:
                 raise ValueError(
-                    "`hidden_dim` must be provided and > 0 when "
-                    "`num_hidden_layers > 0`."
+                    "`hidden_dim` must be provided and > 0 when " "`num_hidden_layers > 0`."
                 )
 
         valid_activations = {None, "relu", "sigmoid", "tanh"}

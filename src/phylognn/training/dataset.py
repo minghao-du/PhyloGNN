@@ -175,10 +175,8 @@ from pathlib import Path
 from typing import (
     Callable,
     Dict,
-    Iterable,
     List,
     Mapping,
-    MutableMapping,
     Optional,
     Sequence,
     Tuple,
@@ -270,9 +268,7 @@ def _to_tensor(value: LabelValue, *, scalar_dtype: torch.dtype = torch.float32) 
         return value
     if isinstance(value, numbers.Real):
         return torch.tensor(value, dtype=scalar_dtype)
-    raise TypeError(
-        f"Expected a torch.Tensor or numeric scalar, got {type(value).__name__}."
-    )
+    raise TypeError(f"Expected a torch.Tensor or numeric scalar, got {type(value).__name__}.")
 
 
 def _normalize_label_object(label_obj: object) -> LoadedLabelObject:
@@ -305,9 +301,7 @@ def _normalize_label_object(label_obj: object) -> LoadedLabelObject:
         normalized: Dict[str, Tensor] = {}
         for key, value in label_obj.items():
             if not isinstance(key, str):
-                raise TypeError(
-                    f"Task name must be str, got {type(key).__name__}."
-                )
+                raise TypeError(f"Task name must be str, got {type(key).__name__}.")
             normalized[key] = _to_tensor(value)
         return normalized
 
@@ -447,13 +441,9 @@ class DatasetSplit:
         seen: Dict[str, str] = {}
         for split_name, sample_ids in self.splits.items():
             if not isinstance(split_name, str):
-                raise TypeError(
-                    f"Split name must be str, got {type(split_name).__name__}."
-                )
+                raise TypeError(f"Split name must be str, got {type(split_name).__name__}.")
             if not isinstance(sample_ids, list):
-                raise TypeError(
-                    f"Split '{split_name}' must be a list of sample IDs."
-                )
+                raise TypeError(f"Split '{split_name}' must be a list of sample IDs.")
 
             for sample_id in sample_ids:
                 if not isinstance(sample_id, str):
@@ -540,9 +530,7 @@ class DatasetSplit:
 
         total = train_ratio + val_ratio + test_ratio
         if abs(total - 1.0) > 1e-8:
-            raise ValueError(
-                f"Split ratios must sum to 1.0, got {total:.12f}."
-            )
+            raise ValueError(f"Split ratios must sum to 1.0, got {total:.12f}.")
 
         for name, ratio in zip(split_names, (train_ratio, val_ratio, test_ratio)):
             if ratio < 0:
@@ -565,8 +553,8 @@ class DatasetSplit:
         return cls.from_dict(
             {
                 train_name: ids[:n_train],
-                val_name: ids[n_train:n_train + n_val],
-                test_name: ids[n_train + n_val:n_train + n_val + n_test],
+                val_name: ids[n_train : n_train + n_val],
+                test_name: ids[n_train + n_val : n_train + n_val + n_test],
             }
         )
 
@@ -614,9 +602,7 @@ class DatasetSplit:
         for split_name, filename in split_files.items():
             path = manifest_dir / filename
             if not path.exists():
-                raise FileNotFoundError(
-                    f"Split manifest for '{split_name}' does not exist: {path}"
-                )
+                raise FileNotFoundError(f"Split manifest for '{split_name}' does not exist: {path}")
             split_dict[split_name] = _read_sample_id_file(path)
 
         return cls.from_dict(split_dict)
@@ -719,7 +705,9 @@ class SplitDatasetView(Dataset):
         materialized_indices = list(indices)
 
         if any(not isinstance(i, int) for i in materialized_indices):
-            bad_type = next(type(i).__name__ for i in materialized_indices if not isinstance(i, int))
+            bad_type = next(
+                type(i).__name__ for i in materialized_indices if not isinstance(i, int)
+            )
             raise TypeError(
                 f"indices must contain only integers, got element of type '{bad_type}'."
             )
@@ -977,7 +965,9 @@ class SplitPhyloDataset(_BaseSplitAwareDataset):
         transform: Optional[Callable] = None,
         pre_transform: Optional[Callable] = None,
     ) -> None:
-        self._data_list: List[Data] = [self._validate_graph(data, idx) for idx, data in enumerate(data_list)]
+        self._data_list: List[Data] = [
+            self._validate_graph(data, idx) for idx, data in enumerate(data_list)
+        ]
         self._labels = labels
         self._task_names: Optional[List[str]] = None
 
@@ -1037,9 +1027,7 @@ class SplitPhyloDataset(_BaseSplitAwareDataset):
             self._task_names = list(self._labels.keys())
             for task_name, task_tensor in self._labels.items():
                 if not isinstance(task_name, str):
-                    raise TypeError(
-                        f"Task name must be str, got {type(task_name).__name__}."
-                    )
+                    raise TypeError(f"Task name must be str, got {type(task_name).__name__}.")
                 if not isinstance(task_tensor, Tensor):
                     raise TypeError(
                         f"Task '{task_name}' labels must be a torch.Tensor, "
@@ -1052,9 +1040,7 @@ class SplitPhyloDataset(_BaseSplitAwareDataset):
                     )
             return
 
-        raise TypeError(
-            "labels must be one of: None, torch.Tensor, or dict[str, torch.Tensor]."
-        )
+        raise TypeError("labels must be one of: None, torch.Tensor, or dict[str, torch.Tensor].")
 
     def len(self) -> int:
         """Return number of graphs."""
@@ -1237,10 +1223,13 @@ class SplitPhyloDiskDataset(_BaseSplitAwareDataset):
                 ]
                 if missing_pairs:
                     preview = "\n".join(missing_pairs[:10])
-                    extra = "" if len(missing_pairs) <= 10 else f"\n... and {len(missing_pairs) - 10} more"
+                    extra = (
+                        ""
+                        if len(missing_pairs) <= 10
+                        else f"\n... and {len(missing_pairs) - 10} more"
+                    )
                     raise FileNotFoundError(
-                        "Missing label files for the following graph files:\n"
-                        f"{preview}{extra}"
+                        "Missing label files for the following graph files:\n" f"{preview}{extra}"
                     )
 
             self._infer_task_names_if_possible()
@@ -1448,8 +1437,7 @@ class SplitPhyloDiskDataset(_BaseSplitAwareDataset):
                     preview = "\n".join(missing[:10])
                     extra = "" if len(missing) <= 10 else f"\n... and {len(missing) - 10} more"
                     raise KeyError(
-                        f"Split '{split_name}' contains unknown sample IDs:\n"
-                        f"{preview}{extra}"
+                        f"Split '{split_name}' contains unknown sample IDs:\n" f"{preview}{extra}"
                     )
 
             filename = (

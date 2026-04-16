@@ -1,0 +1,78 @@
+根据我下面的代码，写一个从文件名，读取树，转成ETE3树，便于我上面代码构建特征的代码
+import dendropy
+from ete3 import Tree
+
+
+dtree = dendropy.Tree.get(
+    path="examples_data/simulated_trees/5.trees",
+    schema="nexus",
+    preserve_underscores=True,
+    extract_comment_metadata=True,   # 解析 [&key=value] 这类注释
+)
+
+
+你觉得
+
+注意：
+1. 写清楚注释和specification
+2. 提高代码的工程性
+3. 你不需要告诉我问题，直接提供最优的代码
+
+
+
+我现在想使用simulation-based inference进行phylodynamics的推断。
+
+我的训练集为：通过birth-death-sampling model，生成一些系统发育树。
+预测值为：birth-death-sampling model模拟的参数
+
+我在训练之前，先进行一个rescale，把树的平均branch length设定为1
+
+但是我现在面临一个问题：由于有的树在到达现今时间已经全部灭绝，有的树则有现生物种的采样。我需不需要特殊的机制，来区分这两类树呢。
+
+以及，既然我做了rescale，那么我还需不需要给每个node添加一个真实时间的feature呢（我使用的是GNN）
+
+
+
+函数有一个问题，做完rescale之后，要给所有的node都添加一个feature，是rescale factor啊，你明白我的意思吗，请你修改代码，增加上这个功能。
+
+
+你觉得我有必要在这个类上面，写一个函数，返回出所有可用的features名字吗
+
+如果有必要的话，请你提供这个函数
+
+注意：
+1. 写清楚注释和specification
+2. 提高代码的工程性
+3. 你不需要告诉我不同的实施方案，直接提供最优的代码
+4. 只需要提供修改部分的代码，没有修改的部分，不用提供代码
+
+
+
+请帮我修改上面的代码，我需要的是：
+1. 你读取examples_data/simulated_trees/下面的的所有树文件（自动读取，因为有多少我也不知道）
+2. 按上面的操作流程保存
+
+请帮我修改代码
+
+注意：
+1. 写清楚注释
+2. 提高代码的工程性
+3. 你不需要告诉我不同的实施方案，直接提供最优的代码
+
+
+
+我现在在"example_outputs/x"文件下面有.pt的graph，"example_outputs/y"下面有.pt的label
+
+我想读取，按7:3:1切分，我该怎么写代码呢。
+
+使用上面的代码，进行训练呢
+
+
+
+帮我看一下@src/phylognn/training/trainer.py，有没有需要优化的地方。
+
+注意：
+1. 写清楚注释
+2. 提高代码的工程性
+3. 你不需要告诉我不同的实施方案，直接提供最优的代码
+4. 分小步修改，每一小步修改，都经过我的允许后再进行修改

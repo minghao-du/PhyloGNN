@@ -234,3 +234,10 @@ python -m build
   class, or file first.
 - Run `ruff check` and `black --check` on touched areas when practical.
 - If you add a new public API or behavior contract, update docstrings and tests.
+
+## Active Technologies
+- Python >=3.8 + PyTorch, PyTorch Geometric, ETE3, NumPy; optional tree I/O path may use DendroPy via extras (001-api-exposure-refactor)
+- Source files, package metadata, and optional serialized `.pt` graph artifacts; no database (001-api-exposure-refactor)
+
+## Recent Changes
+- 001-api-exposure-refactor: Added Python >=3.8 + PyTorch, PyTorch Geometric, ETE3, NumPy; optional tree I/O path may use DendroPy via extras

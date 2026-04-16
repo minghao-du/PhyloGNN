@@ -1,0 +1,2142 @@
+#NEXUS
+
+Begin taxa;
+	Dimensions ntax=1065;
+		Taxlabels
+			leaf_0
+			leaf_1
+			leaf_2
+			leaf_3
+			leaf_4
+			leaf_5
+			leaf_6
+			leaf_7
+			leaf_8
+			leaf_9
+			leaf_10
+			leaf_11
+			leaf_12
+			leaf_13
+			leaf_14
+			leaf_15
+			leaf_16
+			leaf_17
+			leaf_18
+			leaf_19
+			leaf_20
+			leaf_21
+			leaf_22
+			leaf_23
+			leaf_24
+			leaf_25
+			leaf_26
+			leaf_27
+			leaf_28
+			leaf_29
+			leaf_30
+			leaf_31
+			leaf_32
+			leaf_33
+			leaf_34
+			leaf_35
+			leaf_36
+			leaf_37
+			leaf_38
+			leaf_39
+			leaf_40
+			leaf_41
+			leaf_42
+			leaf_43
+			leaf_44
+			leaf_45
+			leaf_46
+			leaf_47
+			leaf_48
+			leaf_49
+			leaf_50
+			leaf_51
+			leaf_52
+			leaf_53
+			leaf_54
+			leaf_55
+			leaf_56
+			leaf_57
+			leaf_58
+			leaf_59
+			leaf_60
+			leaf_61
+			leaf_62
+			leaf_63
+			leaf_64
+			leaf_65
+			leaf_66
+			leaf_67
+			leaf_68
+			leaf_69
+			leaf_70
+			leaf_71
+			leaf_72
+			leaf_73
+			leaf_74
+			leaf_75
+			leaf_76
+			leaf_77
+			leaf_78
+			leaf_79
+			leaf_80
+			leaf_81
+			leaf_82
+			leaf_83
+			leaf_84
+			leaf_85
+			leaf_86
+			leaf_87
+			leaf_88
+			leaf_89
+			leaf_90
+			leaf_91
+			leaf_92
+			leaf_93
+			leaf_94
+			leaf_95
+			leaf_96
+			leaf_97
+			leaf_98
+			leaf_99
+			leaf_100
+			leaf_101
+			leaf_102
+			leaf_103
+			leaf_104
+			leaf_105
+			leaf_106
+			leaf_107
+			leaf_108
+			leaf_109
+			leaf_110
+			leaf_111
+			leaf_112
+			leaf_113
+			leaf_114
+			leaf_115
+			leaf_116
+			leaf_117
+			leaf_118
+			leaf_119
+			leaf_120
+			leaf_121
+			leaf_122
+			leaf_123
+			leaf_124
+			leaf_125
+			leaf_126
+			leaf_127
+			leaf_128
+			leaf_129
+			leaf_130
+			leaf_131
+			leaf_132
+			leaf_133
+			leaf_134
+			leaf_135
+			leaf_136
+			leaf_137
+			leaf_138
+			leaf_139
+			leaf_140
+			leaf_141
+			leaf_142
+			leaf_143
+			leaf_144
+			leaf_145
+			leaf_146
+			leaf_147
+			leaf_148
+			leaf_149
+			leaf_150
+			leaf_151
+			leaf_152
+			leaf_153
+			leaf_154
+			leaf_155
+			leaf_156
+			leaf_157
+			leaf_158
+			leaf_159
+			leaf_160
+			leaf_161
+			leaf_162
+			leaf_163
+			leaf_164
+			leaf_165
+			leaf_166
+			leaf_167
+			leaf_168
+			leaf_169
+			leaf_170
+			leaf_171
+			leaf_172
+			leaf_173
+			leaf_174
+			leaf_175
+			leaf_176
+			leaf_177
+			leaf_178
+			leaf_179
+			leaf_180
+			leaf_181
+			leaf_182
+			leaf_183
+			leaf_184
+			leaf_185
+			leaf_186
+			leaf_187
+			leaf_188
+			leaf_189
+			leaf_190
+			leaf_191
+			leaf_192
+			leaf_193
+			leaf_194
+			leaf_195
+			leaf_196
+			leaf_197
+			leaf_198
+			leaf_199
+			leaf_200
+			leaf_201
+			leaf_202
+			leaf_203
+			leaf_204
+			leaf_205
+			leaf_206
+			leaf_207
+			leaf_208
+			leaf_209
+			leaf_210
+			leaf_211
+			leaf_212
+			leaf_213
+			leaf_214
+			leaf_215
+			leaf_216
+			leaf_217
+			leaf_218
+			leaf_219
+			leaf_220
+			leaf_221
+			leaf_222
+			leaf_223
+			leaf_224
+			leaf_225
+			leaf_226
+			leaf_227
+			leaf_228
+			leaf_229
+			leaf_230
+			leaf_231
+			leaf_232
+			leaf_233
+			leaf_234
+			leaf_235
+			leaf_236
+			leaf_237
+			leaf_238
+			leaf_239
+			leaf_240
+			leaf_241
+			leaf_242
+			leaf_243
+			leaf_244
+			leaf_245
+			leaf_246
+			leaf_247
+			leaf_248
+			leaf_249
+			leaf_250
+			leaf_251
+			leaf_252
+			leaf_253
+			leaf_254
+			leaf_255
+			leaf_256
+			leaf_257
+			leaf_258
+			leaf_259
+			leaf_260
+			leaf_261
+			leaf_262
+			leaf_263
+			leaf_264
+			leaf_265
+			leaf_266
+			leaf_267
+			leaf_268
+			leaf_269
+			leaf_270
+			leaf_271
+			leaf_272
+			leaf_273
+			leaf_274
+			leaf_275
+			leaf_276
+			leaf_277
+			leaf_278
+			leaf_279
+			leaf_280
+			leaf_281
+			leaf_282
+			leaf_283
+			leaf_284
+			leaf_285
+			leaf_286
+			leaf_287
+			leaf_288
+			leaf_289
+			leaf_290
+			leaf_291
+			leaf_292
+			leaf_293
+			leaf_294
+			leaf_295
+			leaf_296
+			leaf_297
+			leaf_298
+			leaf_299
+			leaf_300
+			leaf_301
+			leaf_302
+			leaf_303
+			leaf_304
+			leaf_305
+			leaf_306
+			leaf_307
+			leaf_308
+			leaf_309
+			leaf_310
+			leaf_311
+			leaf_312
+			leaf_313
+			leaf_314
+			leaf_315
+			leaf_316
+			leaf_317
+			leaf_318
+			leaf_319
+			leaf_320
+			leaf_321
+			leaf_322
+			leaf_323
+			leaf_324
+			leaf_325
+			leaf_326
+			leaf_327
+			leaf_328
+			leaf_329
+			leaf_330
+			leaf_331
+			leaf_332
+			leaf_333
+			leaf_334
+			leaf_335
+			leaf_336
+			leaf_337
+			leaf_338
+			leaf_339
+			leaf_340
+			leaf_341
+			leaf_342
+			leaf_343
+			leaf_344
+			leaf_345
+			leaf_346
+			leaf_347
+			leaf_348
+			leaf_349
+			leaf_350
+			leaf_351
+			leaf_352
+			leaf_353
+			leaf_354
+			leaf_355
+			leaf_356
+			leaf_357
+			leaf_358
+			leaf_359
+			leaf_360
+			leaf_361
+			leaf_362
+			leaf_363
+			leaf_364
+			leaf_365
+			leaf_366
+			leaf_367
+			leaf_368
+			leaf_369
+			leaf_370
+			leaf_371
+			leaf_372
+			leaf_373
+			leaf_374
+			leaf_375
+			leaf_376
+			leaf_377
+			leaf_378
+			leaf_379
+			leaf_380
+			leaf_381
+			leaf_382
+			leaf_383
+			leaf_384
+			leaf_385
+			leaf_386
+			leaf_387
+			leaf_388
+			leaf_389
+			leaf_390
+			leaf_391
+			leaf_392
+			leaf_393
+			leaf_394
+			leaf_395
+			leaf_396
+			leaf_397
+			leaf_398
+			leaf_399
+			leaf_400
+			leaf_401
+			leaf_402
+			leaf_403
+			leaf_404
+			leaf_405
+			leaf_406
+			leaf_407
+			leaf_408
+			leaf_409
+			leaf_410
+			leaf_411
+			leaf_412
+			leaf_413
+			leaf_414
+			leaf_415
+			leaf_416
+			leaf_417
+			leaf_418
+			leaf_419
+			leaf_420
+			leaf_421
+			leaf_422
+			leaf_423
+			leaf_424
+			leaf_425
+			leaf_426
+			leaf_427
+			leaf_428
+			leaf_429
+			leaf_430
+			leaf_431
+			leaf_432
+			leaf_433
+			leaf_434
+			leaf_435
+			leaf_436
+			leaf_437
+			leaf_438
+			leaf_439
+			leaf_440
+			leaf_441
+			leaf_442
+			leaf_443
+			leaf_444
+			leaf_445
+			leaf_446
+			leaf_447
+			leaf_448
+			leaf_449
+			leaf_450
+			leaf_451
+			leaf_452
+			leaf_453
+			leaf_454
+			leaf_455
+			leaf_456
+			leaf_457
+			leaf_458
+			leaf_459
+			leaf_460
+			leaf_461
+			leaf_462
+			leaf_463
+			leaf_464
+			leaf_465
+			leaf_466
+			leaf_467
+			leaf_468
+			leaf_469
+			leaf_470
+			leaf_471
+			leaf_472
+			leaf_473
+			leaf_474
+			leaf_475
+			leaf_476
+			leaf_477
+			leaf_478
+			leaf_479
+			leaf_480
+			leaf_481
+			leaf_482
+			leaf_483
+			leaf_484
+			leaf_485
+			leaf_486
+			leaf_487
+			leaf_488
+			leaf_489
+			leaf_490
+			leaf_491
+			leaf_492
+			leaf_493
+			leaf_494
+			leaf_495
+			leaf_496
+			leaf_497
+			leaf_498
+			leaf_499
+			leaf_500
+			leaf_501
+			leaf_502
+			leaf_503
+			leaf_504
+			leaf_505
+			leaf_506
+			leaf_507
+			leaf_508
+			leaf_509
+			leaf_510
+			leaf_511
+			leaf_512
+			leaf_513
+			leaf_514
+			leaf_515
+			leaf_516
+			leaf_517
+			leaf_518
+			leaf_519
+			leaf_520
+			leaf_521
+			leaf_522
+			leaf_523
+			leaf_524
+			leaf_525
+			leaf_526
+			leaf_527
+			leaf_528
+			leaf_529
+			leaf_530
+			leaf_531
+			leaf_532
+			leaf_533
+			leaf_534
+			leaf_535
+			leaf_536
+			leaf_537
+			leaf_538
+			leaf_539
+			leaf_540
+			leaf_541
+			leaf_542
+			leaf_543
+			leaf_544
+			leaf_545
+			leaf_546
+			leaf_547
+			leaf_548
+			leaf_549
+			leaf_550
+			leaf_551
+			leaf_552
+			leaf_553
+			leaf_554
+			leaf_555
+			leaf_556
+			leaf_557
+			leaf_558
+			leaf_559
+			leaf_560
+			leaf_561
+			leaf_562
+			leaf_563
+			leaf_564
+			leaf_565
+			leaf_566
+			leaf_567
+			leaf_568
+			leaf_569
+			leaf_570
+			leaf_571
+			leaf_572
+			leaf_573
+			leaf_574
+			leaf_575
+			leaf_576
+			leaf_577
+			leaf_578
+			leaf_579
+			leaf_580
+			leaf_581
+			leaf_582
+			leaf_583
+			leaf_584
+			leaf_585
+			leaf_586
+			leaf_587
+			leaf_588
+			leaf_589
+			leaf_590
+			leaf_591
+			leaf_592
+			leaf_593
+			leaf_594
+			leaf_595
+			leaf_596
+			leaf_597
+			leaf_598
+			leaf_599
+			leaf_600
+			leaf_601
+			leaf_602
+			leaf_603
+			leaf_604
+			leaf_605
+			leaf_606
+			leaf_607
+			leaf_608
+			leaf_609
+			leaf_610
+			leaf_611
+			leaf_612
+			leaf_613
+			leaf_614
+			leaf_615
+			leaf_616
+			leaf_617
+			leaf_618
+			leaf_619
+			leaf_620
+			leaf_621
+			leaf_622
+			leaf_623
+			leaf_624
+			leaf_625
+			leaf_626
+			leaf_627
+			leaf_628
+			leaf_629
+			leaf_630
+			leaf_631
+			leaf_632
+			leaf_633
+			leaf_634
+			leaf_635
+			leaf_636
+			leaf_637
+			leaf_638
+			leaf_639
+			leaf_640
+			leaf_641
+			leaf_642
+			leaf_643
+			leaf_644
+			leaf_645
+			leaf_646
+			leaf_647
+			leaf_648
+			leaf_649
+			leaf_650
+			leaf_651
+			leaf_652
+			leaf_653
+			leaf_654
+			leaf_655
+			leaf_656
+			leaf_657
+			leaf_658
+			leaf_659
+			leaf_660
+			leaf_661
+			leaf_662
+			leaf_663
+			leaf_664
+			leaf_665
+			leaf_666
+			leaf_667
+			leaf_668
+			leaf_669
+			leaf_670
+			leaf_671
+			leaf_672
+			leaf_673
+			leaf_674
+			leaf_675
+			leaf_676
+			leaf_677
+			leaf_678
+			leaf_679
+			leaf_680
+			leaf_681
+			leaf_682
+			leaf_683
+			leaf_684
+			leaf_685
+			leaf_686
+			leaf_687
+			leaf_688
+			leaf_689
+			leaf_690
+			leaf_691
+			leaf_692
+			leaf_693
+			leaf_694
+			leaf_695
+			leaf_696
+			leaf_697
+			leaf_698
+			leaf_699
+			leaf_700
+			leaf_701
+			leaf_702
+			leaf_703
+			leaf_704
+			leaf_705
+			leaf_706
+			leaf_707
+			leaf_708
+			leaf_709
+			leaf_710
+			leaf_711
+			leaf_712
+			leaf_713
+			leaf_714
+			leaf_715
+			leaf_716
+			leaf_717
+			leaf_718
+			leaf_719
+			leaf_720
+			leaf_721
+			leaf_722
+			leaf_723
+			leaf_724
+			leaf_725
+			leaf_726
+			leaf_727
+			leaf_728
+			leaf_729
+			leaf_730
+			leaf_731
+			leaf_732
+			leaf_733
+			leaf_734
+			leaf_735
+			leaf_736
+			leaf_737
+			leaf_738
+			leaf_739
+			leaf_740
+			leaf_741
+			leaf_742
+			leaf_743
+			leaf_744
+			leaf_745
+			leaf_746
+			leaf_747
+			leaf_748
+			leaf_749
+			leaf_750
+			leaf_751
+			leaf_752
+			leaf_753
+			leaf_754
+			leaf_755
+			leaf_756
+			leaf_757
+			leaf_758
+			leaf_759
+			leaf_760
+			leaf_761
+			leaf_762
+			leaf_763
+			leaf_764
+			leaf_765
+			leaf_766
+			leaf_767
+			leaf_768
+			leaf_769
+			leaf_770
+			leaf_771
+			leaf_772
+			leaf_773
+			leaf_774
+			leaf_775
+			leaf_776
+			leaf_777
+			leaf_778
+			leaf_779
+			leaf_780
+			leaf_781
+			leaf_782
+			leaf_783
+			leaf_784
+			leaf_785
+			leaf_786
+			leaf_787
+			leaf_788
+			leaf_789
+			leaf_790
+			leaf_791
+			leaf_792
+			leaf_793
+			leaf_794
+			leaf_795
+			leaf_796
+			leaf_797
+			leaf_798
+			leaf_799
+			leaf_800
+			leaf_801
+			leaf_802
+			leaf_803
+			leaf_804
+			leaf_805
+			leaf_806
+			leaf_807
+			leaf_808
+			leaf_809
+			leaf_810
+			leaf_811
+			leaf_812
+			leaf_813
+			leaf_814
+			leaf_815
+			leaf_816
+			leaf_817
+			leaf_818
+			leaf_819
+			leaf_820
+			leaf_821
+			leaf_822
+			leaf_823
+			leaf_824
+			leaf_825
+			leaf_826
+			leaf_827
+			leaf_828
+			leaf_829
+			leaf_830
+			leaf_831
+			leaf_832
+			leaf_833
+			leaf_834
+			leaf_835
+			leaf_836
+			leaf_837
+			leaf_838
+			leaf_839
+			leaf_840
+			leaf_841
+			leaf_842
+			leaf_843
+			leaf_844
+			leaf_845
+			leaf_846
+			leaf_847
+			leaf_848
+			leaf_849
+			leaf_850
+			leaf_851
+			leaf_852
+			leaf_853
+			leaf_854
+			leaf_855
+			leaf_856
+			leaf_857
+			leaf_858
+			leaf_859
+			leaf_860
+			leaf_861
+			leaf_862
+			leaf_863
+			leaf_864
+			leaf_865
+			leaf_866
+			leaf_867
+			leaf_868
+			leaf_869
+			leaf_870
+			leaf_871
+			leaf_872
+			leaf_873
+			leaf_874
+			leaf_875
+			leaf_876
+			leaf_877
+			leaf_878
+			leaf_879
+			leaf_880
+			leaf_881
+			leaf_882
+			leaf_883
+			leaf_884
+			leaf_885
+			leaf_886
+			leaf_887
+			leaf_888
+			leaf_889
+			leaf_890
+			leaf_891
+			leaf_892
+			leaf_893
+			leaf_894
+			leaf_895
+			leaf_896
+			leaf_897
+			leaf_898
+			leaf_899
+			leaf_900
+			leaf_901
+			leaf_902
+			leaf_903
+			leaf_904
+			leaf_905
+			leaf_906
+			leaf_907
+			leaf_908
+			leaf_909
+			leaf_910
+			leaf_911
+			leaf_912
+			leaf_913
+			leaf_914
+			leaf_915
+			leaf_916
+			leaf_917
+			leaf_918
+			leaf_919
+			leaf_920
+			leaf_921
+			leaf_922
+			leaf_923
+			leaf_924
+			leaf_925
+			leaf_926
+			leaf_927
+			leaf_928
+			leaf_929
+			leaf_930
+			leaf_931
+			leaf_932
+			leaf_933
+			leaf_934
+			leaf_935
+			leaf_936
+			leaf_937
+			leaf_938
+			leaf_939
+			leaf_940
+			leaf_941
+			leaf_942
+			leaf_943
+			leaf_944
+			leaf_945
+			leaf_946
+			leaf_947
+			leaf_948
+			leaf_949
+			leaf_950
+			leaf_951
+			leaf_952
+			leaf_953
+			leaf_954
+			leaf_955
+			leaf_956
+			leaf_957
+			leaf_958
+			leaf_959
+			leaf_960
+			leaf_961
+			leaf_962
+			leaf_963
+			leaf_964
+			leaf_965
+			leaf_966
+			leaf_967
+			leaf_968
+			leaf_969
+			leaf_970
+			leaf_971
+			leaf_972
+			leaf_973
+			leaf_974
+			leaf_975
+			leaf_976
+			leaf_977
+			leaf_978
+			leaf_979
+			leaf_980
+			leaf_981
+			leaf_982
+			leaf_983
+			leaf_984
+			leaf_985
+			leaf_986
+			leaf_987
+			leaf_988
+			leaf_989
+			leaf_990
+			leaf_991
+			leaf_992
+			leaf_993
+			leaf_994
+			leaf_995
+			leaf_996
+			leaf_997
+			leaf_998
+			leaf_999
+			leaf_1000
+			leaf_1001
+			leaf_1002
+			leaf_1003
+			leaf_1004
+			leaf_1005
+			leaf_1006
+			leaf_1007
+			leaf_1008
+			leaf_1009
+			leaf_1010
+			leaf_1011
+			leaf_1012
+			leaf_1013
+			leaf_1014
+			leaf_1015
+			leaf_1016
+			leaf_1017
+			leaf_1018
+			leaf_1019
+			leaf_1020
+			leaf_1021
+			leaf_1022
+			leaf_1023
+			leaf_1024
+			leaf_1025
+			leaf_1026
+			leaf_1027
+			leaf_1028
+			leaf_1029
+			leaf_1030
+			leaf_1031
+			leaf_1032
+			leaf_1033
+			leaf_1034
+			leaf_1035
+			leaf_1036
+			leaf_1037
+			leaf_1038
+			leaf_1039
+			leaf_1040
+			leaf_1041
+			leaf_1042
+			leaf_1043
+			leaf_1044
+			leaf_1045
+			leaf_1046
+			leaf_1047
+			leaf_1048
+			leaf_1049
+			leaf_1050
+			leaf_1051
+			leaf_1052
+			leaf_1053
+			leaf_1054
+			leaf_1055
+			leaf_1056
+			leaf_1057
+			leaf_1058
+			leaf_1059
+			leaf_1060
+			leaf_1061
+			leaf_1062
+			leaf_1063
+			leaf_1064
+			;
+End;
+Begin trees;
+	Translate
+		     1 leaf_0,
+		     2 leaf_1,
+		     3 leaf_2,
+		     4 leaf_3,
+		     5 leaf_4,
+		     6 leaf_5,
+		     7 leaf_6,
+		     8 leaf_7,
+		     9 leaf_8,
+		    10 leaf_9,
+		    11 leaf_10,
+		    12 leaf_11,
+		    13 leaf_12,
+		    14 leaf_13,
+		    15 leaf_14,
+		    16 leaf_15,
+		    17 leaf_16,
+		    18 leaf_17,
+		    19 leaf_18,
+		    20 leaf_19,
+		    21 leaf_20,
+		    22 leaf_21,
+		    23 leaf_22,
+		    24 leaf_23,
+		    25 leaf_24,
+		    26 leaf_25,
+		    27 leaf_26,
+		    28 leaf_27,
+		    29 leaf_28,
+		    30 leaf_29,
+		    31 leaf_30,
+		    32 leaf_31,
+		    33 leaf_32,
+		    34 leaf_33,
+		    35 leaf_34,
+		    36 leaf_35,
+		    37 leaf_36,
+		    38 leaf_37,
+		    39 leaf_38,
+		    40 leaf_39,
+		    41 leaf_40,
+		    42 leaf_41,
+		    43 leaf_42,
+		    44 leaf_43,
+		    45 leaf_44,
+		    46 leaf_45,
+		    47 leaf_46,
+		    48 leaf_47,
+		    49 leaf_48,
+		    50 leaf_49,
+		    51 leaf_50,
+		    52 leaf_51,
+		    53 leaf_52,
+		    54 leaf_53,
+		    55 leaf_54,
+		    56 leaf_55,
+		    57 leaf_56,
+		    58 leaf_57,
+		    59 leaf_58,
+		    60 leaf_59,
+		    61 leaf_60,
+		    62 leaf_61,
+		    63 leaf_62,
+		    64 leaf_63,
+		    65 leaf_64,
+		    66 leaf_65,
+		    67 leaf_66,
+		    68 leaf_67,
+		    69 leaf_68,
+		    70 leaf_69,
+		    71 leaf_70,
+		    72 leaf_71,
+		    73 leaf_72,
+		    74 leaf_73,
+		    75 leaf_74,
+		    76 leaf_75,
+		    77 leaf_76,
+		    78 leaf_77,
+		    79 leaf_78,
+		    80 leaf_79,
+		    81 leaf_80,
+		    82 leaf_81,
+		    83 leaf_82,
+		    84 leaf_83,
+		    85 leaf_84,
+		    86 leaf_85,
+		    87 leaf_86,
+		    88 leaf_87,
+		    89 leaf_88,
+		    90 leaf_89,
+		    91 leaf_90,
+		    92 leaf_91,
+		    93 leaf_92,
+		    94 leaf_93,
+		    95 leaf_94,
+		    96 leaf_95,
+		    97 leaf_96,
+		    98 leaf_97,
+		    99 leaf_98,
+		   100 leaf_99,
+		   101 leaf_100,
+		   102 leaf_101,
+		   103 leaf_102,
+		   104 leaf_103,
+		   105 leaf_104,
+		   106 leaf_105,
+		   107 leaf_106,
+		   108 leaf_107,
+		   109 leaf_108,
+		   110 leaf_109,
+		   111 leaf_110,
+		   112 leaf_111,
+		   113 leaf_112,
+		   114 leaf_113,
+		   115 leaf_114,
+		   116 leaf_115,
+		   117 leaf_116,
+		   118 leaf_117,
+		   119 leaf_118,
+		   120 leaf_119,
+		   121 leaf_120,
+		   122 leaf_121,
+		   123 leaf_122,
+		   124 leaf_123,
+		   125 leaf_124,
+		   126 leaf_125,
+		   127 leaf_126,
+		   128 leaf_127,
+		   129 leaf_128,
+		   130 leaf_129,
+		   131 leaf_130,
+		   132 leaf_131,
+		   133 leaf_132,
+		   134 leaf_133,
+		   135 leaf_134,
+		   136 leaf_135,
+		   137 leaf_136,
+		   138 leaf_137,
+		   139 leaf_138,
+		   140 leaf_139,
+		   141 leaf_140,
+		   142 leaf_141,
+		   143 leaf_142,
+		   144 leaf_143,
+		   145 leaf_144,
+		   146 leaf_145,
+		   147 leaf_146,
+		   148 leaf_147,
+		   149 leaf_148,
+		   150 leaf_149,
+		   151 leaf_150,
+		   152 leaf_151,
+		   153 leaf_152,
+		   154 leaf_153,
+		   155 leaf_154,
+		   156 leaf_155,
+		   157 leaf_156,
+		   158 leaf_157,
+		   159 leaf_158,
+		   160 leaf_159,
+		   161 leaf_160,
+		   162 leaf_161,
+		   163 leaf_162,
+		   164 leaf_163,
+		   165 leaf_164,
+		   166 leaf_165,
+		   167 leaf_166,
+		   168 leaf_167,
+		   169 leaf_168,
+		   170 leaf_169,
+		   171 leaf_170,
+		   172 leaf_171,
+		   173 leaf_172,
+		   174 leaf_173,
+		   175 leaf_174,
+		   176 leaf_175,
+		   177 leaf_176,
+		   178 leaf_177,
+		   179 leaf_178,
+		   180 leaf_179,
+		   181 leaf_180,
+		   182 leaf_181,
+		   183 leaf_182,
+		   184 leaf_183,
+		   185 leaf_184,
+		   186 leaf_185,
+		   187 leaf_186,
+		   188 leaf_187,
+		   189 leaf_188,
+		   190 leaf_189,
+		   191 leaf_190,
+		   192 leaf_191,
+		   193 leaf_192,
+		   194 leaf_193,
+		   195 leaf_194,
+		   196 leaf_195,
+		   197 leaf_196,
+		   198 leaf_197,
+		   199 leaf_198,
+		   200 leaf_199,
+		   201 leaf_200,
+		   202 leaf_201,
+		   203 leaf_202,
+		   204 leaf_203,
+		   205 leaf_204,
+		   206 leaf_205,
+		   207 leaf_206,
+		   208 leaf_207,
+		   209 leaf_208,
+		   210 leaf_209,
+		   211 leaf_210,
+		   212 leaf_211,
+		   213 leaf_212,
+		   214 leaf_213,
+		   215 leaf_214,
+		   216 leaf_215,
+		   217 leaf_216,
+		   218 leaf_217,
+		   219 leaf_218,
+		   220 leaf_219,
+		   221 leaf_220,
+		   222 leaf_221,
+		   223 leaf_222,
+		   224 leaf_223,
+		   225 leaf_224,
+		   226 leaf_225,
+		   227 leaf_226,
+		   228 leaf_227,
+		   229 leaf_228,
+		   230 leaf_229,
+		   231 leaf_230,
+		   232 leaf_231,
+		   233 leaf_232,
+		   234 leaf_233,
+		   235 leaf_234,
+		   236 leaf_235,
+		   237 leaf_236,
+		   238 leaf_237,
+		   239 leaf_238,
+		   240 leaf_239,
+		   241 leaf_240,
+		   242 leaf_241,
+		   243 leaf_242,
+		   244 leaf_243,
+		   245 leaf_244,
+		   246 leaf_245,
+		   247 leaf_246,
+		   248 leaf_247,
+		   249 leaf_248,
+		   250 leaf_249,
+		   251 leaf_250,
+		   252 leaf_251,
+		   253 leaf_252,
+		   254 leaf_253,
+		   255 leaf_254,
+		   256 leaf_255,
+		   257 leaf_256,
+		   258 leaf_257,
+		   259 leaf_258,
+		   260 leaf_259,
+		   261 leaf_260,
+		   262 leaf_261,
+		   263 leaf_262,
+		   264 leaf_263,
+		   265 leaf_264,
+		   266 leaf_265,
+		   267 leaf_266,
+		   268 leaf_267,
+		   269 leaf_268,
+		   270 leaf_269,
+		   271 leaf_270,
+		   272 leaf_271,
+		   273 leaf_272,
+		   274 leaf_273,
+		   275 leaf_274,
+		   276 leaf_275,
+		   277 leaf_276,
+		   278 leaf_277,
+		   279 leaf_278,
+		   280 leaf_279,
+		   281 leaf_280,
+		   282 leaf_281,
+		   283 leaf_282,
+		   284 leaf_283,
+		   285 leaf_284,
+		   286 leaf_285,
+		   287 leaf_286,
+		   288 leaf_287,
+		   289 leaf_288,
+		   290 leaf_289,
+		   291 leaf_290,
+		   292 leaf_291,
+		   293 leaf_292,
+		   294 leaf_293,
+		   295 leaf_294,
+		   296 leaf_295,
+		   297 leaf_296,
+		   298 leaf_297,
+		   299 leaf_298,
+		   300 leaf_299,
+		   301 leaf_300,
+		   302 leaf_301,
+		   303 leaf_302,
+		   304 leaf_303,
+		   305 leaf_304,
+		   306 leaf_305,
+		   307 leaf_306,
+		   308 leaf_307,
+		   309 leaf_308,
+		   310 leaf_309,
+		   311 leaf_310,
+		   312 leaf_311,
+		   313 leaf_312,
+		   314 leaf_313,
+		   315 leaf_314,
+		   316 leaf_315,
+		   317 leaf_316,
+		   318 leaf_317,
+		   319 leaf_318,
+		   320 leaf_319,
+		   321 leaf_320,
+		   322 leaf_321,
+		   323 leaf_322,
+		   324 leaf_323,
+		   325 leaf_324,
+		   326 leaf_325,
+		   327 leaf_326,
+		   328 leaf_327,
+		   329 leaf_328,
+		   330 leaf_329,
+		   331 leaf_330,
+		   332 leaf_331,
+		   333 leaf_332,
+		   334 leaf_333,
+		   335 leaf_334,
+		   336 leaf_335,
+		   337 leaf_336,
+		   338 leaf_337,
+		   339 leaf_338,
+		   340 leaf_339,
+		   341 leaf_340,
+		   342 leaf_341,
+		   343 leaf_342,
+		   344 leaf_343,
+		   345 leaf_344,
+		   346 leaf_345,
+		   347 leaf_346,
+		   348 leaf_347,
+		   349 leaf_348,
+		   350 leaf_349,
+		   351 leaf_350,
+		   352 leaf_351,
+		   353 leaf_352,
+		   354 leaf_353,
+		   355 leaf_354,
+		   356 leaf_355,
+		   357 leaf_356,
+		   358 leaf_357,
+		   359 leaf_358,
+		   360 leaf_359,
+		   361 leaf_360,
+		   362 leaf_361,
+		   363 leaf_362,
+		   364 leaf_363,
+		   365 leaf_364,
+		   366 leaf_365,
+		   367 leaf_366,
+		   368 leaf_367,
+		   369 leaf_368,
+		   370 leaf_369,
+		   371 leaf_370,
+		   372 leaf_371,
+		   373 leaf_372,
+		   374 leaf_373,
+		   375 leaf_374,
+		   376 leaf_375,
+		   377 leaf_376,
+		   378 leaf_377,
+		   379 leaf_378,
+		   380 leaf_379,
+		   381 leaf_380,
+		   382 leaf_381,
+		   383 leaf_382,
+		   384 leaf_383,
+		   385 leaf_384,
+		   386 leaf_385,
+		   387 leaf_386,
+		   388 leaf_387,
+		   389 leaf_388,
+		   390 leaf_389,
+		   391 leaf_390,
+		   392 leaf_391,
+		   393 leaf_392,
+		   394 leaf_393,
+		   395 leaf_394,
+		   396 leaf_395,
+		   397 leaf_396,
+		   398 leaf_397,
+		   399 leaf_398,
+		   400 leaf_399,
+		   401 leaf_400,
+		   402 leaf_401,
+		   403 leaf_402,
+		   404 leaf_403,
+		   405 leaf_404,
+		   406 leaf_405,
+		   407 leaf_406,
+		   408 leaf_407,
+		   409 leaf_408,
+		   410 leaf_409,
+		   411 leaf_410,
+		   412 leaf_411,
+		   413 leaf_412,
+		   414 leaf_413,
+		   415 leaf_414,
+		   416 leaf_415,
+		   417 leaf_416,
+		   418 leaf_417,
+		   419 leaf_418,
+		   420 leaf_419,
+		   421 leaf_420,
+		   422 leaf_421,
+		   423 leaf_422,
+		   424 leaf_423,
+		   425 leaf_424,
+		   426 leaf_425,
+		   427 leaf_426,
+		   428 leaf_427,
+		   429 leaf_428,
+		   430 leaf_429,
+		   431 leaf_430,
+		   432 leaf_431,
+		   433 leaf_432,
+		   434 leaf_433,
+		   435 leaf_434,
+		   436 leaf_435,
+		   437 leaf_436,
+		   438 leaf_437,
+		   439 leaf_438,
+		   440 leaf_439,
+		   441 leaf_440,
+		   442 leaf_441,
+		   443 leaf_442,
+		   444 leaf_443,
+		   445 leaf_444,
+		   446 leaf_445,
+		   447 leaf_446,
+		   448 leaf_447,
+		   449 leaf_448,
+		   450 leaf_449,
+		   451 leaf_450,
+		   452 leaf_451,
+		   453 leaf_452,
+		   454 leaf_453,
+		   455 leaf_454,
+		   456 leaf_455,
+		   457 leaf_456,
+		   458 leaf_457,
+		   459 leaf_458,
+		   460 leaf_459,
+		   461 leaf_460,
+		   462 leaf_461,
+		   463 leaf_462,
+		   464 leaf_463,
+		   465 leaf_464,
+		   466 leaf_465,
+		   467 leaf_466,
+		   468 leaf_467,
+		   469 leaf_468,
+		   470 leaf_469,
+		   471 leaf_470,
+		   472 leaf_471,
+		   473 leaf_472,
+		   474 leaf_473,
+		   475 leaf_474,
+		   476 leaf_475,
+		   477 leaf_476,
+		   478 leaf_477,
+		   479 leaf_478,
+		   480 leaf_479,
+		   481 leaf_480,
+		   482 leaf_481,
+		   483 leaf_482,
+		   484 leaf_483,
+		   485 leaf_484,
+		   486 leaf_485,
+		   487 leaf_486,
+		   488 leaf_487,
+		   489 leaf_488,
+		   490 leaf_489,
+		   491 leaf_490,
+		   492 leaf_491,
+		   493 leaf_492,
+		   494 leaf_493,
+		   495 leaf_494,
+		   496 leaf_495,
+		   497 leaf_496,
+		   498 leaf_497,
+		   499 leaf_498,
+		   500 leaf_499,
+		   501 leaf_500,
+		   502 leaf_501,
+		   503 leaf_502,
+		   504 leaf_503,
+		   505 leaf_504,
+		   506 leaf_505,
+		   507 leaf_506,
+		   508 leaf_507,
+		   509 leaf_508,
+		   510 leaf_509,
+		   511 leaf_510,
+		   512 leaf_511,
+		   513 leaf_512,
+		   514 leaf_513,
+		   515 leaf_514,
+		   516 leaf_515,
+		   517 leaf_516,
+		   518 leaf_517,
+		   519 leaf_518,
+		   520 leaf_519,
+		   521 leaf_520,
+		   522 leaf_521,
+		   523 leaf_522,
+		   524 leaf_523,
+		   525 leaf_524,
+		   526 leaf_525,
+		   527 leaf_526,
+		   528 leaf_527,
+		   529 leaf_528,
+		   530 leaf_529,
+		   531 leaf_530,
+		   532 leaf_531,
+		   533 leaf_532,
+		   534 leaf_533,
+		   535 leaf_534,
+		   536 leaf_535,
+		   537 leaf_536,
+		   538 leaf_537,
+		   539 leaf_538,
+		   540 leaf_539,
+		   541 leaf_540,
+		   542 leaf_541,
+		   543 leaf_542,
+		   544 leaf_543,
+		   545 leaf_544,
+		   546 leaf_545,
+		   547 leaf_546,
+		   548 leaf_547,
+		   549 leaf_548,
+		   550 leaf_549,
+		   551 leaf_550,
+		   552 leaf_551,
+		   553 leaf_552,
+		   554 leaf_553,
+		   555 leaf_554,
+		   556 leaf_555,
+		   557 leaf_556,
+		   558 leaf_557,
+		   559 leaf_558,
+		   560 leaf_559,
+		   561 leaf_560,
+		   562 leaf_561,
+		   563 leaf_562,
+		   564 leaf_563,
+		   565 leaf_564,
+		   566 leaf_565,
+		   567 leaf_566,
+		   568 leaf_567,
+		   569 leaf_568,
+		   570 leaf_569,
+		   571 leaf_570,
+		   572 leaf_571,
+		   573 leaf_572,
+		   574 leaf_573,
+		   575 leaf_574,
+		   576 leaf_575,
+		   577 leaf_576,
+		   578 leaf_577,
+		   579 leaf_578,
+		   580 leaf_579,
+		   581 leaf_580,
+		   582 leaf_581,
+		   583 leaf_582,
+		   584 leaf_583,
+		   585 leaf_584,
+		   586 leaf_585,
+		   587 leaf_586,
+		   588 leaf_587,
+		   589 leaf_588,
+		   590 leaf_589,
+		   591 leaf_590,
+		   592 leaf_591,
+		   593 leaf_592,
+		   594 leaf_593,
+		   595 leaf_594,
+		   596 leaf_595,
+		   597 leaf_596,
+		   598 leaf_597,
+		   599 leaf_598,
+		   600 leaf_599,
+		   601 leaf_600,
+		   602 leaf_601,
+		   603 leaf_602,
+		   604 leaf_603,
+		   605 leaf_604,
+		   606 leaf_605,
+		   607 leaf_606,
+		   608 leaf_607,
+		   609 leaf_608,
+		   610 leaf_609,
+		   611 leaf_610,
+		   612 leaf_611,
+		   613 leaf_612,
+		   614 leaf_613,
+		   615 leaf_614,
+		   616 leaf_615,
+		   617 leaf_616,
+		   618 leaf_617,
+		   619 leaf_618,
+		   620 leaf_619,
+		   621 leaf_620,
+		   622 leaf_621,
+		   623 leaf_622,
+		   624 leaf_623,
+		   625 leaf_624,
+		   626 leaf_625,
+		   627 leaf_626,
+		   628 leaf_627,
+		   629 leaf_628,
+		   630 leaf_629,
+		   631 leaf_630,
+		   632 leaf_631,
+		   633 leaf_632,
+		   634 leaf_633,
+		   635 leaf_634,
+		   636 leaf_635,
+		   637 leaf_636,
+		   638 leaf_637,
+		   639 leaf_638,
+		   640 leaf_639,
+		   641 leaf_640,
+		   642 leaf_641,
+		   643 leaf_642,
+		   644 leaf_643,
+		   645 leaf_644,
+		   646 leaf_645,
+		   647 leaf_646,
+		   648 leaf_647,
+		   649 leaf_648,
+		   650 leaf_649,
+		   651 leaf_650,
+		   652 leaf_651,
+		   653 leaf_652,
+		   654 leaf_653,
+		   655 leaf_654,
+		   656 leaf_655,
+		   657 leaf_656,
+		   658 leaf_657,
+		   659 leaf_658,
+		   660 leaf_659,
+		   661 leaf_660,
+		   662 leaf_661,
+		   663 leaf_662,
+		   664 leaf_663,
+		   665 leaf_664,
+		   666 leaf_665,
+		   667 leaf_666,
+		   668 leaf_667,
+		   669 leaf_668,
+		   670 leaf_669,
+		   671 leaf_670,
+		   672 leaf_671,
+		   673 leaf_672,
+		   674 leaf_673,
+		   675 leaf_674,
+		   676 leaf_675,
+		   677 leaf_676,
+		   678 leaf_677,
+		   679 leaf_678,
+		   680 leaf_679,
+		   681 leaf_680,
+		   682 leaf_681,
+		   683 leaf_682,
+		   684 leaf_683,
+		   685 leaf_684,
+		   686 leaf_685,
+		   687 leaf_686,
+		   688 leaf_687,
+		   689 leaf_688,
+		   690 leaf_689,
+		   691 leaf_690,
+		   692 leaf_691,
+		   693 leaf_692,
+		   694 leaf_693,
+		   695 leaf_694,
+		   696 leaf_695,
+		   697 leaf_696,
+		   698 leaf_697,
+		   699 leaf_698,
+		   700 leaf_699,
+		   701 leaf_700,
+		   702 leaf_701,
+		   703 leaf_702,
+		   704 leaf_703,
+		   705 leaf_704,
+		   706 leaf_705,
+		   707 leaf_706,
+		   708 leaf_707,
+		   709 leaf_708,
+		   710 leaf_709,
+		   711 leaf_710,
+		   712 leaf_711,
+		   713 leaf_712,
+		   714 leaf_713,
+		   715 leaf_714,
+		   716 leaf_715,
+		   717 leaf_716,
+		   718 leaf_717,
+		   719 leaf_718,
+		   720 leaf_719,
+		   721 leaf_720,
+		   722 leaf_721,
+		   723 leaf_722,
+		   724 leaf_723,
+		   725 leaf_724,
+		   726 leaf_725,
+		   727 leaf_726,
+		   728 leaf_727,
+		   729 leaf_728,
+		   730 leaf_729,
+		   731 leaf_730,
+		   732 leaf_731,
+		   733 leaf_732,
+		   734 leaf_733,
+		   735 leaf_734,
+		   736 leaf_735,
+		   737 leaf_736,
+		   738 leaf_737,
+		   739 leaf_738,
+		   740 leaf_739,
+		   741 leaf_740,
+		   742 leaf_741,
+		   743 leaf_742,
+		   744 leaf_743,
+		   745 leaf_744,
+		   746 leaf_745,
+		   747 leaf_746,
+		   748 leaf_747,
+		   749 leaf_748,
+		   750 leaf_749,
+		   751 leaf_750,
+		   752 leaf_751,
+		   753 leaf_752,
+		   754 leaf_753,
+		   755 leaf_754,
+		   756 leaf_755,
+		   757 leaf_756,
+		   758 leaf_757,
+		   759 leaf_758,
+		   760 leaf_759,
+		   761 leaf_760,
+		   762 leaf_761,
+		   763 leaf_762,
+		   764 leaf_763,
+		   765 leaf_764,
+		   766 leaf_765,
+		   767 leaf_766,
+		   768 leaf_767,
+		   769 leaf_768,
+		   770 leaf_769,
+		   771 leaf_770,
+		   772 leaf_771,
+		   773 leaf_772,
+		   774 leaf_773,
+		   775 leaf_774,
+		   776 leaf_775,
+		   777 leaf_776,
+		   778 leaf_777,
+		   779 leaf_778,
+		   780 leaf_779,
+		   781 leaf_780,
+		   782 leaf_781,
+		   783 leaf_782,
+		   784 leaf_783,
+		   785 leaf_784,
+		   786 leaf_785,
+		   787 leaf_786,
+		   788 leaf_787,
+		   789 leaf_788,
+		   790 leaf_789,
+		   791 leaf_790,
+		   792 leaf_791,
+		   793 leaf_792,
+		   794 leaf_793,
+		   795 leaf_794,
+		   796 leaf_795,
+		   797 leaf_796,
+		   798 leaf_797,
+		   799 leaf_798,
+		   800 leaf_799,
+		   801 leaf_800,
+		   802 leaf_801,
+		   803 leaf_802,
+		   804 leaf_803,
+		   805 leaf_804,
+		   806 leaf_805,
+		   807 leaf_806,
+		   808 leaf_807,
+		   809 leaf_808,
+		   810 leaf_809,
+		   811 leaf_810,
+		   812 leaf_811,
+		   813 leaf_812,
+		   814 leaf_813,
+		   815 leaf_814,
+		   816 leaf_815,
+		   817 leaf_816,
+		   818 leaf_817,
+		   819 leaf_818,
+		   820 leaf_819,
+		   821 leaf_820,
+		   822 leaf_821,
+		   823 leaf_822,
+		   824 leaf_823,
+		   825 leaf_824,
+		   826 leaf_825,
+		   827 leaf_826,
+		   828 leaf_827,
+		   829 leaf_828,
+		   830 leaf_829,
+		   831 leaf_830,
+		   832 leaf_831,
+		   833 leaf_832,
+		   834 leaf_833,
+		   835 leaf_834,
+		   836 leaf_835,
+		   837 leaf_836,
+		   838 leaf_837,
+		   839 leaf_838,
+		   840 leaf_839,
+		   841 leaf_840,
+		   842 leaf_841,
+		   843 leaf_842,
+		   844 leaf_843,
+		   845 leaf_844,
+		   846 leaf_845,
+		   847 leaf_846,
+		   848 leaf_847,
+		   849 leaf_848,
+		   850 leaf_849,
+		   851 leaf_850,
+		   852 leaf_851,
+		   853 leaf_852,
+		   854 leaf_853,
+		   855 leaf_854,
+		   856 leaf_855,
+		   857 leaf_856,
+		   858 leaf_857,
+		   859 leaf_858,
+		   860 leaf_859,
+		   861 leaf_860,
+		   862 leaf_861,
+		   863 leaf_862,
+		   864 leaf_863,
+		   865 leaf_864,
+		   866 leaf_865,
+		   867 leaf_866,
+		   868 leaf_867,
+		   869 leaf_868,
+		   870 leaf_869,
+		   871 leaf_870,
+		   872 leaf_871,
+		   873 leaf_872,
+		   874 leaf_873,
+		   875 leaf_874,
+		   876 leaf_875,
+		   877 leaf_876,
+		   878 leaf_877,
+		   879 leaf_878,
+		   880 leaf_879,
+		   881 leaf_880,
+		   882 leaf_881,
+		   883 leaf_882,
+		   884 leaf_883,
+		   885 leaf_884,
+		   886 leaf_885,
+		   887 leaf_886,
+		   888 leaf_887,
+		   889 leaf_888,
+		   890 leaf_889,
+		   891 leaf_890,
+		   892 leaf_891,
+		   893 leaf_892,
+		   894 leaf_893,
+		   895 leaf_894,
+		   896 leaf_895,
+		   897 leaf_896,
+		   898 leaf_897,
+		   899 leaf_898,
+		   900 leaf_899,
+		   901 leaf_900,
+		   902 leaf_901,
+		   903 leaf_902,
+		   904 leaf_903,
+		   905 leaf_904,
+		   906 leaf_905,
+		   907 leaf_906,
+		   908 leaf_907,
+		   909 leaf_908,
+		   910 leaf_909,
+		   911 leaf_910,
+		   912 leaf_911,
+		   913 leaf_912,
+		   914 leaf_913,
+		   915 leaf_914,
+		   916 leaf_915,
+		   917 leaf_916,
+		   918 leaf_917,
+		   919 leaf_918,
+		   920 leaf_919,
+		   921 leaf_920,
+		   922 leaf_921,
+		   923 leaf_922,
+		   924 leaf_923,
+		   925 leaf_924,
+		   926 leaf_925,
+		   927 leaf_926,
+		   928 leaf_927,
+		   929 leaf_928,
+		   930 leaf_929,
+		   931 leaf_930,
+		   932 leaf_931,
+		   933 leaf_932,
+		   934 leaf_933,
+		   935 leaf_934,
+		   936 leaf_935,
+		   937 leaf_936,
+		   938 leaf_937,
+		   939 leaf_938,
+		   940 leaf_939,
+		   941 leaf_940,
+		   942 leaf_941,
+		   943 leaf_942,
+		   944 leaf_943,
+		   945 leaf_944,
+		   946 leaf_945,
+		   947 leaf_946,
+		   948 leaf_947,
+		   949 leaf_948,
+		   950 leaf_949,
+		   951 leaf_950,
+		   952 leaf_951,
+		   953 leaf_952,
+		   954 leaf_953,
+		   955 leaf_954,
+		   956 leaf_955,
+		   957 leaf_956,
+		   958 leaf_957,
+		   959 leaf_958,
+		   960 leaf_959,
+		   961 leaf_960,
+		   962 leaf_961,
+		   963 leaf_962,
+		   964 leaf_963,
+		   965 leaf_964,
+		   966 leaf_965,
+		   967 leaf_966,
+		   968 leaf_967,
+		   969 leaf_968,
+		   970 leaf_969,
+		   971 leaf_970,
+		   972 leaf_971,
+		   973 leaf_972,
+		   974 leaf_973,
+		   975 leaf_974,
+		   976 leaf_975,
+		   977 leaf_976,
+		   978 leaf_977,
+		   979 leaf_978,
+		   980 leaf_979,
+		   981 leaf_980,
+		   982 leaf_981,
+		   983 leaf_982,
+		   984 leaf_983,
+		   985 leaf_984,
+		   986 leaf_985,
+		   987 leaf_986,
+		   988 leaf_987,
+		   989 leaf_988,
+		   990 leaf_989,
+		   991 leaf_990,
+		   992 leaf_991,
+		   993 leaf_992,
+		   994 leaf_993,
+		   995 leaf_994,
+		   996 leaf_995,
+		   997 leaf_996,
+		   998 leaf_997,
+		   999 leaf_998,
+		  1000 leaf_999,
+		  1001 leaf_1000,
+		  1002 leaf_1001,
+		  1003 leaf_1002,
+		  1004 leaf_1003,
+		  1005 leaf_1004,
+		  1006 leaf_1005,
+		  1007 leaf_1006,
+		  1008 leaf_1007,
+		  1009 leaf_1008,
+		  1010 leaf_1009,
+		  1011 leaf_1010,
+		  1012 leaf_1011,
+		  1013 leaf_1012,
+		  1014 leaf_1013,
+		  1015 leaf_1014,
+		  1016 leaf_1015,
+		  1017 leaf_1016,
+		  1018 leaf_1017,
+		  1019 leaf_1018,
+		  1020 leaf_1019,
+		  1021 leaf_1020,
+		  1022 leaf_1021,
+		  1023 leaf_1022,
+		  1024 leaf_1023,
+		  1025 leaf_1024,
+		  1026 leaf_1025,
+		  1027 leaf_1026,
+		  1028 leaf_1027,
+		  1029 leaf_1028,
+		  1030 leaf_1029,
+		  1031 leaf_1030,
+		  1032 leaf_1031,
+		  1033 leaf_1032,
+		  1034 leaf_1033,
+		  1035 leaf_1034,
+		  1036 leaf_1035,
+		  1037 leaf_1036,
+		  1038 leaf_1037,
+		  1039 leaf_1038,
+		  1040 leaf_1039,
+		  1041 leaf_1040,
+		  1042 leaf_1041,
+		  1043 leaf_1042,
+		  1044 leaf_1043,
+		  1045 leaf_1044,
+		  1046 leaf_1045,
+		  1047 leaf_1046,
+		  1048 leaf_1047,
+		  1049 leaf_1048,
+		  1050 leaf_1049,
+		  1051 leaf_1050,
+		  1052 leaf_1051,
+		  1053 leaf_1052,
+		  1054 leaf_1053,
+		  1055 leaf_1054,
+		  1056 leaf_1055,
+		  1057 leaf_1056,
+		  1058 leaf_1057,
+		  1059 leaf_1058,
+		  1060 leaf_1059,
+		  1061 leaf_1060,
+		  1062 leaf_1061,
+		  1063 leaf_1062,
+		  1064 leaf_1063,
+		  1065 leaf_1064
+;
+tree STATE_0 = (1[&type="X",samp="sample",time=2.6361844523286972]:0.35890411113430787,(2[&type="X",samp="sample",time=4.703191675341344]:0.0,((3[&type="X",samp="sample",time=19.574424521902525]:0.0,(4[&type="X",samp="sample",time=50.28774877257428]:27.107793749392705,((((((((5[&type="X",samp="sample",time=93.72292535267258]:4.3097846754630496,6[&type="X",samp="sample",time=93.72292535267258]:4.3097846754630496)[&type="X",time=89.41314067720953]:12.044787498960247,7[&type="X",samp="sample",time=93.72292535267258]:16.354572174423296)[&type="X",time=77.36835317824928]:7.38531463335687,(8[&type="X",samp="sample",time=93.72292535267258]:12.331619918964293,((9[&type="X",samp="sample",time=93.72292535267258]:5.400909590955322,10[&type="X",samp="sample",time=93.72292535267258]:5.400909590955322)[&type="X",time=88.32201576171725]:2.9720109272985127,11[&type="X",samp="sample",time=93.72292535267258]:8.372920518253835)[&type="X",time=85.35000483441874]:3.958699400710458)[&type="X",time=81.39130543370828]:11.408266888815874)[&type="X",time=69.98303854489241]:5.116226186415091,(((12[&type="X",samp="sample",time=74.62568945564882]:0.0,(13[&type="X",samp="sample",time=93.72292535267258]:10.245704653524527,(14[&type="X",samp="sample",time=93.72292535267258]:0.35443563540246714,15[&type="X",samp="sample",time=93.72292535267258]:0.35443563540246714)[&type="X",time=93.36848971727011]:9.89126901812206)[&type="X",time=83.47722069914805]:8.851531243499224)[&type="X",time=74.62568945564882]:3.420117741248518,((16[&type="X",samp="sample",time=91.40781116051134]:0.0,17[&type="X",samp="sample",time=93.72292535267258]:2.315114192161232)[&type="X",time=91.40781116051134]:12.113007761421443,(18[&type="X",samp="sample",time=93.72292535267258]:7.166945252324837,((((19[&type="X",samp="sample",time=93.72292535267258]:2.442741605189383,20[&type="X",samp="sample",time=93.72292535267258]:2.442741605189383)[&type="X",time=91.28018374748319]:0.07467964354775347,21[&type="X",samp="sample",time=93.72292535267258]:2.5174212487371364)[&type="X",time=91.20550410393544]:1.4374134575835313,22[&type="X",samp="sample",time=93.72292535267258]:3.9548347063206677)[&type="X",time=89.76809064635191]:2.356909235693692,23[&type="X",samp="sample",time=93.72292535267258]:6.31174394201436)[&type="X",time=87.41118141065822]:0.855201310310477)[&type="X",time=86.55598010034774]:7.261176701257838)[&type="X",time=79.2948033990899]:8.089231684689594)[&type="X",time=71.2055717144003]:5.972458932096586,(((((24[&type="X",samp="sample",time=93.72292535267258]:0.698606210567803,(25[&type="X",samp="sample",time=93.72292535267258]:0.21936330456831854,26[&type="X",samp="sample",time=93.72292535267258]:0.21936330456831854)[&type="X",time=93.50356204810426]:0.4792429059994845)[&type="X",time=93.02431914210477]:13.06170454221801,(27[&type="X",samp="sample",time=93.72292535267258]:1.2815794498356468,28[&type="X",samp="sample",time=93.72292535267258]:1.2815794498356468)[&type="X",time=92.44134590283693]:12.478731302950166)[&type="X",time=79.96261459988676]:7.122971033372821,((29[&type="X",samp="sample",time=93.72292535267258]:3.599519761652715,30[&type="X",samp="sample",time=93.72292535267258]:3.599519761652715)[&type="X",time=90.12340559101986]:13.709190485688879,((((31[&type="X",samp="sample",time=88.06849298569323]:0.0,32[&type="X",samp="sample",time=93.72292535267258]:5.65443236697935)[&type="X",time=88.06849298569323]:3.9785221285232097,((((33[&type="X",samp="sample",time=93.72292535267258]:0.545883351080704,34[&type="X",samp="sample",time=93.72292535267258]:0.545883351080704)[&type="X",time=93.17704200159187]:2.576214492282972,(35[&type="X",samp="sample",time=93.72292535267258]:2.157946117623652,36[&type="X",samp="sample",time=93.72292535267258]:2.157946117623652)[&type="X",time=91.56497923504892]:0.9641517257400238)[&type="X",time=90.6008275093089]:2.578883915027504,(((37[&type="X",samp="sample",time=93.72292535267258]:0.09861428864522281,38[&type="X",samp="sample",time=93.72292535267258]:0.09861428864522281)[&type="X",time=93.62431106402735]:0.9475778235663626,39[&type="X",samp="sample",time=93.72292535267258]:1.0461921122115854)[&type="X",time=92.67673324046099]:1.842064160665899,(40[&type="X",samp="sample",time=93.72292535267258]:2.5191532728027397,41[&type="X",samp="sample",time=93.72292535267258]:2.5191532728027397)[&type="X",time=91.20377207986984]:0.3691030000747446)[&type="X",time=90.83466907979509]:2.8127254855136954)[&type="X",time=88.0219435942814]:2.7857464473186297,42[&type="X",samp="sample",time=93.72292535267258]:8.48672820570981)[&type="X",time=85.23619714696277]:1.1462262897927502)[&type="X",time=84.08997085717002]:2.2957405338921433,(43[&type="X",samp="sample",time=93.72292535267258]:1.4128000006245571,44[&type="X",samp="sample",time=93.72292535267258]:1.4128000006245571)[&type="X",time=92.31012535204802]:10.515895028770146)[&type="X",time=81.79423032327787]:2.590418934551522,(45[&type="X",samp="sample",time=82.06365928321853]:0.0,(46[&type="X",samp="sample",time=93.72292535267258]:6.557673381956562,(47[&type="X",samp="sample",time=90.6547373961877]:0.0,48[&type="X",samp="sample",time=93.72292535267258]:3.068187956484877)[&type="X",time=90.6547373961877]:3.4894854254716847)[&type="X",time=87.16525197071601]:5.101592687497487)[&type="X",time=82.06365928321853]:2.8598478944921766)[&type="X",time=79.20381138872635]:2.789596283395369)[&type="X",time=76.41421510533098]:3.5745715388170396)[&type="X",time=72.83964356651394]:2.9298331199365464,(49[&type="X",samp="sample",time=93.72292535267258]:10.895510699652391,50[&type="X",samp="sample",time=93.72292535267258]:10.895510699652391)[&type="X",time=82.82741465302018]:12.917604206442789)[&type="X",time=69.9098104465774]:1.8419156270483938,((51[&type="X",samp="sample",time=93.72292535267258]:0.8199521185109262,52[&type="X",samp="sample",time=93.72292535267258]:0.8199521185109262)[&type="X",time=92.90297323416165]:17.422480977123698,(53[&type="X",samp="sample",time=86.26899105255374]:5.59354253353132,54[&type="X",samp="sample",time=93.72292535267258]:13.047476833650151)[&type="X",time=80.67544851902242]:5.194956261984473)[&type="X",time=75.48049225703795]:7.41259743750895)[&type="X",time=68.067894819529]:2.834782037225281)[&type="X",time=65.23311278230372]:0.36630042382640227)[&type="X",time=64.86681235847732]:3.9323629391938653,(((((55[&type="X",samp="sample",time=93.72292535267258]:19.181626536113555,((56[&type="X",samp="sample",time=93.72292535267258]:1.298824197163782,57[&type="X",samp="sample",time=93.72292535267258]:1.298824197163782)[&type="X",time=92.4241011555088]:1.95514459917284,((58[&type="X",samp="sample",time=93.72292535267258]:1.1022667548371032,(59[&type="X",samp="sample",time=93.72292535267258]:0.059810001570127724,60[&type="X",samp="sample",time=93.72292535267258]:0.059810001570127724)[&type="X",time=93.66311535110245]:1.0424567532669755)[&type="X",time=92.62065859783547]:1.7344313577669936,61[&type="X",samp="sample",time=93.72292535267258]:2.836698112604097)[&type="X",time=90.88622724006848]:0.41727068373252507)[&type="X",time=90.46895655633595]:15.927657739776933)[&type="X",time=74.54129881655902]:3.018667438254653,(((((62[&type="X",samp="sample",time=93.72292535267258]:2.1748291179485904,63[&type="X",samp="sample",time=93.72292535267258]:2.1748291179485904)[&type="X",time=91.54809623472399]:5.714437646348358,(64[&type="X",samp="sample",time=93.72292535267258]:6.102333738883857,65[&type="X",samp="sample",time=93.72292535267258]:6.102333738883857)[&type="X",time=87.62059161378872]:1.7869330254130915)[&type="X",time=85.83365858837563]:3.3229133328799065,(66[&type="X",samp="sample",time=82.88938873776046]:0.0,((((((((67[&type="X",samp="sample",time=93.72292535267258]:0.9105835044693009,(68[&type="X",samp="sample",time=93.72292535267258]:0.5265870027996726,69[&type="X",samp="sample",time=93.72292535267258]:0.5265870027996726)[&type="X",time=93.1963383498729]:0.3839965016696283)[&type="X",time=92.81234184820327]:1.399897316900919,(70[&type="X",samp="sample",time=93.72292535267258]:0.19492833530878784,71[&type="X",samp="sample",time=93.72292535267258]:0.19492833530878784)[&type="X",time=93.52799701736379]:2.115552486061432)[&type="X",time=91.41244453130236]:0.30591200113697425,(((72[&type="X",samp="sample",time=92.7641416827953]:0.0,73[&type="X",samp="sample",time=93.72292535267258]:0.9587836698772776)[&type="X",time=92.7641416827953]:0.23290691630292315,74[&type="X",samp="sample",time=93.72292535267258]:1.1916905861802007)[&type="X",time=92.53123476649237]:0.2490819790643144,75[&type="X",samp="sample",time=93.72292535267258]:1.4407725652445151)[&type="X",time=92.28215278742806]:1.175620257262679)[&type="X",time=91.10653253016538]:0.6533246757033595,(76[&type="X",samp="sample",time=93.72292535267258]:1.3406218295663592,77[&type="X",samp="sample",time=93.72292535267258]:1.3406218295663592)[&type="X",time=92.38230352310622]:1.9290956686441945)[&type="X",time=90.45320785446202]:1.1993021496972744,(78[&type="X",samp="sample",time=93.72292535267258]:2.128138413671408,79[&type="X",samp="sample",time=93.72292535267258]:2.128138413671408)[&type="X",time=91.59478693900117]:2.34088123423642)[&type="X",time=89.25390570476475]:2.325204648897099,(80[&type="X",samp="sample",time=93.72292535267258]:3.921028146460543,(81[&type="X",samp="sample",time=93.72292535267258]:1.9871679957485924,82[&type="X",samp="sample",time=93.72292535267258]:1.9871679957485924)[&type="X",time=91.73575735692398]:1.9338601507119506)[&type="X",time=89.80189720621203]:2.873196150344384)[&type="X",time=86.92870105586765]:1.085868553487117,(83[&type="X",samp="sample",time=86.22912803687537]:0.0,84[&type="X",samp="sample",time=93.72292535267258]:7.4937973157972095)[&type="X",time=86.22912803687537]:0.38629553449483467)[&type="X",time=85.84283250238053]:0.5667582852233153,85[&type="X",samp="sample",time=93.72292535267258]:8.44685113551536)[&type="X",time=85.27607421715722]:2.3866854793967605)[&type="X",time=82.88938873776046]:0.3786434822647351)[&type="X",time=82.51074525549572]:2.7107558162500993,((((86[&type="X",samp="sample",time=93.72292535267258]:2.0629626759984916,87[&type="X",samp="sample",time=93.72292535267258]:2.0629626759984916)[&type="X",time=91.65996267667408]:7.740013786282844,88[&type="X",samp="sample",time=93.72292535267258]:9.802976462281336)[&type="X",time=83.91994889039124]:2.089965612847081,(89[&type="X",samp="sample",time=93.72292535267258]:5.8520091551915385,90[&type="X",samp="sample",time=93.72292535267258]:5.8520091551915385)[&type="X",time=87.87091619748104]:6.040932919936878)[&type="X",time=81.82998327754416]:1.5785720171269588,91[&type="X",samp="sample",time=91.363324628728]:11.111913368310795)[&type="X",time=80.2514112604172]:0.4514218211715786)[&type="X",time=79.79998943924562]:4.02738233249022,(((92[&type="X",samp="sample",time=93.72292535267258]:7.12108114747862,(93[&type="X",samp="sample",time=93.72292535267258]:2.6776958253284135,94[&type="X",samp="sample",time=93.72292535267258]:2.6776958253284135)[&type="X",time=91.04522952734416]:4.443385322150206)[&type="X",time=86.60184420519396]:0.9077863365208145,((95[&type="X",samp="sample",time=93.72292535267258]:4.214011336178558,96[&type="X",samp="sample",time=93.72292535267258]:4.214011336178558)[&type="X",time=89.50891401649402]:3.009069239033792,(((97[&type="X",samp="sample",time=93.72292535267258]:2.9074763590900545,98[&type="X",samp="sample",time=93.72292535267258]:2.9074763590900545)[&type="X",time=90.81544899358252]:0.12477505139931111,99[&type="X",samp="sample",time=93.72292535267258]:3.0322514104893656)[&type="X",time=90.69067394218321]:0.31554575874335455,100[&type="X",samp="sample",time=93.72292535267258]:3.34779716923272)[&type="X",time=90.37512818343986]:3.87528340597963)[&type="X",time=86.49984477746023]:0.8057869087870841)[&type="X",time=85.69405786867314]:2.922151163531751,((101[&type="X",samp="sample",time=93.72292535267258]:8.263643207791233,(102[&type="X",samp="sample",time=93.72292535267258]:8.057605281800903,(103[&type="X",samp="sample",time=93.72292535267258]:1.4648317965288413,104[&type="X",samp="sample",time=93.72292535267258]:1.4648317965288413)[&type="X",time=92.25809355614373]:6.592773485272062)[&type="X",time=85.66532007087167]:0.20603792599033)[&type="X",time=85.45928214488134]:1.5647474478240895,105[&type="X",samp="sample",time=93.72292535267258]:9.828390655615323)[&type="X",time=83.89453469705725]:1.1226279919158628)[&type="X",time=82.77190670514139]:6.9992995983859885)[&type="X",time=75.7726071067554]:4.249975728451034)[&type="X",time=71.52263137830437]:3.646759350774744,(((106[&type="X",samp="sample",time=93.72292535267258]:2.9635627813874237,(107[&type="X",samp="sample",time=93.72292535267258]:1.9887022711736222,(108[&type="X",samp="sample",time=93.72292535267258]:1.8569900428397403,109[&type="X",samp="sample",time=93.72292535267258]:1.8569900428397403)[&type="X",time=91.86593530983284]:0.13171222833388185)[&type="X",time=91.73422308149895]:0.9748605102138015)[&type="X",time=90.75936257128515]:1.3731884997871049,110[&type="X",samp="sample",time=93.72292535267258]:4.336751281174529)[&type="X",time=89.38617407149805]:13.087867919171416,111[&type="X",samp="sample",time=93.72292535267258]:17.424619200345944)[&type="X",time=76.29830615232663]:8.422434124797007)[&type="X",time=67.87587202752962]:3.1497887428021585,((112[&type="X",samp="sample",time=93.72292535267258]:6.250451892680545,(113[&type="X",samp="sample",time=93.72292535267258]:3.1186391984453365,114[&type="X",samp="sample",time=93.72292535267258]:3.1186391984453365)[&type="X",time=90.60428615422724]:3.131812694235208)[&type="X",time=87.47247345999203]:18.49212082738002,(((115[&type="X",samp="sample",time=93.72292535267258]:2.172847386482914,116[&type="X",samp="sample",time=93.72292535267258]:2.172847386482914)[&type="X",time=91.55007796618966]:7.92272991250951,(117[&type="X",samp="sample",time=93.72292535267258]:6.636175090343542,(118[&type="X",samp="sample",time=93.72292535267258]:4.5079999078658375,(119[&type="X",samp="sample",time=93.72292535267258]:3.240497179497325,(120[&type="X",samp="sample",time=93.72292535267258]:1.7159984461075197,121[&type="X",samp="sample",time=93.72292535267258]:1.7159984461075197)[&type="X",time=92.00692690656506]:1.5244987333898052)[&type="X",time=90.48242817317525]:1.2675027283685125)[&type="X",time=89.21492544480674]:2.1281751824777047)[&type="X",time=87.08675026232903]:3.459402208648882)[&type="X",time=83.62734805368015]:12.642242883874147,((((122[&type="X",samp="sample",time=93.72292535267258]:0.048815895723464564,123[&type="X",samp="sample",time=93.72292535267258]:0.048815895723464564)[&type="X",time=93.67410945694911]:0.6433560647803205,124[&type="X",samp="sample",time=93.72292535267258]:0.692171960503785)[&type="X",time=93.03075339216879]:6.907524797463225,((125[&type="X",samp="sample",time=93.72292535267258]:0.496549705237328,126[&type="X",samp="sample",time=93.72292535267258]:0.496549705237328)[&type="X",time=93.22637564743525]:3.723542993538601,127[&type="X",samp="sample",time=93.72292535267258]:4.220092698775929)[&type="X",time=89.50283265389665]:3.379604059191081)[&type="X",time=86.12322859470557]:5.195126508955269,128[&type="X",samp="sample",time=93.72292535267258]:12.794823266922279)[&type="X",time=80.9281020857503]:9.942996915944292)[&type="X",time=70.985105169806]:2.004752537193994)[&type="X",time=68.98035263261201]:4.254269347884545)[&type="X",time=64.72608328472747]:2.960946473641492,(((129[&type="X",samp="sample",time=93.72292535267258]:23.85707485732516,(((130[&type="X",samp="sample",time=93.72292535267258]:1.7585619981392568,131[&type="X",samp="sample",time=93.72292535267258]:1.7585619981392568)[&type="X",time=91.96436335453332]:13.334784053805294,(132[&type="X",samp="sample",time=93.72292535267258]:13.566132588966994,(133[&type="X",samp="sample",time=86.08208809679914]:3.8908697557334477,(134[&type="X",samp="sample",time=93.72292535267258]:9.176925606705936,(135[&type="X",samp="sample",time=86.05367280402302]:0.6487400777695314,(136[&type="X",samp="sample",time=92.99462507584566]:0.0,137[&type="X",samp="sample",time=93.72292535267258]:0.7283002768269142)[&type="X",time=92.99462507584566]:7.58969234959217)[&type="X",time=85.40493272625349]:0.8589329802868519)[&type="X",time=84.54599974596664]:2.3547814049009475)[&type="X",time=82.19121834106569]:2.0344255773601105)[&type="X",time=80.15679276370558]:1.5272134629775564)[&type="X",time=78.62957930072803]:6.46545662315836,((138[&type="X",samp="sample",time=93.72292535267258]:3.0327989106398547,139[&type="X",samp="sample",time=93.72292535267258]:3.0327989106398547)[&type="X",time=90.69012644203272]:13.398444891125138,(((140[&type="X",samp="sample",time=91.40820781918013]:0.0,141[&type="X",samp="sample",time=93.72292535267258]:2.3147175334924412)[&type="X",time=91.40820781918013]:0.43449310250582585,(142[&type="X",samp="sample",time=93.72292535267258]:0.14890343866211708,143[&type="X",samp="sample",time=93.72292535267258]:0.14890343866211708)[&type="X",time=93.57402191401046]:2.60030719733615)[&type="X",time=90.97371471667431]:1.752210962348613,(144[&type="X",samp="sample",time=93.72292535267258]:0.4068826032871016,(145[&type="X",samp="sample",time=93.72292535267258]:0.27388665311850957,146[&type="X",samp="sample",time=93.72292535267258]:0.27388665311850957)[&type="X",time=93.44903869955407]:0.132995950168592)[&type="X",time=93.31604274938547]:4.094538995059779)[&type="X",time=89.2215037543257]:11.929822203418112)[&type="X",time=77.29168155090758]:5.127558873337918)[&type="X",time=72.16412267756967]:2.2982721822222487)[&type="X",time=69.86585049534742]:0.04752731771928609,(((147[&type="X",samp="sample",time=93.72292535267258]:0.9329102956839392,148[&type="X",samp="sample",time=93.72292535267258]:0.9329102956839392)[&type="X",time=92.79001505698864]:4.433298348673844,(149[&type="X",samp="sample",time=93.72292535267258]:1.8424605084809258,(150[&type="X",samp="sample",time=93.72292535267258]:0.16911109240822952,151[&type="X",samp="sample",time=93.72292535267258]:0.16911109240822952)[&type="X",time=93.55381426026435]:1.6733494160726963)[&type="X",time=91.88046484419165]:3.5237481358768576)[&type="X",time=88.35671670831479]:12.851256942428591,((((152[&type="X",samp="sample",time=93.72292535267258]:5.070609881044319,(153[&type="X",samp="sample",time=93.72292535267258]:1.26929074720627,154[&type="X",samp="sample",time=93.72292535267258]:1.26929074720627)[&type="X",time=92.4536346054663]:3.8013191338380494)[&type="X",time=88.65231547162826]:0.4487863358261137,((155[&type="X",samp="sample",time=93.72292535267258]:2.7889177886697922,156[&type="X",samp="sample",time=93.72292535267258]:2.7889177886697922)[&type="X",time=90.93400756400278]:0.5161712177160211,(157[&type="X",samp="sample",time=93.72292535267258]:0.7275822777072278,158[&type="X",samp="sample",time=93.72292535267258]:0.7275822777072278)[&type="X",time=92.99534307496535]:2.5775067286785855)[&type="X",time=90.41783634628676]:2.2143072104846198)[&type="X",time=88.20352913580214]:6.868310437027986,(((((159[&type="X",samp="sample",time=93.72292535267258]:0.4788990134171911,160[&type="X",samp="sample",time=93.72292535267258]:0.4788990134171911)[&type="X",time=93.24402633925538]:0.8237177637483626,161[&type="X",samp="sample",time=93.72292535267258]:1.3026167771655537)[&type="X",time=92.42030857550702]:4.282942639744135,(162[&type="X",samp="sample",time=93.72292535267258]:3.59022616134817,163[&type="X",samp="sample",time=93.72292535267258]:3.59022616134817)[&type="X",time=90.1326991913244]:1.995333255561519)[&type="X",time=88.13736593576289]:0.7522810882586555,(164[&type="X",samp="sample",time=93.72292535267258]:3.2748166853780987,165[&type="X",samp="sample",time=93.72292535267258]:3.2748166853780987)[&type="X",time=90.44810866729448]:3.0630238197902457)[&type="X",time=87.38508484750423]:0.8832412839940105,(166[&type="X",samp="sample",time=89.71340005690395]:0.0,167[&type="X",samp="sample",time=93.72292535267258]:4.009525295768626)[&type="X",time=89.71340005690395]:3.2115564933937293)[&type="X",time=86.50184356351022]:5.166624864736065)[&type="X",time=81.33521869877416]:4.664291042888195,(168[&type="X",samp="sample",time=93.72292535267258]:8.847773914529967,(((169[&type="X",samp="sample",time=93.72292535267258]:5.060267228143701,((170[&type="X",samp="sample",time=93.72292535267258]:1.536287337353201,171[&type="X",samp="sample",time=93.72292535267258]:1.536287337353201)[&type="X",time=92.18663801531937]:0.21609447495886513,172[&type="X",samp="sample",time=93.72292535267258]:1.7523818123120662)[&type="X",time=91.97054354036051]:3.3078854158316346)[&type="X",time=88.66265812452887]:0.31886641048963327,(173[&type="X",samp="sample",time=93.72292535267258]:0.1753096402490968,174[&type="X",samp="sample",time=93.72292535267258]:0.1753096402490968)[&type="X",time=93.54761571242348]:5.203823998384237)[&type="X",time=88.34379171403924]:3.155293675276198,175[&type="X",samp="sample",time=93.72292535267258]:8.534427313909532)[&type="X",time=85.18849803876304]:0.3133466006204344)[&type="X",time=84.87515143814261]:8.204223782256648)[&type="X",time=76.67092765588596]:1.1654678899997606)[&type="X",time=75.5054597658862]:5.6871365882580704)[&type="X",time=69.81832317762813]:7.815805793533642,((((176[&type="X",samp="sample",time=77.14236885068411]:0.0,177[&type="X",samp="sample",time=93.72292535267258]:16.580556501988468)[&type="X",time=77.14236885068411]:6.0349861202961534,((((178[&type="X",samp="sample",time=93.72292535267258]:1.567547271729154,(179[&type="X",samp="sample",time=93.72292535267258]:0.40112258403219414,180[&type="X",samp="sample",time=93.72292535267258]:0.40112258403219414)[&type="X",time=93.32180276864038]:1.16642468769696)[&type="X",time=92.15537808094342]:5.6171538168998865,181[&type="X",samp="sample",time=93.72292535267258]:7.1847010886290406)[&type="X",time=86.53822426404354]:6.112657243606947,(((182[&type="X",samp="sample",time=93.72292535267258]:4.639281550556333,183[&type="X",samp="sample",time=93.72292535267258]:4.639281550556333)[&type="X",time=89.08364380211624]:1.9954605310635571,184[&type="X",samp="sample",time=93.72292535267258]:6.6347420816198905)[&type="X",time=87.08818327105269]:0.5704364235761545,(((185[&type="X",samp="sample",time=91.85837231761113]:0.0,186[&type="X",samp="sample",time=93.72292535267258]:1.8645530350614479)[&type="X",time=91.85837231761113]:0.5319416751310371,187[&type="X",samp="sample",time=93.72292535267258]:2.396494710192485)[&type="X",time=91.32643064248009]:0.4326255913525614,(188[&type="X",samp="sample",time=93.72292535267258]:0.16120186868926112,189[&type="X",samp="sample",time=93.72292535267258]:0.16120186868926112)[&type="X",time=93.56172348398331]:2.6679184328557852)[&type="X",time=90.89380505112753]:4.376058203650999)[&type="X",time=86.51774684747653]:6.092179827039942)[&type="X",time=80.42556702043659]:5.877383641417964,((190[&type="X",samp="sample",time=93.72292535267258]:0.46053548537334166,191[&type="X",samp="sample",time=93.72292535267258]:0.46053548537334166)[&type="X",time=93.26238986729923]:17.10006089183068,((192[&type="X",samp="sample",time=85.37882403916905]:0.0,(193[&type="X",samp="sample",time=92.91583728646003]:5.825837032425085,((194[&type="X",samp="sample",time=93.72292535267258]:5.010366353218117,(195[&type="X",samp="sample",time=93.72292535267258]:2.334985630900249,(196[&type="X",samp="sample",time=93.72292535267258]:0.7790227599854802,197[&type="X",samp="sample",time=93.72292535267258]:0.7790227599854802)[&type="X",time=92.9439025926871]:1.5559628709147688)[&type="X",time=91.38793972177233]:2.6753807223178683)[&type="X",time=88.71255899945446]:1.21931729828637,198[&type="X",samp="sample",time=93.72292535267258]:6.229683651504487)[&type="X",time=87.49324170116809]:0.4032414471331407)[&type="X",time=87.09000025403495]:1.711176214865901)[&type="X",time=85.37882403916905]:8.980797893641252,199[&type="X",samp="sample",time=93.72292535267258]:17.32489920714478)[&type="X",time=76.3980261455278]:0.23569717005923962)[&type="X",time=76.16232897546855]:1.61414559644993)[&type="X",time=74.54818337901862]:3.4408006486306704)[&type="X",time=71.10738273038795]:0.4664446774632154,(((((200[&type="X",samp="sample",time=93.72292535267258]:2.0690704120044217,201[&type="X",samp="sample",time=93.72292535267258]:2.0690704120044217)[&type="X",time=91.65385494066815]:8.185944364180415,((202[&type="X",samp="sample",time=93.72292535267258]:5.7552874727224435,(203[&type="X",samp="sample",time=93.72292535267258]:1.4801455114025117,204[&type="X",samp="sample",time=93.72292535267258]:1.4801455114025117)[&type="X",time=92.24277984127006]:4.275141961319932)[&type="X",time=87.96763787995013]:1.5747526865504113,205[&type="X",samp="sample",time=93.72292535267258]:7.330040159272855)[&type="X",time=86.39288519339972]:2.9249746169119817)[&type="X",time=83.46791057648774]:0.6828212167240792,206[&type="X",samp="sample",time=93.72292535267258]:10.937835992908916)[&type="X",time=82.78508935976366]:4.813221057842355,(((207[&type="X",samp="sample",time=93.72292535267258]:0.7282564540700349,208[&type="X",samp="sample",time=93.72292535267258]:0.7282564540700349)[&type="X",time=92.99466889860254]:1.9344324214813469,209[&type="X",samp="sample",time=93.72292535267258]:2.662688875551382)[&type="X",time=91.0602364771212]:8.079107771626525,(210[&type="X",samp="sample",time=93.72292535267258]:0.9841494849813017,211[&type="X",samp="sample",time=93.72292535267258]:0.9841494849813017)[&type="X",time=92.73877586769127]:9.757647162196605)[&type="X",time=82.98112870549467]:5.009260403573364)[&type="X",time=77.9718683019213]:6.6527852426212775,((212[&type="X",samp="sample",time=93.72292535267258]:3.2347305793918792,(213[&type="X",samp="sample",time=93.72292535267258]:1.2473636848103382,214[&type="X",samp="sample",time=93.72292535267258]:1.2473636848103382)[&type="X",time=92.47556166786224]:1.987366894581541)[&type="X",time=90.4881947732807]:8.452092485189453,(215[&type="X",samp="sample",time=93.72292535267258]:2.706029472443319,216[&type="X",samp="sample",time=93.72292535267258]:2.706029472443319)[&type="X",time=91.01689588022926]:8.980793592138014)[&type="X",time=82.03610228809124]:10.717019228791216)[&type="X",time=71.31908305930003]:0.6781450063752885)[&type="X",time=70.64093805292474]:0.49137001520389845,((217[&type="X",samp="sample",time=93.72292535267258]:5.232827891387245,218[&type="X",samp="sample",time=93.72292535267258]:5.232827891387245)[&type="X",time=88.49009746128533]:12.132918195128681,((219[&type="X",samp="sample",time=93.72292535267258]:0.7116439305331852,220[&type="X",samp="sample",time=93.72292535267258]:0.7116439305331852)[&type="X",time=93.01128142213939]:0.1361439732293377,221[&type="X",samp="sample",time=93.72292535267258]:0.8477879037625229)[&type="X",time=92.87513744891005]:16.517958182753404)[&type="X",time=76.35717926615665]:6.207611228435809)[&type="X",time=70.14956803772084]:8.147050653626351)[&type="X",time=62.00251738409449]:0.23738057300851523)[&type="X",time=61.76513681108597]:0.8306873918025204)[&type="X",time=60.93444941928345]:1.2128575540115705,((222[&type="X",samp="sample",time=93.72292535267258]:30.44248155289904,((223[&type="X",samp="sample",time=74.47851230204522]:0.0,((224[&type="X",samp="sample",time=93.72292535267258]:4.022051487179979,(225[&type="X",samp="sample",time=93.72292535267258]:3.7262940979777284,((226[&type="X",samp="sample",time=92.08566824792133]:1.0839076596147947,227[&type="X",samp="sample",time=93.72292535267258]:2.721164764366037)[&type="X",time=91.00176058830654]:0.8748404589005787,228[&type="X",samp="sample",time=93.72292535267258]:3.5960052232666158)[&type="X",time=90.12692012940596]:0.1302888747111126)[&type="X",time=89.99663125469485]:0.2957573892022509)[&type="X",time=89.7008738654926]:2.8167584812089075,229[&type="X",samp="sample",time=93.72292535267258]:6.838809968388887)[&type="X",time=86.88411538428369]:12.405603082238471)[&type="X",time=74.47851230204522]:1.8271589628260614,(230[&type="X",samp="sample",time=93.72292535267258]:6.273171480374671,231[&type="X",samp="sample",time=90.29046091372807]:2.8407070414301643)[&type="X",time=87.4497538722979]:14.798400533078748)[&type="X",time=72.65135333921916]:9.37090953944562)[&type="X",time=63.280443799773536]:1.8389751302218613,(232[&type="X",samp="sample",time=93.72292535267258]:5.052816292717111,233[&type="X",samp="sample",time=93.72292535267258]:5.052816292717111)[&type="X",time=88.67010905995546]:27.22864039040379)[&type="X",time=61.441468669551675]:1.7198768042797923)[&type="X",time=59.72159186527188]:15.21463762598814,(((234[&type="X",samp="sample",time=61.5851976821816]:0.0,((((((((235[&type="X",samp="sample",time=93.72292535267258]:0.8092961437686057,236[&type="X",samp="sample",time=93.72292535267258]:0.8092961437686057)[&type="X",time=92.91362920890397]:12.931236183525058,237[&type="X",samp="sample",time=93.72292535267258]:13.740532327293664)[&type="X",time=79.98239302537891]:0.9605057146931983,(238[&type="X",samp="sample",time=93.72292535267258]:2.071384371995734,((239[&type="X",samp="sample",time=93.72292535267258]:0.57602707458922,240[&type="X",samp="sample",time=93.72292535267258]:0.57602707458922)[&type="X",time=93.14689827808336]:1.2206385195055844,241[&type="X",samp="sample",time=93.72292535267258]:1.7966655940948044)[&type="X",time=91.92625975857777]:0.27471877790092947)[&type="X",time=91.65154098067684]:12.629653669991129)[&type="X",time=79.02188731068571]:1.9411757042172866,242[&type="X",samp="sample",time=93.72292535267258]:16.64221374620415)[&type="X",time=77.08071160646843]:2.3818071375710588,((243[&type="X",samp="sample",time=93.72292535267258]:12.691239250941322,((244[&type="X",samp="sample",time=93.72292535267258]:2.7446104665968534,245[&type="X",samp="sample",time=93.72292535267258]:2.7446104665968534)[&type="X",time=90.97831488607572]:9.583530284320162,(246[&type="X",samp="sample",time=93.72292535267258]:7.644755045178954,(247[&type="X",samp="sample",time=93.72292535267258]:6.842055372705929,248[&type="X",samp="sample",time=93.72292535267258]:6.842055372705929)[&type="X",time=86.88086997996665]:0.8026996724730253)[&type="X",time=86.07817030749362]:4.683385705738061)[&type="X",time=81.39478460175556]:0.3630985000243072)[&type="X",time=81.03168610173125]:4.6585566497586655,(249[&type="X",samp="sample",time=93.72292535267258]:3.0256208134256326,250[&type="X",samp="sample",time=93.72292535267258]:3.0256208134256326)[&type="X",time=90.69730453924694]:14.324175087274355)[&type="X",time=76.37312945197259]:1.67422498307522)[&type="X",time=74.69890446889737]:1.274679423411726,251[&type="X",samp="sample",time=93.72292535267258]:20.298700307186934)[&type="X",time=73.42422504548564]:3.0553281843559574,(252[&type="X",samp="sample",time=93.72292535267258]:12.885597028226854,(((253[&type="X",samp="sample",time=93.72292535267258]:5.512744343274974,(254[&type="X",samp="sample",time=93.72292535267258]:0.472380074370804,255[&type="X",samp="sample",time=93.72292535267258]:0.472380074370804)[&type="X",time=93.25054527830177]:5.04036426890417)[&type="X",time=88.2101810093976]:0.4441304430270776,256[&type="X",samp="sample",time=93.72292535267258]:5.956874786302052)[&type="X",time=87.76605056637052]:3.6181104310265653,257[&type="X",samp="sample",time=93.72292535267258]:9.574985217328617)[&type="X",time=84.14794013534396]:3.310611810898237)[&type="X",time=80.83732832444572]:10.468431463316037)[&type="X",time=70.36889686112968]:8.782307759506878,(((258[&type="X",samp="sample",time=70.94901841004075]:0.0,((((259[&type="X",samp="sample",time=93.72292535267258]:3.451711674669923,260[&type="X",samp="sample",time=93.72292535267258]:3.451711674669923)[&type="X",time=90.27121367800265]:4.010410060017307,((((261[&type="X",samp="sample",time=93.72292535267258]:0.4271460605363586,(262[&type="X",samp="sample",time=93.72292535267258]:0.279147742815681,263[&type="X",samp="sample",time=93.72292535267258]:0.279147742815681)[&type="X",time=93.4437776098569]:0.14799831772067762)[&type="X",time=93.29577929213622]:1.8226106582716426,(((264[&type="X",samp="sample",time=93.72292535267258]:0.14362285553274035,265[&type="X",samp="sample",time=93.72292535267258]:0.14362285553274035)[&type="X",time=93.57930249713984]:0.0072485277769800405,266[&type="X",samp="sample",time=93.72292535267258]:0.15087138330972039)[&type="X",time=93.57205396936286]:1.3091524581125924,267[&type="X",samp="sample",time=93.72292535267258]:1.4600238414223128)[&type="X",time=92.26290151125026]:0.7897328773856884)[&type="X",time=91.47316863386457]:0.4358153121939239,268[&type="X",samp="sample",time=93.72292535267258]:2.685572031001925)[&type="X",time=91.03735332167065]:2.6115985429992463,(269[&type="X",samp="sample",time=93.72292535267258]:3.1133786608496052,(270[&type="X",samp="sample",time=93.72292535267258]:2.8422820328418226,(271[&type="X",samp="sample",time=93.72292535267258]:0.00715131896281207,272[&type="X",samp="sample",time=93.72292535267258]:0.00715131896281207)[&type="X",time=93.71577403370976]:2.8351307138790105)[&type="X",time=90.88064331983075]:0.27109662800778267)[&type="X",time=90.60954669182297]:2.183791913151566)[&type="X",time=88.4257547786714]:2.1649511606860585)[&type="X",time=86.26080361798535]:6.994594188087106,(273[&type="X",samp="sample",time=93.72292535267258]:1.0406365177127128,(274[&type="X",samp="sample",time=93.72292535267258]:0.26486305433304835,(275[&type="X",samp="sample",time=93.72292535267258]:0.04800841104810161,276[&type="X",samp="sample",time=93.72292535267258]:0.04800841104810161)[&type="X",time=93.67491694162447]:0.21685464328494675)[&type="X",time=93.45806229833953]:0.7757734633796645)[&type="X",time=92.68228883495986]:13.416079405061623)[&type="X",time=79.26620942989824]:2.388479332725069,(((((277[&type="X",samp="sample",time=93.72292535267258]:2.823289585739829,(((278[&type="X",samp="sample",time=93.72292535267258]:0.9094139932796281,279[&type="X",samp="sample",time=93.72292535267258]:0.9094139932796281)[&type="X",time=92.81351135939295]:0.7164684424828209,280[&type="X",samp="sample",time=93.72292535267258]:1.625882435762449)[&type="X",time=92.09704291691013]:0.3363885985194486,281[&type="X",samp="sample",time=93.72292535267258]:1.9622710342818976)[&type="X",time=91.76065431839068]:0.8610185514579314)[&type="X",time=90.89963576693275]:0.30994530850540514,282[&type="X",samp="sample",time=93.72292535267258]:3.133234894245234)[&type="X",time=90.58969045842734]:1.938062705479993,(283[&type="X",samp="sample",time=93.72292535267258]:2.184018836741913,284[&type="X",samp="sample",time=93.72292535267258]:2.184018836741913)[&type="X",time=91.53890651593066]:2.887278762983314)[&type="X",time=88.65162775294735]:2.110023435459226,((285[&type="X",samp="sample",time=93.72292535267258]:0.5134048312323785,286[&type="X",samp="sample",time=93.72292535267258]:0.5134048312323785)[&type="X",time=93.2095205214402]:3.3649298845485873,((287[&type="X",samp="sample",time=93.64557190027512]:0.0,288[&type="X",samp="sample",time=93.72292535267258]:0.07735345239746039)[&type="X",time=93.64557190027512]:2.4732061956998876,(289[&type="X",samp="sample",time=93.72292535267258]:1.095526557388979,290[&type="X",samp="sample",time=93.72292535267258]:1.095526557388979)[&type="X",time=92.6273987952836]:1.455033090708369)[&type="X",time=91.17236570457523]:1.3277750676836177)[&type="X",time=89.84459063689161]:3.3029863194034874)[&type="X",time=86.54160431748812]:9.619742959301604,(((((291[&type="X",samp="sample",time=93.72292535267258]:5.049363612165905,((292[&type="X",samp="sample",time=93.72292535267258]:0.3594368217955548,293[&type="X",samp="sample",time=93.72292535267258]:0.3594368217955548)[&type="X",time=93.36348853087702]:1.1268990234514291,294[&type="X",samp="sample",time=93.72292535267258]:1.486335845246984)[&type="X",time=92.23658950742559]:3.563027766918921)[&type="X",time=88.67356174050667]:1.4132707233209203,(295[&type="X",samp="sample",time=93.72292535267258]:3.5497075828233875,296[&type="X",samp="sample",time=93.72292535267258]:3.5497075828233875)[&type="X",time=90.17321776984919]:2.912926752663438)[&type="X",time=87.26029101718575]:0.8760071256182727,((297[&type="X",samp="sample",time=93.72292535267258]:0.6064675959895709,298[&type="X",samp="sample",time=93.72292535267258]:0.6064675959895709)[&type="X",time=93.116457756683]:0.12591943948861228,(299[&type="X",samp="sample",time=93.72292535267258]:0.4330258263722584,300[&type="X",samp="sample",time=93.72292535267258]:0.4330258263722584)[&type="X",time=93.28989952630032]:0.2993612091059248)[&type="X",time=92.99053831719439]:6.606254425626915)[&type="X",time=86.38428389156748]:7.20673682532464,((301[&type="X",samp="sample",time=84.40962449893625]:0.6829218738077145,302[&type="X",samp="sample",time=93.72292535267258]:9.996222727544037)[&type="X",time=83.72670262512854]:3.6790412979763687,((303[&type="X",samp="sample",time=91.69437448268187]:0.0,304[&type="X",samp="sample",time=93.72292535267258]:2.0285508699907098)[&type="X",time=91.69437448268187]:1.214935257551062,(305[&type="X",samp="sample",time=93.72292535267258]:1.3901674780368012,306[&type="X",samp="sample",time=93.72292535267258]:1.3901674780368012)[&type="X",time=92.33275787463577]:1.8533186495049705)[&type="X",time=90.4794392251308]:10.431777897978634)[&type="X",time=80.04766132715217]:0.8701142609093324)[&type="X",time=79.17754706624284]:0.02688767714953144,307[&type="X",samp="sample",time=93.72292535267258]:14.57226596357927)[&type="X",time=79.1506593890933]:2.2287980309067876)[&type="X",time=76.92186135818652]:0.04413126101334797)[&type="X",time=76.87773009717317]:5.92871168713242)[&type="X",time=70.94901841004075]:3.246834808347913,(308[&type="X",samp="sample",time=93.72292535267258]:6.850903492593503,((309[&type="X",samp="sample",time=91.5293317450102]:0.0,310[&type="X",samp="sample",time=93.72292535267258]:2.193593607662379)[&type="X",time=91.5293317450102]:0.40071766786542184,311[&type="X",samp="sample",time=93.72292535267258]:2.594311275527801)[&type="X",time=91.12861407714477]:4.256592217065702)[&type="X",time=86.87202186007907]:19.169838258386235)[&type="X",time=67.70218360169284]:1.3744996236808191,((((((312[&type="X",samp="sample",time=93.72292535267258]:4.4818421187982125,313[&type="X",samp="sample",time=93.72292535267258]:4.4818421187982125)[&type="X",time=89.24108323387436]:0.012852363727773763,(314[&type="X",samp="sample",time=93.72292535267258]:1.8730247071392938,(315[&type="X",samp="sample",time=93.72292535267258]:0.07007028325641329,316[&type="X",samp="sample",time=93.72292535267258]:0.07007028325641329)[&type="X",time=93.65285506941616]:1.8029544238828805)[&type="X",time=91.84990064553328]:2.6216697753866924)[&type="X",time=89.22823087014659]:2.0551965128470755,317[&type="X",samp="sample",time=93.72292535267258]:6.549890995373062)[&type="X",time=87.17303435729951]:10.404306277937636,(((318[&type="X",samp="sample",time=93.72292535267258]:2.093597823033619,319[&type="X",samp="sample",time=93.72292535267258]:2.093597823033619)[&type="X",time=91.62932752963896]:7.1983308619808355,320[&type="X",samp="sample",time=93.72292535267258]:9.291928685014454)[&type="X",time=84.43099666765812]:6.921324456221669,321[&type="X",samp="sample",time=93.72292535267258]:16.213253141236123)[&type="X",time=77.50967221143645]:0.7409441320745742)[&type="X",time=76.76872807936188]:8.065481966488619,(((((322[&type="X",samp="sample",time=89.68399358549047]:0.0,323[&type="X",samp="sample",time=93.72292535267258]:4.038931767182106)[&type="X",time=89.68399358549047]:2.477109957049933,324[&type="X",samp="sample",time=93.72292535267258]:6.516041724232039)[&type="X",time=87.20688362844054]:10.863225801711991,((325[&type="X",samp="sample",time=93.72292535267258]:1.2575892355783225,326[&type="X",samp="sample",time=93.72292535267258]:1.2575892355783225)[&type="X",time=92.46533611709425]:12.491304764894593,327[&type="X",samp="sample",time=93.72292535267258]:13.748894000472916)[&type="X",time=79.97403135219966]:3.6303735254711142)[&type="X",time=76.34365782672855]:2.8706494380776064,328[&type="X",samp="sample",time=90.70372511103389]:17.23071672238295)[&type="X",time=73.47300838865094]:1.2386175029280508,((329[&type="X",samp="sample",time=93.72292535267258]:5.407965227757245,((330[&type="X",samp="sample",time=93.72292535267258]:2.1916931789325673,331[&type="X",samp="sample",time=93.72292535267258]:2.1916931789325673)[&type="X",time=91.53123217374001]:0.8670808242846135,332[&type="X",samp="sample",time=93.72292535267258]:3.058774003217181)[&type="X",time=90.6641513494554]:2.349191224540064)[&type="X",time=88.31496012491533]:12.808480204987006,(333[&type="X",samp="sample",time=93.72292535267258]:2.4940934221920514,334[&type="X",samp="sample",time=93.72292535267258]:2.4940934221920514)[&type="X",time=91.22883193048052]:15.7223520105522)[&type="X",time=75.50647991992832]:3.272089034205436)[&type="X",time=72.23439088572289]:3.531144772849629)[&type="X",time=68.70324611287326]:1.0598184474820869,(((335[&type="X",samp="sample",time=93.72292535267258]:6.838552032459873,336[&type="X",samp="sample",time=93.72292535267258]:6.838552032459873)[&type="X",time=86.8843733202127]:3.80726525509192,(337[&type="X",samp="sample",time=93.72292535267258]:1.0821990775622368,338[&type="X",samp="sample",time=93.72292535267258]:1.0821990775622368)[&type="X",time=92.64072627511034]:9.563618209989556)[&type="X",time=83.07710806512078]:10.077541825393268,(339[&type="X",samp="sample",time=93.72292535267258]:7.798741890709536,340[&type="X",samp="sample",time=93.72292535267258]:7.798741890709536)[&type="X",time=85.92418346196304]:12.924617222235526)[&type="X",time=72.99956623972751]:5.356138574336342)[&type="X",time=67.64342766539117]:1.315743687379154)[&type="X",time=66.32768397801202]:4.741094876389212)[&type="X",time=61.586589101622806]:0.0013914194412052439)[&type="X",time=61.5851976821816]:10.774522311440101,(((((((341[&type="X",samp="sample",time=87.04348150460224]:2.087945693437419,(342[&type="X",samp="sample",time=93.72292535267258]:3.6885696554052316,(343[&type="X",samp="sample",time=93.72292535267258]:2.167597535200187,344[&type="X",samp="sample",time=93.72292535267258]:2.167597535200187)[&type="X",time=91.55532781747239]:1.5209721202050446)[&type="X",time=90.03435569726734]:5.078819886102522)[&type="X",time=84.95553581116482]:3.3596530743803186,(((345[&type="X",samp="sample",time=93.72292535267258]:5.425953428249599,((346[&type="X",samp="sample",time=93.72292535267258]:0.6680943751519806,347[&type="X",samp="sample",time=93.72292535267258]:0.6680943751519806)[&type="X",time=93.0548309775206]:0.527538068179922,348[&type="X",samp="sample",time=93.72292535267258]:1.1956324433319026)[&type="X",time=92.52729290934067]:4.230320984917697)[&type="X",time=88.29697192442298]:0.016668679390093644,(349[&type="X",samp="sample",time=93.70964686462621]:0.0,350[&type="X",samp="sample",time=93.72292535267258]:0.013278488046367443)[&type="X",time=93.70964686462621]:5.429343619593325)[&type="X",time=88.28030324503288]:4.531752148501468,((351[&type="X",samp="sample",time=93.72292535267258]:4.3774585779378015,352[&type="X",samp="sample",time=93.72292535267258]:4.3774585779378015)[&type="X",time=89.34546677473477]:2.276268944057449,((353[&type="X",samp="sample",time=93.72292535267258]:0.3540598551325189,354[&type="X",samp="sample",time=93.72292535267258]:0.3540598551325189)[&type="X",time=93.36886549754006]:4.074448387960572,355[&type="X",samp="sample",time=93.72292535267258]:4.428508243093091)[&type="X",time=89.29441710957948]:2.225219278902159)[&type="X",time=87.06919783067733]:3.3206467341459103)[&type="X",time=83.74855109653141]:2.1526683597469116)[&type="X",time=81.5958827367845]:0.7462742160600442,((356[&type="X",samp="sample",time=93.72292535267258]:4.831011198256334,357[&type="X",samp="sample",time=93.72292535267258]:4.831011198256334)[&type="X",time=88.89191415441624]:5.395203429062704,(((358[&type="X",samp="sample",time=93.72292535267258]:1.3122888361984337,359[&type="X",samp="sample",time=93.72292535267258]:1.3122888361984337)[&type="X",time=92.41063651647414]:0.19442860148117802,360[&type="X",samp="sample",time=93.72292535267258]:1.5067174376796117)[&type="X",time=92.21620791499296]:2.024299410776152,(361[&type="X",samp="sample",time=93.72292535267258]:3.026547515789389,362[&type="X",samp="sample",time=93.72292535267258]:3.026547515789389)[&type="X",time=90.69637783688319]:0.5044693326663747)[&type="X",time=90.19190850421681]:6.695197778863275)[&type="X",time=83.49671072535354]:2.6471022046290784)[&type="X",time=80.84960852072446]:8.28285762503225,363[&type="X",samp="sample",time=93.72292535267258]:21.156174456980366)[&type="X",time=72.56675089569221]:5.963627159186714,((364[&type="X",samp="sample",time=93.72292535267258]:3.016640885268302,(365[&type="X",samp="sample",time=93.72292535267258]:2.5388156588730055,(366[&type="X",samp="sample",time=93.72292535267258]:2.2072693711612033,367[&type="X",samp="sample",time=93.72292535267258]:2.2072693711612033)[&type="X",time=91.51565598151137]:0.3315462877118023)[&type="X",time=91.18410969379957]:0.47782522639529645)[&type="X",time=90.70628446740427]:17.384148791146487,((368[&type="X",samp="sample",time=93.72292535267258]:14.369170963459226,((369[&type="X",samp="sample",time=93.72292535267258]:4.255887524392662,(370[&type="X",samp="sample",time=93.72292535267258]:0.4789167523936584,371[&type="X",samp="sample",time=93.72292535267258]:0.4789167523936584)[&type="X",time=93.24400860027892]:3.7769707719990038)[&type="X",time=89.46703782827991]:3.398515450817314,(372[&type="X",samp="sample",time=93.72292535267258]:1.7392088012818903,373[&type="X",samp="sample",time=93.72292535267258]:1.7392088012818903)[&type="X",time=91.98371655139069]:5.915194173928086)[&type="X",time=86.0685223774626]:6.71476798824925)[&type="X",time=79.35375438921335]:2.8903294728684585,374[&type="X",samp="sample",time=93.72292535267258]:17.259500436327684)[&type="X",time=76.46342491634489]:3.1412892400871044)[&type="X",time=73.32213567625779]:6.719011939752292)[&type="X",time=66.6031237365055]:7.831637295602924,((((((375[&type="X",samp="sample",time=93.72292535267258]:2.9739980869326104,((376[&type="X",samp="sample",time=93.72292535267258]:1.6918109142399942,377[&type="X",samp="sample",time=93.72292535267258]:1.6918109142399942)[&type="X",time=92.03111443843258]:0.8436158671845249,378[&type="X",samp="sample",time=93.72292535267258]:2.535426781424519)[&type="X",time=91.18749857124806]:0.4385713055080913)[&type="X",time=90.74892726573997]:11.501136611436664,((((379[&type="X",samp="sample",time=93.72292535267258]:6.402927120125909,(((380[&type="X",samp="sample",time=93.72292535267258]:0.8619730087587101,381[&type="X",samp="sample",time=93.72292535267258]:0.8619730087587101)[&type="X",time=92.86095234391387]:0.28681047481524047,382[&type="X",samp="sample",time=93.72292535267258]:1.1487834835739505)[&type="X",time=92.57414186909863]:3.104134344337254,383[&type="X",samp="sample",time=93.72292535267258]:4.2529178279112045)[&type="X",time=89.47000752476137]:2.1500092922147047)[&type="X",time=87.31999823254667]:0.15208157930115362,(384[&type="X",samp="sample",time=93.72292535267258]:4.797732660329345,385[&type="X",samp="sample",time=93.72292535267258]:4.797732660329345)[&type="X",time=88.92519269234323]:1.757276039097718)[&type="X",time=87.16791665324551]:0.8770127820308744,(((386[&type="X",samp="sample",time=93.72292535267258]:0.3399205161569654,387[&type="X",samp="sample",time=93.72292535267258]:0.3399205161569654)[&type="X",time=93.38300483651561]:2.3060267077794947,388[&type="X",samp="sample",time=93.72292535267258]:2.64594722393646)[&type="X",time=91.07697812873612]:2.6891253629694347,((389[&type="X",samp="sample",time=93.72292535267258]:0.6127018819070429,390[&type="X",samp="sample",time=93.72292535267258]:0.6127018819070429)[&type="X",time=93.11022347076553]:1.4810847863243737,391[&type="X",samp="sample",time=93.72292535267258]:2.0937866682314166)[&type="X",time=91.62913868444116]:3.2412859186744782)[&type="X",time=88.38785276576668]:2.0969488945520425)[&type="X",time=86.29090387121464]:0.5466257325094546,(((392[&type="X",samp="sample",time=93.72292535267258]:3.9087797176933634,393[&type="X",samp="sample",time=93.72292535267258]:3.9087797176933634)[&type="X",time=89.81414563497921]:3.7548086119136315,394[&type="X",samp="sample",time=93.72292535267258]:7.663588329606995)[&type="X",time=86.05933702306558]:1.1536764900199614E-4,(395[&type="X",samp="sample",time=93.72292535267258]:1.538548533719208,396[&type="X",samp="sample",time=93.72292535267258]:1.538548533719208)[&type="X",time=92.18437681895337]:6.125155163536789)[&type="X",time=86.05922165541658]:0.314943516711395)[&type="X",time=85.74427813870518]:6.496487484401882)[&type="X",time=79.2477906543033]:6.786788274645687,(397[&type="X",samp="sample",time=93.72292535267258]:2.081748609514989,398[&type="X",samp="sample",time=93.72292535267258]:2.081748609514989)[&type="X",time=91.64117674315759]:19.180174363499972)[&type="X",time=72.46100237965761]:0.812169126305605,(399[&type="X",samp="sample",time=93.72292535267258]:14.279898151775853,(400[&type="X",samp="sample",time=93.72292535267258]:7.0672081066981605,401[&type="X",samp="sample",time=93.72292535267258]:7.0672081066981605)[&type="X",time=86.65571724597442]:7.212690045077693)[&type="X",time=79.44302720089672]:7.794193947544713)[&type="X",time=71.64883325335201]:2.3181332245114135,((402[&type="X",samp="sample",time=93.72292535267258]:16.554616363151567,(403[&type="X",samp="sample",time=93.72292535267258]:4.312433470432055,404[&type="X",samp="sample",time=93.72292535267258]:4.312433470432055)[&type="X",time=89.41049188224052]:12.242182892719512)[&type="X",time=77.16830898952101]:0.6044227700160576,405[&type="X",samp="sample",time=76.99109854285953]:0.42721232335458126)[&type="X",time=76.56388621950495]:7.233186190664355)[&type="X",time=69.3307000288406]:9.473952572851026,((406[&type="X",samp="sample",time=93.72292535267258]:21.707154937973385,((((407[&type="X",samp="sample",time=93.72292535267258]:0.3772330428949573,((408[&type="X",samp="sample",time=93.72292535267258]:0.047087371585561755,409[&type="X",samp="sample",time=93.72292535267258]:0.047087371585561755)[&type="X",time=93.67583798108701]:0.06452191417976394,410[&type="X",samp="sample",time=93.72292535267258]:0.1116092857653257)[&type="X",time=93.61131606690725]:0.2656237571296316)[&type="X",time=93.34569230977762]:2.254618041570623,411[&type="X",samp="sample",time=93.72292535267258]:2.6318510844655805)[&type="X",time=91.091074268207]:12.578229295957655,(412[&type="X",samp="sample",time=93.72292535267258]:13.993283428961448,(413[&type="X",samp="sample",time=93.72292535267258]:5.1164035186430965,414[&type="X",samp="sample",time=93.72292535267258]:5.1164035186430965)[&type="X",time=88.60652183402948]:8.876879910318351)[&type="X",time=79.72964192371113]:1.216796951461788)[&type="X",time=78.51284497224934]:0.9134482184826851,415[&type="X",samp="sample",time=93.72292535267258]:16.12352859890592)[&type="X",time=77.59939675376665]:5.5836263390674645)[&type="X",time=72.01577041469919]:8.440918901808672,((((((416[&type="X",samp="sample",time=90.51603011406858]:0.0,417[&type="X",samp="sample",time=93.72292535267258]:3.206895238603991)[&type="X",time=90.51603011406858]:3.022155622139522,418[&type="X",samp="sample",time=93.72292535267258]:6.229050860743513)[&type="X",time=87.49387449192906]:7.4030967557726655,419[&type="X",samp="sample",time=93.72292535267258]:13.632147616516178)[&type="X",time=80.0907777361564]:3.209209209167682,(((420[&type="X",samp="sample",time=93.72292535267258]:1.2747631079150068,(421[&type="X",samp="sample",time=93.72292535267258]:0.4277771090181943,422[&type="X",samp="sample",time=93.72292535267258]:0.4277771090181943)[&type="X",time=93.29514824365438]:0.8469859988968125)[&type="X",time=92.44816224475757]:4.113300348332871,423[&type="X",samp="sample",time=93.72292535267258]:5.3880634562478775)[&type="X",time=88.3348618964247]:3.4740337549760767,424[&type="X",samp="sample",time=93.72292535267258]:8.862097211223954)[&type="X",time=84.86082814144862]:7.979259614459906)[&type="X",time=76.88156852698872]:1.1340396598865823,(((425[&type="X",samp="sample",time=93.72292535267258]:1.4361583629465287,426[&type="X",samp="sample",time=93.72292535267258]:1.4361583629465287)[&type="X",time=92.28676698972605]:2.0466696521814782,(427[&type="X",samp="sample",time=93.72292535267258]:2.177132024453172,428[&type="X",samp="sample",time=93.72292535267258]:2.177132024453172)[&type="X",time=91.5457933282194]:1.3056959906748347)[&type="X",time=90.24009733754457]:9.668715922790113,(((((429[&type="X",samp="sample",time=93.72292535267258]:0.12302877421427638,430[&type="X",samp="sample",time=93.72292535267258]:0.12302877421427638)[&type="X",time=93.5998965784583]:0.5040223036684353,431[&type="X",samp="sample",time=93.72292535267258]:0.6270510778827116)[&type="X",time=93.09587427478986]:6.732938152347316,((432[&type="X",samp="sample",time=93.72292535267258]:3.702262919536423,((433[&type="X",samp="sample",time=93.72292535267258]:2.0517183177162934,434[&type="X",samp="sample",time=93.72292535267258]:2.0517183177162934)[&type="X",time=91.67120703495628]:0.46597364203856273,435[&type="X",samp="sample",time=93.72292535267258]:2.517691959754856)[&type="X",time=91.20523339291772]:1.184570959781567)[&type="X",time=90.02066243313615]:0.06987517970432577,((436[&type="X",samp="sample",time=93.72292535267258]:0.5572754570940361,437[&type="X",samp="sample",time=93.72292535267258]:0.5572754570940361)[&type="X",time=93.16564989557854]:2.400393520828146,(438[&type="X",samp="sample",time=93.72292535267258]:1.5050701504385273,439[&type="X",samp="sample",time=93.72292535267258]:1.5050701504385273)[&type="X",time=92.21785520223405]:1.452598827483655)[&type="X",time=90.7652563747504]:0.8144691213185666)[&type="X",time=89.95078725343183]:3.5878511309892787)[&type="X",time=86.36293612244255]:0.2561595829915575,(440[&type="X",samp="sample",time=93.72292535267258]:3.0061528550638457,441[&type="X",samp="sample",time=93.72292535267258]:3.0061528550638457)[&type="X",time=90.71677249760873]:4.609995958157739)[&type="X",time=86.10677653945099]:4.358843510073299,((((442[&type="X",samp="sample",time=93.72292535267258]:0.7796597864318926,443[&type="X",samp="sample",time=93.72292535267258]:0.7796597864318926)[&type="X",time=92.94326556624068]:1.1220246003382641,(444[&type="X",samp="sample",time=93.72292535267258]:0.9317637767604907,445[&type="X",samp="sample",time=93.72292535267258]:0.9317637767604907)[&type="X",time=92.79116157591208]:0.969920610009666)[&type="X",time=91.82124096590242]:6.447509555776023,((446[&type="X",samp="sample",time=93.72292535267258]:0.08327514224023957,447[&type="X",samp="sample",time=93.72292535267258]:0.08327514224023957)[&type="X",time=93.63965021043234]:1.2827249434638617,448[&type="X",samp="sample",time=93.72292535267258]:1.3660000857041013)[&type="X",time=92.35692526696847]:6.983193856842078)[&type="X",time=85.3737314101264]:2.0299560137374613,(449[&type="X",samp="sample",time=93.72292535267258]:1.7750941221909642,450[&type="X",samp="sample",time=93.72292535267258]:1.7750941221909642)[&type="X",time=91.94783123048161]:8.604055834092676)[&type="X",time=83.34377539638893]:1.5958423670112438)[&type="X",time=81.74793302937769]:1.1765516146232358)[&type="X",time=80.57138141475446]:4.823852547652322)[&type="X",time=75.74752886710213]:8.626927593131867,((451[&type="X",samp="sample",time=93.72292535267258]:4.237647873585004,(452[&type="X",samp="sample",time=93.72292535267258]:0.6676404000590566,453[&type="X",samp="sample",time=93.72292535267258]:0.6676404000590566)[&type="X",time=93.05528495261352]:3.5700074735259477)[&type="X",time=89.48527747908757]:21.792401291115922,454[&type="X",samp="sample",time=93.72292535267258]:26.030049164700927)[&type="X",time=67.69287618797165]:0.5722749140013832)[&type="X",time=67.12060127397027]:3.5457497610797475)[&type="X",time=63.57485151289052]:3.7181040569009483)[&type="X",time=59.85674745598957]:1.0852610150869992)[&type="X",time=58.77148644090257]:5.140692623801996,455[&type="X",samp="sample",time=54.633370362134336]:1.0025765450337616)[&type="X",time=53.630793817100574]:2.820118446359075)[&type="X",time=50.8106753707415]:3.5015219676803824,((((456[&type="X",samp="sample",time=93.72292535267258]:0.40658113930157924,457[&type="X",samp="sample",time=93.72292535267258]:0.40658113930157924)[&type="X",time=93.316344213371]:16.82397809689992,((((458[&type="X",samp="sample",time=93.72292535267258]:1.2608323803187318,459[&type="X",samp="sample",time=93.72292535267258]:1.2608323803187318)[&type="X",time=92.46209297235384]:1.7742326077416664,460[&type="X",samp="sample",time=93.72292535267258]:3.035064988060398)[&type="X",time=90.68786036461218]:1.6776099301905418,((461[&type="X",samp="sample",time=93.72292535267258]:0.11633280628034015,462[&type="X",samp="sample",time=93.72292535267258]:0.11633280628034015)[&type="X",time=93.60659254639224]:4.016266310670474,463[&type="X",samp="sample",time=93.72292535267258]:4.132599116950814)[&type="X",time=89.59032623572176]:0.5800758013001257)[&type="X",time=89.01025043442164]:11.387648929943495,(464[&type="X",samp="sample",time=93.72292535267258]:7.738230944868221,((465[&type="X",samp="sample",time=93.72292535267258]:3.100785463479724,((466[&type="X",samp="sample",time=93.72292535267258]:2.0773216495839506,467[&type="X",samp="sample",time=93.72292535267258]:2.0773216495839506)[&type="X",time=91.64560370308863]:0.766715489962337,468[&type="X",samp="sample",time=93.72292535267258]:2.8440371395462876)[&type="X",time=90.87888821312629]:0.2567483239334365)[&type="X",time=90.62213988919285]:2.6182273348803733,469[&type="X",samp="sample",time=93.72292535267258]:5.719012798360097)[&type="X",time=88.00391255431248]:2.0192181465081234)[&type="X",time=85.98469440780435]:8.362092903326214)[&type="X",time=77.62260150447814]:1.1302353880070655)[&type="X",time=76.49236611647108]:12.254499275563646,(((470[&type="X",samp="sample",time=93.72292535267258]:0.7026339814535163,471[&type="X",samp="sample",time=93.72292535267258]:0.7026339814535163)[&type="X",time=93.02029137121906]:5.316113993196623,472[&type="X",samp="sample",time=93.72292535267258]:6.0187479746501396)[&type="X",time=87.70417737802244]:10.288242875193191,((473[&type="X",samp="sample",time=93.72292535267258]:3.7918002196185654,(474[&type="X",samp="sample",time=93.72292535267258]:2.4991979918718528,(475[&type="X",samp="sample",time=93.72292535267258]:1.508048357344407,476[&type="X",samp="sample",time=93.72292535267258]:1.508048357344407)[&type="X",time=92.21487699532817]:0.9911496345274458)[&type="X",time=91.22372736080072]:1.2926022277467126)[&type="X",time=89.93112513305401]:12.087557066128568,(477[&type="X",samp="sample",time=93.72292535267258]:7.011818671433929,478[&type="X",samp="sample",time=93.72292535267258]:7.011818671433929)[&type="X",time=86.71110668123865]:8.867538614313204)[&type="X",time=77.84356806692544]:0.42763356409619746)[&type="X",time=77.41593450282924]:13.178067661921816)[&type="X",time=64.23786684090743]:0.3739830850882484,((((479[&type="X",samp="sample",time=93.72292535267258]:7.0727353158144695,480[&type="X",samp="sample",time=93.72292535267258]:7.0727353158144695)[&type="X",time=86.6501900368581]:0.6750860623776731,(481[&type="X",samp="sample",time=91.68058737974353]:0.0,482[&type="X",samp="sample",time=93.72292535267258]:2.0423379729290474)[&type="X",time=91.68058737974353]:5.705483405263095)[&type="X",time=85.97510397448043]:17.252657308761812,((((483[&type="X",samp="sample",time=93.72292535267258]:11.47561529898023,484[&type="X",samp="sample",time=93.72292535267258]:11.47561529898023)[&type="X",time=82.24731005369235]:8.046569646314737,(485[&type="X",samp="sample",time=93.72292535267258]:18.76178968934458,486[&type="X",samp="sample",time=93.72292535267258]:18.76178968934458)[&type="X",time=74.961135663328]:0.7603952559503853)[&type="X",time=74.20074040737761]:1.4113828043069532,(487[&type="X",samp="sample",time=93.72292535267258]:14.428459201938765,(((488[&type="X",samp="sample",time=93.72292535267258]:1.4476461467118327,489[&type="X",samp="sample",time=93.72292535267258]:1.4476461467118327)[&type="X",time=92.27527920596074]:0.00827582072453481,490[&type="X",samp="sample",time=93.72292535267258]:1.4559219674363675)[&type="X",time=92.26700338523621]:5.597351510506556,491[&type="X",samp="sample",time=93.72292535267258]:7.053273477942923)[&type="X",time=86.66965187472965]:7.375185723995841)[&type="X",time=79.29446615073381]:6.505108547663156)[&type="X",time=72.78935760307066]:3.688967443995409,((492[&type="X",samp="sample",time=74.61437211833525]:0.8593896330690427,((493[&type="X",samp="sample",time=93.72292535267258]:2.2180542145254663,(494[&type="X",samp="sample",time=93.72292535267258]:0.9746098144233599,495[&type="X",samp="sample",time=93.72292535267258]:0.9746098144233599)[&type="X",time=92.74831553824922]:1.2434444001021063)[&type="X",time=91.50487113814711]:1.408273063342591,(496[&type="X",samp="sample",time=93.72292535267258]:2.6777724609658407,(497[&type="X",samp="sample",time=93.72292535267258]:2.111455242915568,((498[&type="X",samp="sample",time=93.72292535267258]:0.5125614276143722,499[&type="X",samp="sample",time=93.72292535267258]:0.5125614276143722)[&type="X",time=93.2103639250582]:0.9151532661574038,(500[&type="X",samp="sample",time=93.72292535267258]:1.3266042973034047,501[&type="X",samp="sample",time=93.72292535267258]:1.3266042973034047)[&type="X",time=92.39632105536917]:0.10111039646837128)[&type="X",time=92.2952106589008]:0.683740549143792)[&type="X",time=91.61147010975701]:0.5663172180502727)[&type="X",time=91.04515289170673]:0.9485548169022167)[&type="X",time=90.09659807480452]:16.341615589538307)[&type="X",time=73.75498248526621]:1.1480287002847263,((((502[&type="X",samp="sample",time=93.72292535267258]:2.0426546177035334,(503[&type="X",samp="sample",time=93.72292535267258]:0.389313856851885,504[&type="X",samp="sample",time=93.72292535267258]:0.389313856851885)[&type="X",time=93.33361149582069]:1.6533407608516484)[&type="X",time=91.68027073496904]:9.136598685749178,505[&type="X",samp="sample",time=93.72292535267258]:11.179253303452711)[&type="X",time=82.54367204921986]:1.2408318855892588,(506[&type="X",samp="sample",time=93.72292535267258]:10.04977438081454,(((((507[&type="X",samp="sample",time=93.72292535267258]:1.1758414311991174,508[&type="X",samp="sample",time=93.72292535267258]:1.1758414311991174)[&type="X",time=92.54708392147346]:1.5153957680512633,(509[&type="X",samp="sample",time=93.72292535267258]:2.5896209646803783,510[&type="X",samp="sample",time=93.72292535267258]:2.5896209646803783)[&type="X",time=91.1333043879922]:0.10161623457000246)[&type="X",time=91.0316881534222]:0.5359782016861345,(511[&type="X",samp="sample",time=93.72292535267258]:0.49765682268792943,512[&type="X",samp="sample",time=93.72292535267258]:0.49765682268792943)[&type="X",time=93.22526852998465]:2.729558578248586)[&type="X",time=90.49570995173606]:3.409715845760843,((513[&type="X",samp="sample",time=93.72292535267258]:1.4239657219716406,514[&type="X",samp="sample",time=93.72292535267258]:1.4239657219716406)[&type="X",time=92.29895963070094]:3.2296805796436416,515[&type="X",samp="sample",time=93.72292535267258]:4.653646301615282)[&type="X",time=89.0692790510573]:1.983284945082076)[&type="X",time=87.08599410597522]:0.5101431559756264,(516[&type="X",samp="sample",time=93.72292535267258]:3.103867649964542,((517[&type="X",samp="sample",time=93.72292535267258]:0.5406861550812039,518[&type="X",samp="sample",time=93.72292535267258]:0.5406861550812039)[&type="X",time=93.18223919759137]:2.0924518261294764,519[&type="X",samp="sample",time=93.72292535267258]:2.6331379812106803)[&type="X",time=91.0897873714619]:0.4707296687538616)[&type="X",time=90.61905770270803]:4.043206752708443)[&type="X",time=86.57585094999959]:2.9026999781415554)[&type="X",time=83.67315097185804]:2.37031080822743)[&type="X",time=81.3028401636306]:0.19752947569172363,(520[&type="X",samp="sample",time=93.72292535267258]:7.263712763888691,521[&type="X",samp="sample",time=93.72292535267258]:7.263712763888691)[&type="X",time=86.45921258878388]:5.353901900845003)[&type="X",time=81.10531068793888]:8.498356902957397)[&type="X",time=72.60695378498149]:3.5065636259062387)[&type="X",time=69.10039015907525]:0.377943493356625)[&type="X",time=68.72244666571862]:1.1789927937387148,(((522[&type="X",samp="sample",time=93.72292535267258]:0.8847128820427343,523[&type="X",samp="sample",time=93.72292535267258]:0.8847128820427343)[&type="X",time=92.83821247062984]:10.38788208553261,(524[&type="X",samp="sample",time=92.8282663441958]:0.0,525[&type="X",samp="sample",time=93.72292535267258]:0.8946590084767791)[&type="X",time=92.8282663441958]:10.377935959098565)[&type="X",time=82.45033038509723]:0.23362762603154863,(526[&type="X",samp="sample",time=93.72292535267258]:7.663373417223156,(527[&type="X",samp="sample",time=93.72292535267258]:0.7277547026211408,528[&type="X",samp="sample",time=93.72292535267258]:0.7277547026211408)[&type="X",time=92.99517065005143]:6.935618714602015)[&type="X",time=86.05955193544942]:3.842849176383737)[&type="X",time=82.21670275906568]:14.673248887085776)[&type="X",time=67.5434538719799]:3.6795701161607255)[&type="X",time=63.86388375581918]:16.554730352758064)[&type="X",time=47.30915340306112]:2.8021991637773738)[&type="X",time=44.50695423928374]:17.89943765334496,(((529[&type="X",samp="sample",time=93.72292535267258]:7.846687021068249,(530[&type="X",samp="sample",time=93.72292535267258]:4.918660790455789,531[&type="X",samp="sample",time=93.72292535267258]:4.918660790455789)[&type="X",time=88.80426456221679]:2.92802623061246)[&type="X",time=85.87623833160433]:24.5245790160673,(((((((532[&type="X",samp="sample",time=93.72292535267258]:4.668010987107124,533[&type="X",samp="sample",time=93.72292535267258]:4.668010987107124)[&type="X",time=89.05491436556545]:0.7418589478814397,534[&type="X",samp="sample",time=93.72292535267258]:5.4098699349885635)[&type="X",time=88.31305541768401]:5.204275171447804,(535[&type="X",samp="sample",time=93.72292535267258]:1.7868501647956379,536[&type="X",samp="sample",time=93.72292535267258]:1.7868501647956379)[&type="X",time=91.93607518787694]:8.82729494164073)[&type="X",time=83.10878024623621]:2.970631456286725,((537[&type="X",samp="sample",time=93.72292535267258]:0.845589118471878,538[&type="X",samp="sample",time=93.72292535267258]:0.845589118471878)[&type="X",time=92.8773362342007]:5.674861035214619,(((539[&type="X",samp="sample",time=93.72292535267258]:1.5557319991672784,540[&type="X",samp="sample",time=93.72292535267258]:1.5557319991672784)[&type="X",time=92.1671933535053]:0.6664493766215571,541[&type="X",samp="sample",time=93.72292535267258]:2.2221813757888356)[&type="X",time=91.50074397688374]:0.008752557777199854,542[&type="X",samp="sample",time=93.72292535267258]:2.2309339335660354)[&type="X",time=91.49199141910654]:4.289516220120461)[&type="X",time=87.20247519898608]:7.064326409036596)[&type="X",time=80.13814878994948]:3.1891278879551663,543[&type="X",samp="sample",time=93.72292535267258]:16.77390445067826)[&type="X",time=76.94902090199432]:5.621058730844041,(544[&type="X",samp="sample",time=93.72292535267258]:6.87142471345669,545[&type="X",samp="sample",time=93.72292535267258]:6.87142471345669)[&type="X",time=86.85150063921589]:15.52353846806561)[&type="X",time=71.32796217115028]:4.085737774774685,((546[&type="X",samp="sample",time=93.72292535267258]:13.379602208042115,(547[&type="X",samp="sample",time=81.65141274828936]:0.0,(548[&type="X",samp="sample",time=90.69607485146936]:5.435657233682065,((549[&type="X",samp="sample",time=93.72292535267258]:2.332368483204718,550[&type="X",samp="sample",time=93.72292535267258]:2.332368483204718)[&type="X",time=91.39055686946786]:5.579118865211925,(551[&type="X",samp="sample",time=93.72292535267258]:6.134565493961901,552[&type="X",samp="sample",time=93.72292535267258]:6.134565493961901)[&type="X",time=87.58835985871067]:1.7769218544547414)[&type="X",time=85.81143800425593]:0.551020386468636)[&type="X",time=85.2604176177873]:3.6090048694979373)[&type="X",time=81.65141274828936]:1.3080896036588996)[&type="X",time=80.34332314463046]:11.70342036568644,((((553[&type="X",samp="sample",time=93.72292535267258]:3.046944625213669,554[&type="X",samp="sample",time=93.72292535267258]:3.046944625213669)[&type="X",time=90.6759807274589]:8.547881597118348,555[&type="X",samp="sample",time=83.75105627748428]:1.6229571471437225)[&type="X",time=82.12809913034056]:0.8487294696321896,(556[&type="X",samp="sample",time=93.72292535267258]:0.5522970853578357,557[&type="X",samp="sample",time=93.72292535267258]:0.5522970853578357)[&type="X",time=93.17062826731474]:11.891258606606371)[&type="X",time=81.27936966070837]:12.319284349749864,(((558[&type="X",samp="sample",time=93.72292535267258]:1.6633081138428167,559[&type="X",samp="sample",time=93.72292535267258]:1.6633081138428167)[&type="X",time=92.05961723882976]:9.481452395477419,560[&type="X",samp="sample",time=93.72292535267258]:11.144760509320236)[&type="X",time=82.57816484335234]:3.9961214185071015,561[&type="X",samp="sample",time=93.72292535267258]:15.140881927827337)[&type="X",time=78.58204342484524]:9.621958113886734)[&type="X",time=68.9600853109585]:0.3201825320144849)[&type="X",time=68.63990277894402]:1.3976783825684294)[&type="X",time=67.24222439637559]:5.890565080838563)[&type="X",time=61.35165931553703]:16.443086316744868,(((((((((562[&type="X",samp="sample",time=93.72292535267258]:0.6243157043169845,563[&type="X",samp="sample",time=93.72292535267258]:0.6243157043169845)[&type="X",time=93.09860964835559]:1.2386418021745982,564[&type="X",samp="sample",time=93.72292535267258]:1.8629575064915826)[&type="X",time=91.859967846181]:6.493852547143803,(565[&type="X",samp="sample",time=93.72292535267258]:3.2671930300523258,566[&type="X",samp="sample",time=93.72292535267258]:3.2671930300523258)[&type="X",time=90.45573232262025]:5.08961702358306)[&type="X",time=85.36611529903719]:14.182254895178474,((567[&type="X",samp="sample",time=93.72292535267258]:14.266512832348923,568[&type="X",samp="sample",time=93.72292535267258]:14.266512832348923)[&type="X",time=79.45641252032365]:0.36875457087329266,(((569[&type="X",samp="sample",time=93.72292535267258]:0.46078910458338385,570[&type="X",samp="sample",time=93.72292535267258]:0.46078910458338385)[&type="X",time=93.26213624808919]:7.3098608203674615,(571[&type="X",samp="sample",time=93.72292535267258]:1.2439818084822036,(572[&type="X",samp="sample",time=93.72292535267258]:0.7304745409174132,573[&type="X",samp="sample",time=93.72292535267258]:0.7304745409174132)[&type="X",time=92.99245081175516]:0.5135072675647905)[&type="X",time=92.47894354419037]:6.526668116468642)[&type="X",time=85.95227542772173]:0.8161554996867721,(574[&type="X",samp="sample",time=93.72292535267258]:5.0541865433220465,575[&type="X",samp="sample",time=93.72292535267258]:5.0541865433220465)[&type="X",time=88.66873880935053]:3.532618881315571)[&type="X",time=85.13611992803496]:6.048461978584598)[&type="X",time=79.08765794945036]:7.903797545591644)[&type="X",time=71.18386040385872]:2.1456778669370635,(((576[&type="X",samp="sample",time=93.72292535267258]:6.811437542970367,(577[&type="X",samp="sample",time=93.72292535267258]:6.079048513950994,(578[&type="X",samp="sample",time=93.72292535267258]:1.3959804939146778,579[&type="X",samp="sample",time=93.72292535267258]:1.3959804939146778)[&type="X",time=92.3269448587579]:4.683068020036316)[&type="X",time=87.64387683872158]:0.7323890290193731)[&type="X",time=86.91148780970221]:2.2419010131894765,(580[&type="X",samp="sample",time=93.72292535267258]:6.93667606049442,(581[&type="X",samp="sample",time=93.72292535267258]:4.251196356871645,(582[&type="X",samp="sample",time=93.72292535267258]:1.5630506142983478,583[&type="X",samp="sample",time=93.72292535267258]:1.5630506142983478)[&type="X",time=92.15987473837423]:2.6881457425732975)[&type="X",time=89.47172899580093]:2.685479703622775)[&type="X",time=86.78624929217816]:2.116662495665423)[&type="X",time=84.66958679651273]:14.244616365186872,(584[&type="X",samp="sample",time=93.72292535267258]:11.448377020738164,(585[&type="X",samp="sample",time=93.72292535267258]:2.6590134153451714,(586[&type="X",samp="sample",time=93.72292535267258]:2.398661577923761,587[&type="X",samp="sample",time=93.72292535267258]:2.398661577923761)[&type="X",time=91.32426377474881]:0.26035183742141044)[&type="X",time=91.0639119373274]:8.789363605392992)[&type="X",time=82.27454833193441]:11.849577900608551)[&type="X",time=70.42497043132586]:1.3867878944042076)[&type="X",time=69.03818253692165]:0.5778483204929188,((588[&type="X",samp="sample",time=93.72292535267258]:1.8446885543288545,589[&type="X",samp="sample",time=93.72292535267258]:1.8446885543288545)[&type="X",time=91.87823679834372]:17.296226528067635,((((590[&type="X",samp="sample",time=93.72292535267258]:0.6631044227548557,591[&type="X",samp="sample",time=93.72292535267258]:0.6631044227548557)[&type="X",time=93.05982092991772]:0.7491715521304769,592[&type="X",samp="sample",time=93.72292535267258]:1.4122759748853326)[&type="X",time=92.31064937778724]:4.762214241352453,(593[&type="X",samp="sample",time=93.72292535267258]:6.106191883396036,(594[&type="X",samp="sample",time=93.72292535267258]:6.097476191108839,595[&type="X",samp="sample",time=93.72292535267258]:6.097476191108839)[&type="X",time=87.62544916156374]:0.00871569228719693)[&type="X",time=87.61673346927654]:0.06829833284174924)[&type="X",time=87.54843513643479]:1.5111508671320593,(596[&type="X",samp="sample",time=93.72292535267258]:3.8210156803469886,(597[&type="X",samp="sample",time=93.72292535267258]:0.05586292177062546,598[&type="X",samp="sample",time=93.72292535267258]:0.05586292177062546)[&type="X",time=93.66706243090195]:3.765152758576363)[&type="X",time=89.90190967232559]:3.864625403022856)[&type="X",time=86.03728426930273]:11.455273999026645)[&type="X",time=74.58201027027609]:6.121676053847352)[&type="X",time=68.46033421642873]:11.463056304875956,599[&type="X",samp="sample",time=93.72292535267258]:36.7256474411198)[&type="X",time=56.99727791155278]:5.081851593058502,((((600[&type="X",samp="sample",time=93.72292535267258]:1.1284580683716285,601[&type="X",samp="sample",time=93.72292535267258]:1.1284580683716285)[&type="X",time=92.59446728430095]:18.124509938634162,(602[&type="X",samp="sample",time=93.72292535267258]:14.838399749796324,(603[&type="X",samp="sample",time=81.82968492655031]:0.0,((604[&type="X",samp="sample",time=93.72292535267258]:5.9987928805320365,(605[&type="X",samp="sample",time=93.72292535267258]:3.268535430748372,(606[&type="X",samp="sample",time=93.72292535267258]:2.137366536031095,(607[&type="X",samp="sample",time=93.72292535267258]:0.9269428162670437,(608[&type="X",samp="sample",time=93.72292535267258]:0.3927379546311158,609[&type="X",samp="sample",time=93.72292535267258]:0.3927379546311158)[&type="X",time=93.33018739804146]:0.5342048616359278)[&type="X",time=92.79598253640553]:1.2104237197640515)[&type="X",time=91.58555881664148]:1.1311688947172769)[&type="X",time=90.4543899219242]:2.7302574497836645)[&type="X",time=87.72413247214054]:3.76589171734409,((610[&type="X",samp="sample",time=93.72292535267258]:3.306531758195945,611[&type="X",samp="sample",time=93.72292535267258]:3.306531758195945)[&type="X",time=90.41639359447663]:4.34832032118419,(((612[&type="X",samp="sample",time=93.72292535267258]:2.31914123657009,613[&type="X",samp="sample",time=93.72292535267258]:2.31914123657009)[&type="X",time=91.40378411610249]:3.218972243549942,614[&type="X",samp="sample",time=93.72292535267258]:5.538113480120032)[&type="X",time=88.18481187255254]:1.1004133048265317,615[&type="X",samp="sample",time=93.72292535267258]:6.6385267849465635)[&type="X",time=87.08439856772601]:1.016325294433571)[&type="X",time=86.06807327329244]:2.109832518495992)[&type="X",time=83.95824075479645]:2.128555828246135)[&type="X",time=81.82968492655031]:2.945159323674062)[&type="X",time=78.88452560287625]:4.414568257209467)[&type="X",time=74.46995734566678]:4.201373223026891,((616[&type="X",samp="sample",time=93.72292535267258]:15.268808088859018,617[&type="X",samp="sample",time=88.85907764984438]:10.404960386030822)[&type="X",time=78.45411726381356]:7.1775490879185355,(618[&type="X",samp="sample",time=93.72292535267258]:11.76035558889187,(619[&type="X",samp="sample",time=93.72292535267258]:9.080860207246161,((((620[&type="X",samp="sample",time=93.72292535267258]:1.9035402628831974,621[&type="X",samp="sample",time=93.72292535267258]:1.9035402628831974)[&type="X",time=91.81938508978938]:0.6094197650812845,622[&type="X",samp="sample",time=93.72292535267258]:2.512960027964482)[&type="X",time=91.2099653247081]:1.7539404069000284,623[&type="X",samp="sample",time=93.72292535267258]:4.26690043486451)[&type="X",time=89.45602491780807]:2.2362499748975466,(624[&type="X",samp="sample",time=93.72292535267258]:5.297149145539336,(625[&type="X",samp="sample",time=93.72292535267258]:1.756775340715265,626[&type="X",samp="sample",time=93.72292535267258]:1.756775340715265)[&type="X",time=91.96615001195731]:3.540373804824071)[&type="X",time=88.42577620713324]:1.2060012642227207)[&type="X",time=87.21977494291052]:2.577709797484104)[&type="X",time=84.64206514542641]:2.679495381645708)[&type="X",time=81.9625697637807]:10.686001587885684)[&type="X",time=71.27656817589502]:1.0079840532551287)[&type="X",time=70.2685841226399]:16.6603183582381,(((((627[&type="X",samp="sample",time=86.62707667432946]:0.0,(628[&type="X",samp="sample",time=93.72292535267258]:6.197494195377814,629[&type="X",samp="sample",time=93.72292535267258]:6.197494195377814)[&type="X",time=87.52543115729476]:0.8983544829653027)[&type="X",time=86.62707667432946]:17.312648678891776,(((((630[&type="X",samp="sample",time=93.72292535267258]:0.8076410789332726,((631[&type="X",samp="sample",time=93.52017867865709]:0.0,(632[&type="X",samp="sample",time=93.72292535267258]:0.18840561668760358,633[&type="X",samp="sample",time=93.72292535267258]:0.18840561668760358)[&type="X",time=93.53451973598497]:0.014341057327882822)[&type="X",time=93.52017867865709]:0.528161000641731,(634[&type="X",samp="sample",time=93.72292535267258]:0.008014677484140975,635[&type="X",samp="sample",time=93.72292535267258]:0.008014677484140975)[&type="X",time=93.71491067518843]:0.7228929971730764)[&type="X",time=92.99201767801536]:0.07673340427605524)[&type="X",time=92.9152842737393]:2.468247362250267,(636[&type="X",samp="sample",time=93.55128024502737]:0.0,637[&type="X",samp="sample",time=93.72292535267258]:0.17164510764520458)[&type="X",time=93.55128024502737]:3.104243333538335)[&type="X",time=90.44703691148904]:1.0236755118868501,(638[&type="X",samp="sample",time=93.72292535267258]:3.8100397661624186,(639[&type="X",samp="sample",time=93.72292535267258]:1.7004991279797395,640[&type="X",samp="sample",time=93.72292535267258]:1.7004991279797395)[&type="X",time=92.02242622469284]:2.109540638182679)[&type="X",time=89.91288558651016]:0.48952418690797117)[&type="X",time=89.42336139960219]:2.358444246605373,641[&type="X",samp="sample",time=93.72292535267258]:6.658008199675763)[&type="X",time=87.06491715299681]:17.38311448774222,((642[&type="X",samp="sample",time=93.72292535267258]:3.94939197227896,(643[&type="X",samp="sample",time=93.72292535267258]:1.1923511184187987,(644[&type="X",samp="sample",time=93.72292535267258]:0.177410257572717,645[&type="X",samp="sample",time=93.72292535267258]:0.177410257572717)[&type="X",time=93.54551509509986]:1.0149408608460817)[&type="X",time=92.53057423425378]:2.757040853860161)[&type="X",time=89.77353338039362]:10.881105996372128,(646[&type="X",samp="sample",time=93.72292535267258]:8.901936201076623,647[&type="X",samp="sample",time=93.72292535267258]:8.901936201076623)[&type="X",time=84.82098915159595]:5.928561767574465)[&type="X",time=78.89242738402149]:9.210624718766894)[&type="X",time=69.6818026652546]:0.36737466981691114)[&type="X",time=69.31442799543768]:5.413387848327886,((((((648[&type="X",samp="sample",time=93.72292535267258]:1.7624672970167552,649[&type="X",samp="sample",time=93.72292535267258]:1.7624672970167552)[&type="X",time=91.96045805565582]:4.283192260124295,650[&type="X",samp="sample",time=93.72292535267258]:6.04565955714105)[&type="X",time=87.67726579553153]:5.33162844513609,651[&type="X",samp="sample",time=93.72292535267258]:11.37728800227714)[&type="X",time=82.34563735039544]:4.273180379416843,((652[&type="X",samp="sample",time=93.72292535267258]:1.9549804856028175,653[&type="X",samp="sample",time=93.72292535267258]:1.9549804856028175)[&type="X",time=91.76794486706976]:2.8692866283046072,(654[&type="X",samp="sample",time=93.72292535267258]:3.1573917683724773,655[&type="X",samp="sample",time=93.72292535267258]:3.1573917683724773)[&type="X",time=90.5655335843001]:1.6668753455349474)[&type="X",time=88.89865823876515]:10.826201267786558)[&type="X",time=78.07245697097859]:1.6589072905321558,(656[&type="X",samp="sample",time=93.72292535267258]:14.184487736221612,(((657[&type="X",samp="sample",time=93.72292535267258]:0.5991194513669882,658[&type="X",samp="sample",time=93.72292535267258]:0.5991194513669882)[&type="X",time=93.12380590130559]:2.86664421394201,659[&type="X",samp="sample",time=93.72292535267258]:3.465763665308998)[&type="X",time=90.25716168736358]:5.058108616615655,660[&type="X",samp="sample",time=93.72292535267258]:8.523872281924653)[&type="X",time=85.19905307074792]:5.660615454296959)[&type="X",time=79.53843761645096]:3.1248879360045265)[&type="X",time=76.41354968044644]:10.945554369225533,(((661[&type="X",samp="sample",time=93.72292535267258]:1.270113891153997,(662[&type="X",samp="sample",time=93.72292535267258]:0.8877999751163372,663[&type="X",samp="sample",time=93.72292535267258]:0.8877999751163372)[&type="X",time=92.83512537755624]:0.38231391603765985)[&type="X",time=92.45281146151858]:8.871162650279757,664[&type="X",samp="sample",time=93.72292535267258]:10.141276541433754)[&type="X",time=83.58164881123882]:16.263416435894598,((665[&type="X",samp="sample",time=93.72292535267258]:1.993143085210093,666[&type="X",samp="sample",time=93.72292535267258]:1.993143085210093)[&type="X",time=91.72978226746248]:1.7307377431752258,667[&type="X",samp="sample",time=93.72292535267258]:3.723880828385319)[&type="X",time=89.99904452428726]:22.680812148943033)[&type="X",time=67.31823237534422]:1.85023706412332)[&type="X",time=65.4679953112209]:1.566955164111107)[&type="X",time=63.901040147109796]:0.61724765794078,(((668[&type="X",samp="sample",time=93.72292535267258]:2.648744254251966,(669[&type="X",samp="sample",time=93.72292535267258]:1.381226462622834,((670[&type="X",samp="sample",time=93.72292535267258]:0.5444644940883165,671[&type="X",samp="sample",time=93.72292535267258]:0.5444644940883165)[&type="X",time=93.17846085858426]:0.6569067738221861,672[&type="X",samp="sample",time=93.72292535267258]:1.2013712679105026)[&type="X",time=92.52155408476207]:0.17985519471233147)[&type="X",time=92.34169889004974]:1.2675177916291318)[&type="X",time=91.07418109842061]:16.466716017924426,((673[&type="X",samp="sample",time=93.72292535267258]:15.513337524303722,674[&type="X",samp="sample",time=93.72292535267258]:15.513337524303722)[&type="X",time=78.20958782836885]:0.9111298524011318,((675[&type="X",samp="sample",time=93.72292535267258]:4.946388156984369,676[&type="X",samp="sample",time=93.72292535267258]:4.946388156984369)[&type="X",time=88.7765371956882]:2.94278231155063,(677[&type="X",samp="sample",time=92.32579733941827]:0.0,(678[&type="X",samp="sample",time=93.72292535267258]:1.187973823572932,679[&type="X",samp="sample",time=93.72292535267258]:1.187973823572932)[&type="X",time=92.53495152909964]:0.2091541896813709)[&type="X",time=92.32579733941827]:6.492042455280696)[&type="X",time=85.83375488413758]:8.535296908169855)[&type="X",time=77.29845797596772]:2.6909928954715383)[&type="X",time=74.60746508049618]:2.2997675112038394,(680[&type="X",samp="sample",time=93.72292535267258]:17.2907700957947,(((681[&type="X",samp="sample",time=93.72292535267258]:3.1789293467909516,(682[&type="X",samp="sample",time=93.72292535267258]:2.7123102191961976,683[&type="X",samp="sample",time=93.72292535267258]:2.7123102191961976)[&type="X",time=91.01061513347638]:0.466619127594754)[&type="X",time=90.54399600588162]:8.823481203823462,(684[&type="X",samp="sample",time=93.72292535267258]:11.134789342131938,(685[&type="X",samp="sample",time=93.72292535267258]:9.44059255026238,(686[&type="X",samp="sample",time=93.72292535267258]:1.0035082427825728,687[&type="X",samp="sample",time=93.72292535267258]:1.0035082427825728)[&type="X",time=92.71941710989]:8.437084307479807)[&type="X",time=84.2823328024102]:1.6941967918695582)[&type="X",time=82.58813601054064]:0.8676212084824755)[&type="X",time=81.72051480205816]:0.9013853110845105,(((((688[&type="X",samp="sample",time=93.72292535267258]:0.17049964978200194,689[&type="X",samp="sample",time=93.72292535267258]:0.17049964978200194)[&type="X",time=93.55242570289057]:2.6768542296302087,690[&type="X",samp="sample",time=93.72292535267258]:2.8473538794122106)[&type="X",time=90.87557147326036]:2.4935687705319793,((691[&type="X",samp="sample",time=93.72292535267258]:0.9388279646310309,692[&type="X",samp="sample",time=93.72292535267258]:0.9388279646310309)[&type="X",time=92.78409738804154]:0.8797222868885228,693[&type="X",samp="sample",time=93.72292535267258]:1.8185502515195537)[&type="X",time=91.90437510115302]:3.5223723984246362)[&type="X",time=88.38200270272839]:2.5450085949667596,(694[&type="X",samp="sample",time=93.72292535267258]:4.120496232054791,((695[&type="X",samp="sample",time=93.72292535267258]:2.4425290373158077,696[&type="X",samp="sample",time=93.72292535267258]:2.4425290373158077)[&type="X",time=91.28039631535677]:0.5116384391380961,(697[&type="X",samp="sample",time=93.72292535267258]:0.5413546159089577,698[&type="X",samp="sample",time=93.72292535267258]:0.5413546159089577)[&type="X",time=93.18157073676362]:2.412812860544946)[&type="X",time=90.76875787621867]:1.1663287556008868)[&type="X",time=89.60242912061778]:3.765435012856159)[&type="X",time=85.83699410776163]:1.169778928790592,699[&type="X",samp="sample",time=93.72292535267258]:9.055710173701542)[&type="X",time=84.66721517897103]:3.848085687997383)[&type="X",time=80.81912949097365]:4.386974234095774)[&type="X",time=76.43215525687788]:4.124457687585533)[&type="X",time=72.30769756929234]:9.023905080123328)[&type="X",time=63.28379248916902]:0.48140133998487045,((700[&type="X",samp="sample",time=70.88028670301559]:0.0,(701[&type="X",samp="sample",time=93.72292535267258]:8.210024940832938,(702[&type="X",samp="sample",time=93.72292535267258]:0.222726610282578,703[&type="X",samp="sample",time=93.72292535267258]:0.222726610282578)[&type="X",time=93.50019874239]:7.9872983305503595)[&type="X",time=85.51290041183964]:14.632613708824053)[&type="X",time=70.88028670301559]:5.985538209894955,(704[&type="X",samp="sample",time=93.72292535267258]:11.089581833308102,705[&type="X",samp="sample",time=93.72292535267258]:11.089581833308102)[&type="X",time=82.63334351936447]:17.738595026243843)[&type="X",time=64.89474849312063]:2.0923573439364844)[&type="X",time=62.802391149184146]:9.194125384782353)[&type="X",time=53.60826576440179]:1.6928394459075164)[&type="X",time=51.915426318494276]:6.409474588584374,(706[&type="X",samp="sample",time=80.41222291948411]:0.39356790075382264,707[&type="X",samp="sample",time=93.72292535267258]:13.70427033394229)[&type="X",time=80.01865501873029]:34.51270328882038)[&type="X",time=45.5059517299099]:0.5973787311177432)[&type="X",time=44.90857299879216]:18.301056412853377)[&type="X",time=26.60751658593879]:3.427561562757205)[&type="X",time=23.179955023181574]:3.6055305012790484)[&type="X",time=19.574424521902525]:10.614304844101184,(708[&type="X",samp="sample",time=10.09763909826354]:0.0,(((709[&type="X",samp="sample",time=19.934282091158643]:0.0,710[&type="X",samp="sample",time=21.508495107834833]:1.5742130166761825)[&type="X",time=19.934282091158643]:0.6357004788680314,(711[&type="X",samp="sample",time=22.40057027884718]:0.30734508019813234,(712[&type="X",samp="sample",time=24.889013146891248]:0.0,(((((713[&type="X",samp="sample",time=93.72292535267258]:0.7558296488831076,714[&type="X",samp="sample",time=93.72292535267258]:0.7558296488831076)[&type="X",time=92.96709570378947]:7.884276489546593,(715[&type="X",samp="sample",time=93.72292535267258]:0.03441594143798454,716[&type="X",samp="sample",time=93.72292535267258]:0.03441594143798454)[&type="X",time=93.68850941123459]:8.605690196991716)[&type="X",time=85.08281921424287]:6.888598010974064,(((717[&type="X",samp="sample",time=93.72292535267258]:1.4302415437727092,718[&type="X",samp="sample",time=93.72292535267258]:1.4302415437727092)[&type="X",time=92.29268380889987]:6.217468321617105,(719[&type="X",samp="sample",time=91.51240496138959]:2.8094384489781987,720[&type="X",samp="sample",time=93.72292535267258]:5.019958840261182)[&type="X",time=88.7029665124114]:2.6277510251286316)[&type="X",time=86.07521548728276]:2.4782437418491554,(721[&type="X",samp="sample",time=93.72292535267258]:3.3127696307816734,(722[&type="X",samp="sample",time=93.72292535267258]:1.852451939403366,(723[&type="X",samp="sample",time=93.72292535267258]:1.7748427654552899,724[&type="X",samp="sample",time=93.72292535267258]:1.7748427654552899)[&type="X",time=91.94808258721729]:0.0776091739480762)[&type="X",time=91.87047341326921]:1.4603176913783074)[&type="X",time=90.4101557218909]:6.813183976457296)[&type="X",time=83.5969717454336]:5.402750542164796)[&type="X",time=78.19422120326881]:25.422151128324877,(((((((((725[&type="X",samp="sample",time=93.72292535267258]:1.1571696287871873,726[&type="X",samp="sample",time=93.72292535267258]:1.1571696287871873)[&type="X",time=92.56575572388539]:4.155099883449296,727[&type="X",samp="sample",time=93.72292535267258]:5.312269512236483)[&type="X",time=88.41065584043609]:1.2358196267288548,(728[&type="X",samp="sample",time=93.72292535267258]:1.7077231019632393,729[&type="X",samp="sample",time=93.72292535267258]:1.7077231019632393)[&type="X",time=92.01520225070934]:4.840366037002099)[&type="X",time=87.17483621370724]:16.38797159886522,(730[&type="X",samp="sample",time=86.86776524026561]:0.0,731[&type="X",samp="sample",time=93.72292535267258]:6.855160112406963)[&type="X",time=86.86776524026561]:16.080900625423595)[&type="X",time=70.78686461484202]:3.690725727087994,((((732[&type="X",samp="sample",time=93.72292535267258]:0.4321691403530252,733[&type="X",samp="sample",time=93.72292535267258]:0.4321691403530252)[&type="X",time=93.29075621231955]:6.546117816844529,(734[&type="X",samp="sample",time=90.1662391684306]:0.0,735[&type="X",samp="sample",time=93.72292535267258]:3.5566861842419826)[&type="X",time=90.1662391684306]:3.4216007729555713)[&type="X",time=86.74463839547502]:13.230556271553397,736[&type="X",samp="sample",time=93.72292535267258]:20.20884322875095)[&type="X",time=73.51408212392163]:6.306923147924223,(((737[&type="X",samp="sample",time=93.72292535267258]:1.4889197383542552,738[&type="X",samp="sample",time=93.72292535267258]:1.4889197383542552)[&type="X",time=92.23400561431832]:0.5515486362013178,739[&type="X",samp="sample",time=93.72292535267258]:2.040468374555573)[&type="X",time=91.682456978117]:23.76155210293298,(((740[&type="X",samp="sample",time=93.72292535267258]:0.34219570520976106,741[&type="X",samp="sample",time=93.72292535267258]:0.34219570520976106)[&type="X",time=93.38072964746281]:0.6774072826583932,742[&type="X",samp="sample",time=93.72292535267258]:1.0196029878681543)[&type="X",time=92.70332236480442]:2.557062234553129,743[&type="X",samp="sample",time=93.72292535267258]:3.5766652224212834)[&type="X",time=90.14626013025129]:22.22535525506727)[&type="X",time=67.92090487518402]:0.7137458991866197)[&type="X",time=67.2071589759974]:0.11102008824337872)[&type="X",time=67.09613888775402]:4.041335406788598,((((744[&type="X",samp="sample",time=80.30952371822266]:0.0,(((745[&type="X",samp="sample",time=93.72292535267258]:1.3707234951147171,746[&type="X",samp="sample",time=93.72292535267258]:1.3707234951147171)[&type="X",time=92.35220185755786]:4.344144989448893,747[&type="X",samp="sample",time=93.72292535267258]:5.71486848456361)[&type="X",time=88.00805686810897]:3.576687164458008,((((748[&type="X",samp="sample",time=93.72292535267258]:5.786970399093349,(749[&type="X",samp="sample",time=93.72292535267258]:1.6774981812743448,750[&type="X",samp="sample",time=93.72292535267258]:1.6774981812743448)[&type="X",time=92.04542717139823]:4.109472217819004)[&type="X",time=87.93595495357923]:0.15056912513465193,(751[&type="X",samp="sample",time=93.72292535267258]:0.8727286282091882,752[&type="X",samp="sample",time=93.72292535267258]:0.8727286282091882)[&type="X",time=92.85019672446339]:5.0648108960188125)[&type="X",time=87.78538582844457]:0.11829906418121539,(753[&type="X",samp="sample",time=92.30979022837727]:0.0,(754[&type="X",samp="sample",time=93.72292535267258]:1.3660619757321797,755[&type="X",samp="sample",time=93.72292535267258]:1.3660619757321797)[&type="X",time=92.3568633769404]:0.04707314856312905)[&type="X",time=92.30979022837727]:4.642703464113907)[&type="X",time=87.66708676426336]:0.3020988190091316,((756[&type="X",samp="sample",time=93.72292535267258]:2.5529407243396633,757[&type="X",samp="sample",time=93.72292535267258]:2.5529407243396633)[&type="X",time=91.16998462833291]:2.674639347570647,(758[&type="X",samp="sample",time=93.72292535267258]:4.3789099584893165,(759[&type="X",samp="sample",time=93.72292535267258]:2.5060630005058613,(760[&type="X",samp="sample",time=93.72292535267258]:0.3278086448437989,761[&type="X",samp="sample",time=93.72292535267258]:0.3278086448437989)[&type="X",time=93.39511670782878]:2.1782543556620624)[&type="X",time=91.21686235216671]:1.8728469579834552)[&type="X",time=89.34401539418326]:0.8486701134209937)[&type="X",time=88.49534528076227]:1.1303573355080374)[&type="X",time=87.36498794525423]:2.93361824160327)[&type="X",time=84.43136970365096]:4.121845985428294)[&type="X",time=80.30952371822266]:0.804300278601886,((762[&type="X",samp="sample",time=93.72292535267258]:1.2747900214113486,763[&type="X",samp="sample",time=93.72292535267258]:1.2747900214113486)[&type="X",time=92.44813533126123]:9.704376966297488,(((((764[&type="X",samp="sample",time=93.72292535267258]:2.1997404400181892,(765[&type="X",samp="sample",time=93.72292535267258]:1.4420876876365156,766[&type="X",samp="sample",time=93.72292535267258]:1.4420876876365156)[&type="X",time=92.28083766503606]:0.7576527523816736)[&type="X",time=91.52318491265439]:2.1188812338440925,767[&type="X",samp="sample",time=93.72292535267258]:4.318621673862282)[&type="X",time=89.4043036788103]:1.74167469154807,(768[&type="X",samp="sample",time=93.72292535267258]:1.274415340255132,769[&type="X",samp="sample",time=93.72292535267258]:1.274415340255132)[&type="X",time=92.44851001241744]:4.78588102515522)[&type="X",time=87.66262898726222]:1.6397541508517008,(770[&type="X",samp="sample",time=93.72292535267258]:1.9376334502280628,(771[&type="X",samp="sample",time=93.72292535267258]:1.8282185526014985,((772[&type="X",samp="sample",time=93.72292535267258]:0.47797185888397564,773[&type="X",samp="sample",time=93.72292535267258]:0.47797185888397564)[&type="X",time=93.2449534937886]:0.042517119440134366,774[&type="X",samp="sample",time=93.72292535267258]:0.52048897832411)[&type="X",time=93.20243637434847]:1.3077295742773885)[&type="X",time=91.89470680007108]:0.10941489762656431)[&type="X",time=91.78529190244451]:5.76241706603399)[&type="X",time=86.02287483641052]:2.356456968998401,((775[&type="X",samp="sample",time=93.72292535267258]:1.437352246556415,(776[&type="X",samp="sample",time=93.72292535267258]:0.4225251280409452,777[&type="X",samp="sample",time=93.72292535267258]:0.4225251280409452)[&type="X",time=93.30040022463163]:1.0148271185154698)[&type="X",time=92.28557310611616]:5.94112634569575,778[&type="X",samp="sample",time=93.72292535267258]:7.378478592252165)[&type="X",time=86.34444676042041]:2.678028893008289)[&type="X",time=83.66641786741212]:0.9226595024483828)[&type="X",time=82.74375836496374]:3.238534925342961)[&type="X",time=79.50522343962078]:5.231969222526274,((779[&type="X",samp="sample",time=86.36678265494614]:0.0,(780[&type="X",samp="sample",time=87.07431152528606]:0.0,((781[&type="X",samp="sample",time=93.72292535267258]:0.24602781451680755,782[&type="X",samp="sample",time=93.72292535267258]:0.24602781451680755)[&type="X",time=93.47689753815577]:2.024466735026195,783[&type="X",samp="sample",time=93.72292535267258]:2.2704945495430024)[&type="X",time=91.45243080312957]:4.37811927784351)[&type="X",time=87.07431152528606]:0.7075288703399281)[&type="X",time=86.36678265494614]:9.176770074866141,784[&type="X",samp="sample",time=93.72292535267258]:16.53291277259258)[&type="X",time=77.19001258008]:2.9167583629854903)[&type="X",time=74.2732542170945]:3.1174156000998323,((((((785[&type="X",samp="sample",time=93.72292535267258]:0.6624596950404253,786[&type="X",samp="sample",time=93.72292535267258]:0.6624596950404253)[&type="X",time=93.06046565763215]:7.202718978714884,787[&type="X",samp="sample",time=93.72292535267258]:7.8651786737553095)[&type="X",time=85.85774667891727]:2.665737308637219,788[&type="X",samp="sample",time=93.72292535267258]:10.530915982392528)[&type="X",time=83.19200937028005]:4.260647409152284,789[&type="X",samp="sample",time=93.72292535267258]:14.791563391544813)[&type="X",time=78.93136196112776]:7.298885278556384,(((790[&type="X",samp="sample",time=84.26379999425274]:0.0,791[&type="X",samp="sample",time=93.72292535267258]:9.45912535841984)[&type="X",time=84.26379999425274]:1.7043921211525515,(792[&type="X",samp="sample",time=93.72292535267258]:2.410159148463748,793[&type="X",samp="sample",time=93.72292535267258]:2.410159148463748)[&type="X",time=91.31276620420883]:8.753358331108643)[&type="X",time=82.55940787310018]:6.80770075169157,(794[&type="X",samp="sample",time=76.92016408200273]:1.1551594682002104,(795[&type="X",samp="sample",time=93.72292535267258]:11.223176311316479,(796[&type="X",samp="sample",time=93.72292535267258]:6.038780020975139,((797[&type="X",samp="sample",time=93.72292535267258]:1.3250715661403802,798[&type="X",samp="sample",time=93.72292535267258]:1.3250715661403802)[&type="X",time=92.3978537865322]:2.1912621473772447,799[&type="X",samp="sample",time=93.72292535267258]:3.516333713517625)[&type="X",time=90.20659163915495]:2.522446307457514)[&type="X",time=87.68414533169744]:5.18439629034134)[&type="X",time=82.4997490413561]:6.734744427553579)[&type="X",time=75.76500461380252]:0.013297492393903099)[&type="X",time=75.75170712140861]:4.119230438837235)[&type="X",time=71.63247668257138]:0.17882219329510463,((800[&type="X",samp="sample",time=93.72292535267258]:9.204168148338042,(801[&type="X",samp="sample",time=93.72292535267258]:1.0173216774237943,802[&type="X",samp="sample",time=93.72292535267258]:1.0173216774237943)[&type="X",time=92.70560367524878]:8.186846470914247)[&type="X",time=84.51875720433453]:8.22556234509868,(((((803[&type="X",samp="sample",time=93.72292535267258]:0.41033701079432205,804[&type="X",samp="sample",time=93.72292535267258]:0.41033701079432205)[&type="X",time=93.31258834187825]:3.2022450380160166,805[&type="X",samp="sample",time=93.72292535267258]:3.6125820488103386)[&type="X",time=90.11034330386224]:1.854610623308318,(806[&type="X",samp="sample",time=93.72292535267258]:1.8236895015069479,807[&type="X",samp="sample",time=93.72292535267258]:1.8236895015069479)[&type="X",time=91.89923585116563]:3.6435031706117087)[&type="X",time=88.25573268055392]:0.13571661015544123,808[&type="X",samp="sample",time=93.72292535267258]:5.602909282274098)[&type="X",time=88.12001607039848]:0.8204168915973611,((809[&type="X",samp="sample",time=93.72292535267258]:0.41379985986955603,810[&type="X",samp="sample",time=93.72292535267258]:0.41379985986955603)[&type="X",time=93.30912549280302]:0.6830801756161549,811[&type="X",samp="sample",time=93.72292535267258]:1.096880035485711)[&type="X",time=92.62604531718686]:5.326446138385748)[&type="X",time=87.29959917880112]:11.006404319565263)[&type="X",time=76.29319485923585]:4.839540369959579)[&type="X",time=71.45365448927627]:0.29781587228160333)[&type="X",time=71.15583861699467]:8.101035136029246)[&type="X",time=63.054803480965425]:0.3954330586041763,((812[&type="X",samp="sample",time=93.72292535267258]:5.898064164540827,813[&type="X",samp="sample",time=93.72292535267258]:5.898064164540827)[&type="X",time=87.82486118813175]:13.094371252190243,((((814[&type="X",samp="sample",time=93.72292535267258]:7.143818724936864,(815[&type="X",samp="sample",time=93.72292535267258]:3.0233801105402165,816[&type="X",samp="sample",time=93.72292535267258]:3.0233801105402165)[&type="X",time=90.69954524213236]:4.120438614396647)[&type="X",time=86.57910662773571]:4.7827168692036395,(817[&type="X",samp="sample",time=93.72292535267258]:2.59083903918021,(818[&type="X",samp="sample",time=93.72292535267258]:2.543127071746241,819[&type="X",samp="sample",time=93.72292535267258]:2.543127071746241)[&type="X",time=91.17979828092633]:0.047711967433968994)[&type="X",time=91.13208631349237]:9.335696554960293)[&type="X",time=81.79638975853207]:1.2937118006014714,(820[&type="X",samp="sample",time=93.72292535267258]:1.5544095388575982,821[&type="X",samp="sample",time=92.82928287172791]:0.6607670579129348)[&type="X",time=92.16851581381498]:11.665837855884376)[&type="X",time=80.5026779579306]:1.71244108124057,822[&type="X",samp="sample",time=84.95231396925237]:6.162077092562342)[&type="X",time=78.79023687669003]:4.059746940748525)[&type="X",time=74.7304899359415]:12.071119513580257)[&type="X",time=62.65937042236125]:5.703182018533113,(((823[&type="X",samp="sample",time=93.72292535267258]:19.90825999856466,(824[&type="X",samp="sample",time=93.72292535267258]:18.140985257861473,((((825[&type="X",samp="sample",time=93.72292535267258]:4.912511928963781,826[&type="X",samp="sample",time=93.72292535267258]:4.912511928963781)[&type="X",time=88.8104134237088]:7.2761286775211715,(827[&type="X",samp="sample",time=93.72292535267258]:2.015228219072071,828[&type="X",samp="sample",time=93.72292535267258]:2.015228219072071)[&type="X",time=91.7076971336005]:10.173412387412881)[&type="X",time=81.53428474618762]:4.218728546822916,((829[&type="X",samp="sample",time=93.72292535267258]:2.87881333494272,830[&type="X",samp="sample",time=93.72292535267258]:2.87881333494272)[&type="X",time=90.84411201772986]:8.51085572984745,831[&type="X",samp="sample",time=93.72292535267258]:11.38966906479017)[&type="X",time=82.3332562878824]:5.017700088517699)[&type="X",time=77.3155561993647]:1.3694184927633586,((((832[&type="X",samp="sample",time=92.00897657830521]:0.0,833[&type="X",samp="sample",time=93.72292535267258]:1.713948774367367)[&type="X",time=92.00897657830521]:6.199486768870557,834[&type="X",samp="sample",time=93.72292535267258]:7.913435543237924)[&type="X",time=85.80948980943465]:0.45163491572165526,(835[&type="X",samp="sample",time=93.72292535267258]:0.2774830945903659,836[&type="X",samp="sample",time=93.72292535267258]:0.2774830945903659)[&type="X",time=93.44544225808221]:8.087587364369213)[&type="X",time=85.357854893713]:5.720059229995869,(837[&type="X",samp="sample",time=93.72292535267258]:12.715394138711858,((838[&type="X",samp="sample",time=93.72292535267258]:0.5354688035502733,839[&type="X",samp="sample",time=93.72292535267258]:0.5354688035502733)[&type="X",time=93.1874565491223]:8.758572298540685,840[&type="X",samp="sample",time=93.72292535267258]:9.294041102090958)[&type="X",time=84.42888425058162]:3.4213530366209)[&type="X",time=81.00753121396072]:1.3697355502435897)[&type="X",time=79.63779566371713]:3.6916579571157797)[&type="X",time=75.94613770660135]:0.3641976117902459)[&type="X",time=75.5819400948111]:1.7672747407031864)[&type="X",time=73.81466535410792]:5.840299755701963,(((((841[&type="X",samp="sample",time=93.72292535267258]:6.079003204286948,(((((842[&type="X",samp="sample",time=93.72292535267258]:0.5726468223734287,843[&type="X",samp="sample",time=93.72292535267258]:0.5726468223734287)[&type="X",time=93.15027853029915]:1.4559855676966293,(844[&type="X",samp="sample",time=93.72292535267258]:0.35996054365595853,845[&type="X",samp="sample",time=93.72292535267258]:0.35996054365595853)[&type="X",time=93.36296480901662]:1.6686718464140995)[&type="X",time=91.69429296260252]:1.2707982389953258,846[&type="X",samp="sample",time=93.72292535267258]:3.299430629065384)[&type="X",time=90.42349472360719]:0.4939305721645013,847[&type="X",samp="sample",time=93.72292535267258]:3.793361201229885)[&type="X",time=89.92956415144269]:2.0027883896822942,848[&type="X",samp="sample",time=93.72292535267258]:5.796149590912179)[&type="X",time=87.9267757617604]:0.282853613374769)[&type="X",time=87.64392214838563]:4.099530923797289,(((849[&type="X",samp="sample",time=93.72292535267258]:0.5473239268377057,850[&type="X",samp="sample",time=93.72292535267258]:0.5473239268377057)[&type="X",time=93.17560142583487]:2.75465523883814,(851[&type="X",samp="sample",time=93.72292535267258]:0.8015851562961416,852[&type="X",samp="sample",time=93.72292535267258]:0.8015851562961416)[&type="X",time=92.92134019637643]:2.500394009379704)[&type="X",time=90.42094618699673]:2.413770662312217,853[&type="X",samp="sample",time=89.66628341085794]:1.6591078861734303)[&type="X",time=88.00717552468451]:4.462784300096175)[&type="X",time=83.54439122458834]:1.9460037376200745,(854[&type="X",samp="sample",time=93.72292535267258]:8.245911245593021,((((855[&type="X",samp="sample",time=93.72292535267258]:0.29269288454561604,856[&type="X",samp="sample",time=93.72292535267258]:0.29269288454561604)[&type="X",time=93.43023246812696]:0.49568213996637667,857[&type="X",samp="sample",time=93.72292535267258]:0.7883750245119927)[&type="X",time=92.93455032816058]:0.32328140297705943,858[&type="X",samp="sample",time=93.72292535267258]:1.1116564274890521)[&type="X",time=92.61126892518352]:6.141982185816502,859[&type="X",samp="sample",time=93.72292535267258]:7.253638613305554)[&type="X",time=86.46928673936702]:0.9922726322874666)[&type="X",time=85.47701410707955]:3.878626620111291)[&type="X",time=81.59838748696826]:6.367526736863226,((860[&type="X",samp="sample",time=77.25340629925773]:0.0,((861[&type="X",samp="sample",time=93.72292535267258]:15.222434446794594,862[&type="X",samp="sample",time=81.81369261222068]:3.3132017063426957)[&type="X",time=78.50049090587798]:0.5713181272438987,(863[&type="X",samp="sample",time=93.72292535267258]:4.078016000575516,(((864[&type="X",samp="sample",time=93.72292535267258]:1.8494058551974462,(865[&type="X",samp="sample",time=93.72292535267258]:0.6469179238389131,866[&type="X",samp="sample",time=93.72292535267258]:0.6469179238389131)[&type="X",time=93.07600742883366]:1.202487931358533)[&type="X",time=91.87351949747513]:0.42810579258168957,867[&type="X",samp="sample",time=93.72292535267258]:2.2775116477791357)[&type="X",time=91.44541370489344]:0.361025027960423,868[&type="X",samp="sample",time=93.72292535267258]:2.6385366757395587)[&type="X",time=91.08438867693302]:1.4394793248359576)[&type="X",time=89.64490935209706]:11.715736573462976)[&type="X",time=77.92917277863408]:0.6757664793763496)[&type="X",time=77.25340629925773]:0.7786595617115353,(((((869[&type="X",samp="sample",time=93.72292535267258]:0.35719888819315315,870[&type="X",samp="sample",time=93.72292535267258]:0.35719888819315315)[&type="X",time=93.36572646447942]:2.7489640654501812,(871[&type="X",samp="sample",time=93.72292535267258]:0.670410462130576,872[&type="X",samp="sample",time=93.72292535267258]:0.670410462130576)[&type="X",time=93.052514890542]:2.4357524915127584)[&type="X",time=90.61676239902924]:3.1271466924903706,((873[&type="X",samp="sample",time=93.72292535267258]:0.7956560426215304,(874[&type="X",samp="sample",time=93.72292535267258]:0.5574495463304032,875[&type="X",samp="sample",time=93.72292535267258]:0.5574495463304032)[&type="X",time=93.16547580634217]:0.23820649629112722)[&type="X",time=92.92726931005105]:4.869723989831485,(876[&type="X",samp="sample",time=93.72292535267258]:1.9356548460376644,877[&type="X",samp="sample",time=93.72292535267258]:1.9356548460376644)[&type="X",time=91.78727050663491]:3.729725186415351)[&type="X",time=88.05754532021956]:0.5679296136806897)[&type="X",time=87.48961570653887]:1.4184370612519075,((878[&type="X",samp="sample",time=93.72292535267258]:0.2185330039375799,879[&type="X",samp="sample",time=93.72292535267258]:0.2185330039375799)[&type="X",time=93.504392348735]:3.1848668466406593,(880[&type="X",samp="sample",time=93.72292535267258]:2.414996273697028,881[&type="X",samp="sample",time=93.72292535267258]:2.414996273697028)[&type="X",time=91.30792907897555]:0.9884035768812112)[&type="X",time=90.31952550209434]:4.248346856807373)[&type="X",time=86.07117864528696]:8.616377626742548,(882[&type="X",samp="sample",time=93.72292535267258]:11.317366438797038,883[&type="X",samp="sample",time=93.72292535267258]:11.317366438797038)[&type="X",time=82.40555891387554]:4.950757895331122)[&type="X",time=77.45480101854442]:0.9800542809982176)[&type="X",time=76.4747467375462]:1.2438859874411605)[&type="X",time=75.23086075010504]:4.817624350979401,(((884[&type="X",samp="sample",time=93.72292535267258]:2.3846948213099495,(885[&type="X",samp="sample",time=93.72292535267258]:1.4306955979255491,886[&type="X",samp="sample",time=93.72292535267258]:1.4306955979255491)[&type="X",time=92.29222975474703]:0.9539992233844004)[&type="X",time=91.33823053136263]:14.08778508413424,((887[&type="X",samp="sample",time=93.72292535267258]:7.0619310387911725,888[&type="X",samp="sample",time=93.72292535267258]:7.0619310387911725)[&type="X",time=86.6609943138814]:2.0736193923834634,(889[&type="X",samp="sample",time=93.72292535267258]:3.9550251803639895,890[&type="X",samp="sample",time=93.72292535267258]:3.9550251803639895)[&type="X",time=89.76790017230859]:5.180525250810646)[&type="X",time=84.58737492149794]:7.336929474269553)[&type="X",time=77.25044544722839]:4.0625053354443,(((891[&type="X",samp="sample",time=93.72292535267258]:6.889798462969765,(892[&type="X",samp="sample",time=93.72292535267258]:2.699849959778362,893[&type="X",samp="sample",time=93.72292535267258]:2.699849959778362)[&type="X",time=91.02307539289421]:4.1899485031914026)[&type="X",time=86.83312688970281]:3.965616029916333,((894[&type="X",samp="sample",time=93.72292535267258]:2.7861742010356636,(895[&type="X",samp="sample",time=93.72292535267258]:0.014045112521486658,896[&type="X",samp="sample",time=93.72292535267258]:0.014045112521486658)[&type="X",time=93.70888024015109]:2.772129088514177)[&type="X",time=90.93675115163691]:0.01726514425750736,(897[&type="X",samp="sample",time=93.72292535267258]:1.3449309354873122,898[&type="X",samp="sample",time=93.72292535267258]:1.3449309354873122)[&type="X",time=92.37799441718526]:1.4585084098058587)[&type="X",time=90.9194860073794]:8.051975147592927)[&type="X",time=82.86751085978648]:4.756678574519725,(((899[&type="X",samp="sample",time=93.72292535267258]:2.148405989181157,900[&type="X",samp="sample",time=93.72292535267258]:2.148405989181157)[&type="X",time=91.57451936349142]:10.256462357639322,(901[&type="X",samp="sample",time=93.72292535267258]:2.651896355929793,(902[&type="X",samp="sample",time=93.72292535267258]:0.43732514995200233,903[&type="X",samp="sample",time=93.72292535267258]:0.43732514995200233)[&type="X",time=93.28560020272057]:2.2145712059777907)[&type="X",time=91.07102899674278]:9.752971990890686)[&type="X",time=81.3180570058521]:2.7701838854226537,(904[&type="X",samp="sample",time=93.72292535267258]:0.6468093427391892,905[&type="X",samp="sample",time=93.72292535267258]:0.6468093427391892)[&type="X",time=93.07611600993339]:14.528242889503943)[&type="X",time=78.54787312042944]:0.43704083516269066)[&type="X",time=78.11083228526675]:4.922892173482666)[&type="X",time=73.18794011178409]:2.77470371265845)[&type="X",time=70.41323639912564]:2.438870800719684)[&type="X",time=67.97436559840595]:0.7764960480663774,(((906[&type="X",samp="sample",time=92.36524039750073]:4.483154461635451,(907[&type="X",samp="sample",time=93.72292535267258]:3.2648530460910195,(908[&type="X",samp="sample",time=93.72292535267258]:2.2099430671227225,909[&type="X",samp="sample",time=93.72292535267258]:2.2099430671227225)[&type="X",time=91.51298228554985]:1.054909978968297)[&type="X",time=90.45807230658156]:2.5759863707162793)[&type="X",time=87.88208593586528]:5.389460480218119,((((910[&type="X",samp="sample",time=93.72292535267258]:6.348270440865392,911[&type="X",samp="sample",time=93.72292535267258]:6.348270440865392)[&type="X",time=87.37465491180718]:0.1780555105611512,912[&type="X",samp="sample",time=93.72292535267258]:6.526325951426543)[&type="X",time=87.19659940124603]:0.16818582018608197,(913[&type="X",samp="sample",time=93.72292535267258]:4.5934761613165165,(914[&type="X",samp="sample",time=93.72292535267258]:4.064696297692095,915[&type="X",samp="sample",time=93.72292535267258]:4.064696297692095)[&type="X",time=89.65822905498048]:0.5287798636244219)[&type="X",time=89.12944919135606]:2.1010356102961083)[&type="X",time=87.02841358105995]:1.313260731883318,(916[&type="X",samp="sample",time=93.72292535267258]:6.393002191837212,((917[&type="X",samp="sample",time=93.72292535267258]:4.3626420148262355,918[&type="X",samp="sample",time=93.72292535267258]:4.3626420148262355)[&type="X",time=89.36028333784634]:0.558502153052217,919[&type="X",samp="sample",time=93.72292535267258]:4.921144167878452)[&type="X",time=88.80178118479412]:1.4718580239587595)[&type="X",time=87.32992316083536]:1.6147703116587309)[&type="X",time=85.71515284917663]:3.222527393529475)[&type="X",time=82.49262545564716]:5.724853322430022,920[&type="X",samp="sample",time=93.72292535267258]:16.95515321945544)[&type="X",time=76.76777213321714]:9.56990258287756)[&type="X",time=67.19786955033958]:10.24168114651144)[&type="X",time=56.956188403828136]:1.9631737524653232,((((921[&type="X",samp="sample",time=93.72292535267258]:0.10091928153548224,922[&type="X",samp="sample",time=93.72292535267258]:0.10091928153548224)[&type="X",time=93.6220060711371]:2.5923977372190308,(923[&type="X",samp="sample",time=93.72292535267258]:1.3282943159968994,924[&type="X",samp="sample",time=93.72292535267258]:1.3282943159968994)[&type="X",time=92.39463103667568]:1.3650227027576136)[&type="X",time=91.02960833391806]:4.68348706743015,925[&type="X",samp="sample",time=87.92807254209814]:1.5819512756102228)[&type="X",time=86.34612126648791]:29.638900182590803,(((((((((926[&type="X",samp="sample",time=93.72292535267258]:4.326850850622634,927[&type="X",samp="sample",time=93.72292535267258]:4.326850850622634)[&type="X",time=89.39607450204994]:1.0289097077383786,(928[&type="X",samp="sample",time=90.39163241436522]:0.0,(929[&type="X",samp="sample",time=93.72292535267258]:2.288758215860909,((930[&type="X",samp="sample",time=93.72292535267258]:0.7575761564401091,((931[&type="X",samp="sample",time=93.72292535267258]:0.4824462572467496,932[&type="X",samp="sample",time=93.72292535267258]:0.4824462572467496)[&type="X",time=93.24047909542583]:0.13058292632872792,933[&type="X",samp="sample",time=93.72292535267258]:0.6130291835754775)[&type="X",time=93.1098961690971]:0.14454697286463158)[&type="X",time=92.96534919623247]:0.07379850860982629,(934[&type="X",samp="sample",time=93.72292535267258]:0.1439300369567036,935[&type="X",samp="sample",time=93.72292535267258]:0.1439300369567036)[&type="X",time=93.57899531571587]:0.6874446280932318)[&type="X",time=92.89155068762264]:1.4573835508109738)[&type="X",time=91.43416713681167]:1.0425347224464474)[&type="X",time=90.39163241436522]:2.024467620053656)[&type="X",time=88.36716479431156]:5.6817676917307836,936[&type="X",samp="sample",time=93.72292535267258]:11.037528250091796)[&type="X",time=82.68539710258078]:1.9651150317482688,(937[&type="X",samp="sample",time=84.81695246191904]:1.724330330094702,(938[&type="X",samp="sample",time=93.72292535267258]:8.351854121374004,939[&type="X",samp="sample",time=93.72292535267258]:8.351854121374004)[&type="X",time=85.37107123129857]:2.27844909947423)[&type="X",time=83.09262213182434]:2.3723400609918315)[&type="X",time=80.72028207083251]:10.316337900572435,((940[&type="X",samp="sample",time=93.72292535267258]:14.809910592259413,((941[&type="X",samp="sample",time=93.72292535267258]:5.693115121653193,(942[&type="X",samp="sample",time=93.72292535267258]:0.7291247657325783,943[&type="X",samp="sample",time=93.72292535267258]:0.7291247657325783)[&type="X",time=92.99380058694]:4.963990355920615)[&type="X",time=88.02981023101938]:5.678452443021911,(944[&type="X",samp="sample",time=93.72292535267258]:0.7365193530223166,945[&type="X",samp="sample",time=93.72292535267258]:0.7365193530223166)[&type="X",time=92.98640599965026]:10.635048211652787)[&type="X",time=82.35135778799747]:3.4383430275843097)[&type="X",time=78.91301476041316]:3.1969850703174956,((946[&type="X",samp="sample",time=93.56654276119572]:0.0,947[&type="X",samp="sample",time=93.72292535267258]:0.15638259147685574)[&type="X",time=93.56654276119572]:3.736594792749159,948[&type="X",samp="sample",time=93.72292535267258]:3.8929773842260147)[&type="X",time=89.82994796844656]:14.113918278350894)[&type="X",time=75.71602969009567]:5.312085519835591)[&type="X",time=70.40394417026008]:0.24555219532838635,(949[&type="X",samp="sample",time=93.72292535267258]:15.00485762473204,((950[&type="X",samp="sample",time=93.72292535267258]:2.219617718353163,951[&type="X",samp="sample",time=93.72292535267258]:2.219617718353163)[&type="X",time=91.50330763431941]:5.674790941412766,952[&type="X",samp="sample",time=93.72292535267258]:7.894408659765929)[&type="X",time=85.82851669290665]:7.1104489649661105)[&type="X",time=78.71806772794054]:8.559675753008847)[&type="X",time=70.15839197493169]:0.23265429663503312,((953[&type="X",samp="sample",time=93.72292535267258]:5.358662962235982,(954[&type="X",samp="sample",time=93.72292535267258]:0.3930776611210689,955[&type="X",samp="sample",time=93.72292535267258]:0.3930776611210689)[&type="X",time=93.3298476915515]:4.965585301114913)[&type="X",time=88.3642623904366]:1.9623588446165456,(956[&type="X",samp="sample",time=93.72292535267258]:3.8015811164222555,957[&type="X",samp="sample",time=93.72292535267258]:3.8015811164222555)[&type="X",time=89.92134423625032]:3.5194406904302724)[&type="X",time=86.40190354582005]:16.47616586752339)[&type="X",time=69.92573767829666]:8.077425017646398,(((((958[&type="X",samp="sample",time=93.72292535267258]:0.43042432012927634,959[&type="X",samp="sample",time=93.72292535267258]:0.43042432012927634)[&type="X",time=93.2925010325433]:4.649301124240765,960[&type="X",samp="sample",time=93.72292535267258]:5.079725444370041)[&type="X",time=88.64319990830253]:7.0772427535088696,(961[&type="X",samp="sample",time=93.72292535267258]:2.591807521749601,962[&type="X",samp="sample",time=93.72292535267258]:2.591807521749601)[&type="X",time=91.13111783092297]:9.56516067612931)[&type="X",time=81.56595715479367]:13.058609332833754,(963[&type="X",samp="sample",time=93.72292535267258]:22.098461091332695,(964[&type="X",samp="sample",time=93.72292535267258]:5.532953976034932,(965[&type="X",samp="sample",time=93.72292535267258]:4.3996184507567335,966[&type="X",samp="sample",time=93.72292535267258]:4.3996184507567335)[&type="X",time=89.32330690191584]:1.1333355252781985)[&type="X",time=88.18997137663764]:16.565507115297763)[&type="X",time=71.62446426133988]:3.11711643937997)[&type="X",time=68.50734782195991]:4.529318340751338,(((967[&type="X",samp="sample",time=93.72292535267258]:21.013401746199023,((968[&type="X",samp="sample",time=93.72292535267258]:14.902125368245052,(969[&type="X",samp="sample",time=93.72292535267258]:1.0914509406801187,970[&type="X",samp="sample",time=93.72292535267258]:1.0914509406801187)[&type="X",time=92.63147441199246]:13.810674427564933)[&type="X",time=78.82079998442752]:0.12011930619061673,(971[&type="X",samp="sample",time=93.72292535267258]:6.204482059027512,(972[&type="X",samp="sample",time=93.72292535267258]:5.275989896069333,(973[&type="X",samp="sample",time=93.72292535267258]:0.6336519118961519,(974[&type="X",samp="sample",time=93.72292535267258]:0.444624106547451,(975[&type="X",samp="sample",time=93.72292535267258]:0.34420339664865196,976[&type="X",samp="sample",time=93.72292535267258]:0.34420339664865196)[&type="X",time=93.37872195602392]:0.10042070989879903)[&type="X",time=93.27830124612512]:0.1890278053487009)[&type="X",time=93.08927344077642]:4.6423379841731816)[&type="X",time=88.44693545660324]:0.9284921629581788)[&type="X",time=87.51844329364506]:8.817762615408157)[&type="X",time=78.7006806782369]:5.991157071763354)[&type="X",time=72.70952360647355]:3.3444093581166925,(977[&type="X",samp="sample",time=71.99648216876184]:0.0,((((978[&type="X",samp="sample",time=93.72292535267258]:3.411921883472502,979[&type="X",samp="sample",time=93.72292535267258]:3.411921883472502)[&type="X",time=90.31100346920007]:2.366418502933371,(980[&type="X",samp="sample",time=93.72292535267258]:2.297851067680938,981[&type="X",samp="sample",time=93.72292535267258]:2.297851067680938)[&type="X",time=91.42507428499164]:3.480489318724935)[&type="X",time=87.9445849662667]:7.468643648216869,(982[&type="X",samp="sample",time=85.71371626354639]:1.7157764177630241,983[&type="X",samp="sample",time=93.72292535267258]:9.724985506889212)[&type="X",time=83.99793984578336]:3.5219985277335297)[&type="X",time=80.47594131804983]:6.65081924881882,((984[&type="X",samp="sample",time=93.72292535267258]:0.7013624794601441,985[&type="X",samp="sample",time=93.72292535267258]:0.7013624794601441)[&type="X",time=93.02156287321243]:15.902744954956376,(986[&type="X",samp="sample",time=93.72292535267258]:15.307091417859993,(987[&type="X",samp="sample",time=93.72292535267258]:0.9146278680966589,(988[&type="X",samp="sample",time=93.72292535267258]:0.9001215492908585,989[&type="X",samp="sample",time=93.72292535267258]:0.9001215492908585)[&type="X",time=92.82280380338172]:0.014506318805800333)[&type="X",time=92.80829748457592]:14.392463549763335)[&type="X",time=78.41583393481258]:1.297016016556526)[&type="X",time=77.11881791825606]:3.293695849025042)[&type="X",time=73.82512206923101]:1.8286399004691702)[&type="X",time=71.99648216876184]:2.6313679204049834)[&type="X",time=69.36511424835686]:4.711539462346167,990[&type="X",samp="sample",time=93.72292535267258]:29.069350566661882)[&type="X",time=64.6535747860107]:0.6755453048021209)[&type="X",time=63.97802948120857]:2.129716820558315)[&type="X",time=61.84831266065026]:2.7703381027935166,(((991[&type="X",samp="sample",time=93.72292535267258]:4.273801196343129,992[&type="X",samp="sample",time=93.72292535267258]:4.273801196343129)[&type="X",time=89.44912415632945]:0.1017186813913753,993[&type="X",samp="sample",time=93.72292535267258]:4.375519877734504)[&type="X",time=89.34740547493807]:13.279569296765928,(994[&type="X",samp="sample",time=93.72292535267258]:3.1036995837739454,995[&type="X",samp="sample",time=93.72292535267258]:3.1036995837739454)[&type="X",time=90.61922576889863]:14.551389590726487)[&type="X",time=76.06783617817214]:16.989861620315402)[&type="X",time=59.07797455785674]:2.370753473959631)[&type="X",time=56.70722108389711]:1.7142064325342972)[&type="X",time=54.99301465136281]:2.22094457641888)[&type="X",time=52.77207007494393]:12.611049754614875,(((996[&type="X",samp="sample",time=93.72292535267258]:7.0866016907408635,997[&type="X",samp="sample",time=93.72292535267258]:7.0866016907408635)[&type="X",time=86.63632366193171]:13.349468519615783,(998[&type="X",samp="sample",time=93.72292535267258]:11.04995517972253,999[&type="X",samp="sample",time=93.72292535267258]:11.04995517972253)[&type="X",time=82.67297017295004]:9.386115030634116)[&type="X",time=73.28685514231593]:10.472936850286267,(((1000[&type="X",samp="sample",time=93.72292535267258]:7.262203229631766,(1001[&type="X",samp="sample",time=93.72292535267258]:0.8941571838364126,1002[&type="X",samp="sample",time=93.72292535267258]:0.8941571838364126)[&type="X",time=92.82876816883616]:6.368046045795353)[&type="X",time=86.46072212304081]:1.34787395810271,(1003[&type="X",samp="sample",time=93.72292535267258]:2.039258668017837,1004[&type="X",samp="sample",time=93.72292535267258]:2.039258668017837)[&type="X",time=91.68366668465474]:6.570818519716639)[&type="X",time=85.1128481649381]:14.193759659965863,((((1005[&type="X",samp="sample",time=93.72292535267258]:4.997950367666974,(1006[&type="X",samp="sample",time=93.72292535267258]:3.1708046122837032,(1007[&type="X",samp="sample",time=92.08364925172322]:0.0,1008[&type="X",samp="sample",time=93.72292535267258]:1.6392761009493597)[&type="X",time=92.08364925172322]:1.5315285113343435)[&type="X",time=90.55212074038887]:1.8271457553832704)[&type="X",time=88.7249749850056]:8.601363502018515,(1009[&type="X",samp="sample",time=93.72292535267258]:3.3263003045670843,(1010[&type="X",samp="sample",time=93.72292535267258]:1.643182698118693,1011[&type="X",samp="sample",time=93.72292535267258]:1.643182698118693)[&type="X",time=92.07974265455388]:1.6831176064483913)[&type="X",time=90.39662504810549]:10.273013565118404)[&type="X",time=80.12361148298709]:8.222310187789262,1012[&type="X",samp="sample",time=81.3438920223736]:9.44259072717577)[&type="X",time=71.90130129519783]:0.8514984952368536,((((((1013[&type="X",samp="sample",time=93.72292535267258]:3.3812917509873444,(1014[&type="X",samp="sample",time=93.72292535267258]:0.03464683322026474,1015[&type="X",samp="sample",time=93.72292535267258]:0.03464683322026474)[&type="X",time=93.68827851945231]:3.3466449177670796)[&type="X",time=90.34163360168523]:10.264112805987239,(1016[&type="X",samp="sample",time=93.72292535267258]:3.058306997308705,1017[&type="X",samp="sample",time=93.72292535267258]:3.058306997308705)[&type="X",time=90.66461835536387]:10.587097559665878)[&type="X",time=80.07752079569799]:2.196045357796038,((1018[&type="X",samp="sample",time=93.72292535267258]:4.971702129577864,((1019[&type="X",samp="sample",time=92.90041591449499]:0.0,1020[&type="X",samp="sample",time=93.72292535267258]:0.8225094381775904)[&type="X",time=92.90041591449499]:0.0400965565139586,1021[&type="X",samp="sample",time=93.72292535267258]:0.862605994691549)[&type="X",time=92.86031935798103]:4.109096134886315)[&type="X",time=88.75122322309471]:4.508930102891654,1022[&type="X",samp="sample",time=93.72292535267258]:9.480632232469517)[&type="X",time=84.24229312020306]:6.360817682301104)[&type="X",time=77.88147543790195]:0.9464874496337359,(((1023[&type="X",samp="sample",time=84.89092407962676]:3.2630506311412546,((((1024[&type="X",samp="sample",time=93.72292535267258]:0.7407246624763815,1025[&type="X",samp="sample",time=93.72292535267258]:0.7407246624763815)[&type="X",time=92.9822006901962]:5.580664243297434,1026[&type="X",samp="sample",time=93.72292535267258]:6.321388905773816)[&type="X",time=87.40153644689876]:3.9251835527228707,(1027[&type="X",samp="sample",time=87.06552045341085]:0.0,(1028[&type="X",samp="sample",time=93.72292535267258]:1.5291416971424923,1029[&type="X",samp="sample",time=93.72292535267258]:1.5291416971424923)[&type="X",time=92.19378365553008]:5.1282632021192285)[&type="X",time=87.06552045341085]:3.5891675592349657)[&type="X",time=83.47635289417589]:1.0272769144224014,((1030[&type="X",samp="sample",time=93.72292535267258]:1.2631591617373346,1031[&type="X",samp="sample",time=93.72292535267258]:1.2631591617373346)[&type="X",time=92.45976619093524]:5.994084936658183,(1032[&type="X",samp="sample",time=93.72292535267258]:0.8011370307921339,1033[&type="X",samp="sample",time=93.72292535267258]:0.8011370307921339)[&type="X",time=92.92178832188044]:6.456107067603384)[&type="X",time=86.46568125427706]:4.01660527452357)[&type="X",time=82.44907597975349]:0.8212025312679856)[&type="X",time=81.6278734484855]:1.9349183646622805,(1034[&type="X",samp="sample",time=93.72292535267258]:3.5429890777159017,(((1035[&type="X",samp="sample",time=93.72292535267258]:0.39686501431307875,1036[&type="X",samp="sample",time=93.72292535267258]:0.39686501431307875)[&type="X",time=93.3260603383595]:1.3640422271796808,(1037[&type="X",samp="sample",time=93.3553316229893]:0.0,1038[&type="X",samp="sample",time=93.72292535267258]:0.3675937296832785)[&type="X",time=93.3553316229893]:1.393313511809481)[&type="X",time=91.96201811117982]:0.4170938813893912,1039[&type="X",samp="sample",time=93.72292535267258]:2.1780011228821508)[&type="X",time=91.54492422979042]:1.364987954833751)[&type="X",time=90.17993627495667]:10.486981191133452)[&type="X",time=79.69295508382322]:1.4644654722769417,(1040[&type="X",samp="sample",time=93.72292535267258]:3.482813033790009,1041[&type="X",samp="sample",time=93.72292535267258]:3.482813033790009)[&type="X",time=90.24011231888257]:12.011622707336286)[&type="X",time=78.22848961154628]:1.2935016232780612)[&type="X",time=76.93498798826822]:0.16597707170285503,(1042[&type="X",samp="sample",time=93.72292535267258]:2.1386871994683503,(1043[&type="X",samp="sample",time=93.72292535267258]:1.5457894113982888,1044[&type="X",samp="sample",time=93.72292535267258]:1.5457894113982888)[&type="X",time=92.17713594127429]:0.5928977880700614)[&type="X",time=91.58423815320423]:14.815227236638862)[&type="X",time=76.76901091656536]:3.314692662132231,((((1045[&type="X",samp="sample",time=93.72292535267258]:11.898657167110983,1046[&type="X",samp="sample",time=93.72292535267258]:11.898657167110983)[&type="X",time=81.82426818556159]:1.7841954240903704,((1047[&type="X",samp="sample",time=93.72292535267258]:2.3261990529030783,(1048[&type="X",samp="sample",time=93.72292535267258]:1.7995415394358645,1049[&type="X",samp="sample",time=93.72292535267258]:1.7995415394358645)[&type="X",time=91.92338381323671]:0.5266575134672138)[&type="X",time=91.3967262997695]:3.421700557357738,((1050[&type="X",samp="sample",time=93.72292535267258]:3.668406171279898,1051[&type="X",samp="sample",time=93.72292535267258]:3.668406171279898)[&type="X",time=90.05451918139268]:0.40656575853189736,1052[&type="X",samp="sample",time=93.72292535267258]:4.074971929811795)[&type="X",time=89.64795342286078]:1.6729276804490212)[&type="X",time=87.97502574241176]:7.934952980940537)[&type="X",time=80.04007276147122]:0.4591264572629541,(((1053[&type="X",samp="sample",time=93.72292535267258]:1.2250828714623054,1054[&type="X",samp="sample",time=93.72292535267258]:1.2250828714623054)[&type="X",time=92.49784248121027]:5.171689393016976,1055[&type="X",samp="sample",time=93.72292535267258]:6.3967722644792815)[&type="X",time=87.3261530881933]:5.266587370252495,1056[&type="X",samp="sample",time=93.72292535267258]:11.663359634731776)[&type="X",time=82.0595657179408]:2.478619413732531)[&type="X",time=79.58094630420827]:3.5288665122224785,(((1057[&type="X",samp="sample",time=93.72292535267258]:0.3083358598029804,1058[&type="X",samp="sample",time=93.72292535267258]:0.3083358598029804)[&type="X",time=93.4145894928696]:6.249918699991596,1059[&type="X",samp="sample",time=93.72292535267258]:6.558254559794577)[&type="X",time=87.164670792878]:5.424101755579926,(1060[&type="X",samp="sample",time=93.72292535267258]:2.1921428887080197,(1061[&type="X",samp="sample",time=93.72292535267258]:0.2108214265285966,1062[&type="X",samp="sample",time=93.72292535267258]:0.2108214265285966)[&type="X",time=93.51210392614398]:1.981321462179423)[&type="X",time=91.53078246396456]:9.790213426666483)[&type="X",time=81.74056903729807]:5.688489245312283)[&type="X",time=76.05207979198579]:2.597761537552657)[&type="X",time=73.45431825443313]:2.404515454472161)[&type="X",time=71.04980279996097]:0.130714294988735)[&type="X",time=70.91908850497224]:8.105170212942575)[&type="X",time=62.81391829202966]:22.652897971700604)[&type="X",time=40.16102032032906]:15.272007173437814)[&type="X",time=24.889013146891248]:2.795787948242193)[&type="X",time=22.093225198649055]:2.7946435863584327)[&type="X",time=19.29858161229062]:7.955516371503407,(1063[&type="X",samp="sample",time=16.537828681086985]:0.0,(1064[&type="X",samp="sample",time=23.491347499049738]:0.0,1065[&type="X",samp="sample",time=36.056289273335295]:12.564941774285558)[&type="X",time=23.491347499049738]:6.95351881796276)[&type="X",time=16.537828681086985]:5.194763440299766)[&type="X",time=11.343065240787205]:1.2454261425236695)[&type="X",time=10.09763909826354]:1.1375194204621977)[&type="X",time=8.96011967780134]:4.2569280024600005)[&type="X",time=4.703191675341344]:2.42591133414696)[&type="X",time=2.2772803411943805]:0.0;
+End;

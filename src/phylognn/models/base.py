@@ -162,15 +162,11 @@ class BasePhyloGNN(nn.Module, ABC):
 
         if require_batch:
             if not hasattr(data, "batch") or data.batch is None:
-                raise ValueError(
-                    "Input `data` must contain `batch` for batched graph operations."
-                )
+                raise ValueError("Input `data` must contain `batch` for batched graph operations.")
             if not torch.is_tensor(data.batch):
                 raise TypeError("`data.batch` must be a torch.Tensor.")
             if data.batch.dtype != torch.long:
-                raise TypeError(
-                    f"`data.batch` must have dtype torch.long, got {data.batch.dtype}."
-                )
+                raise TypeError(f"`data.batch` must have dtype torch.long, got {data.batch.dtype}.")
             if data.batch.dim() != 1:
                 raise ValueError(
                     f"`data.batch` must be 1D of shape [num_nodes], got {tuple(data.batch.shape)}."
@@ -406,18 +402,12 @@ class BaseGATNet(BasePhyloGNN):
         if num_gat_layers <= 0:
             raise ValueError(f"`num_gat_layers` must be > 0, got {num_gat_layers}.")
         if not (0.0 <= dropout_prob < 1.0):
-            raise ValueError(
-                f"`dropout_prob` must be in [0, 1), got {dropout_prob}."
-            )
+            raise ValueError(f"`dropout_prob` must be in [0, 1), got {dropout_prob}.")
         if use_preprocessing:
             if preprocess_dim is None:
-                raise ValueError(
-                    "`preprocess_dim` must be provided when `use_preprocessing=True`."
-                )
+                raise ValueError("`preprocess_dim` must be provided when `use_preprocessing=True`.")
             if preprocess_dim <= 0:
-                raise ValueError(
-                    f"`preprocess_dim` must be > 0 when used, got {preprocess_dim}."
-                )
+                raise ValueError(f"`preprocess_dim` must be > 0 when used, got {preprocess_dim}.")
         if encoder_type not in {"gat", "res_gat"}:
             raise ValueError(
                 f"`encoder_type` must be one of ('gat', 'res_gat'), got {encoder_type!r}."

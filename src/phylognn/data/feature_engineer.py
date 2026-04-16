@@ -72,7 +72,8 @@ Important notes
    This is the preferred attribute to pass to graph converters.
 
 2. Available feature set
-   `self.available_features` stores the same names as a set for membership checks.
+   `self.available_features` exposes the same names as an immutable set for
+   membership checks.
 
 3. Rescaling
    If requested, branch lengths are rescaled so that the mean of all non-zero
@@ -99,9 +100,9 @@ nodes. It does not build graph objects and does not validate whether the chosen
 feature definitions fully match any specific phylogenetic convention.
 """
 
-from collections import OrderedDict
-from typing import Callable, Dict, List, Optional, Sequence, Set, Tuple
 import math
+from collections import OrderedDict
+from typing import Callable, Dict, FrozenSet, Optional, Sequence, Tuple
 
 from ete3 import Tree
 
@@ -188,13 +189,13 @@ class TreeFeatureEngineer:
     time_tolerance : float
         Floating-point comparison tolerance.
 
-    feature_names : List[str]
-        Ordered list of all registered feature names. This order is stable and
-        should be used whenever a downstream consumer needs a deterministic
-        feature-column order.
+    feature_names : Tuple[str, ...]
+        Ordered immutable tuple of all registered feature names. This order is
+        stable and should be used whenever a downstream consumer needs a
+        deterministic feature-column order.
 
-    available_features : Set[str]
-        Unordered set of all registered feature names. Useful for membership
+    available_features : FrozenSet[str]
+        Immutable set of all registered feature names. Useful for membership
         checks and validation.
 
     Examples
@@ -242,26 +243,38 @@ class TreeFeatureEngineer:
         self.traversal_strategy = traversal_strategy
         self.time_tolerance = time_tolerance
 
-        self._feature_registry: "OrderedDict[str, FeatureFunction]" = OrderedDict([
-            ("node_time", self._add_node_time),
-            ("time_bin", self._add_time_bin),
-            ("is_internal", self._add_is_internal),
-            ("is_tip", self._add_is_tip),
-            ("is_fossil", self._add_is_fossil),
-            ("is_extant", self._add_is_extant),
-            ("is_sampled_ancestor", self._add_is_sampled_ancestor),
-            ("is_not_sampled_ancestor", self._add_is_not_sampled_ancestor),
-            ("branch_length", self._add_branch_length),
-            ("rescale_factor", self._add_rescale_factor),
-            ("extant_sampling_probability", self._add_extant_sampling_probability),
-        ])
+        self._feature_registry: "OrderedDict[str, FeatureFunction]" = OrderedDict(
+            [
+                ("node_time", self._add_node_time),
+                ("time_bin", self._add_time_bin),
+                ("is_internal", self._add_is_internal),
+                ("is_tip", self._add_is_tip),
+                ("is_fossil", self._add_is_fossil),
+                ("is_extant", self._add_is_extant),
+                ("is_sampled_ancestor", self._add_is_sampled_ancestor),
+                ("is_not_sampled_ancestor", self._add_is_not_sampled_ancestor),
+                ("branch_length", self._add_branch_length),
+                ("rescale_factor", self._add_rescale_factor),
+                ("extant_sampling_probability", self._add_extant_sampling_probability),
+            ]
+        )
 
         if custom_features:
             for name, fn in custom_features.items():
                 self._feature_registry[name] = fn
 
-        self.feature_names: List[str] = list(self._feature_registry.keys())
-        self.available_features: Set[str] = set(self.feature_names)
+        self._feature_names: Tuple[str, ...] = tuple(self._feature_registry.keys())
+        self._available_features: FrozenSet[str] = frozenset(self._feature_names)
+
+    @property
+    def feature_names(self) -> Tuple[str, ...]:
+        """Ordered immutable view of the registered feature names."""
+        return self._feature_names
+
+    @property
+    def available_features(self) -> FrozenSet[str]:
+        """Immutable set view of the registered feature names."""
+        return self._available_features
 
     def rescale_tree(
         self,
@@ -451,7 +464,7 @@ class TreeFeatureEngineer:
                 self._feature_registry[feature_name](context)
 
         return tree
-    
+
     def get_available_features(self) -> Tuple[str, ...]:
         """
         Return all currently registered feature names in a stable order.
@@ -494,8 +507,8 @@ class TreeFeatureEngineer:
         registry_names = tuple(self._feature_registry.keys())
 
         if (
-            tuple(self.feature_names) != registry_names
-            or set(registry_names) != self.available_features
+            self.feature_names != registry_names
+            or frozenset(registry_names) != self.available_features
         ):
             raise RuntimeError(
                 "Inconsistent feature registry state detected. "
@@ -504,7 +517,7 @@ class TreeFeatureEngineer:
             )
 
         return registry_names
-    
+
     def _ensure_feature(self, context: dict, feature_name: str) -> None:
         """
         Ensure that a dependent feature exists on the current node.
@@ -819,9 +832,7 @@ class TreeFeatureEngineer:
             )
 
         if time_tolerance < 0:
-            raise ValueError(
-                f"time_tolerance must be non-negative, got {time_tolerance}"
-            )
+            raise ValueError(f"time_tolerance must be non-negative, got {time_tolerance}")
 
     def __repr__(self) -> str:
         return (

@@ -1,10 +1,16 @@
-"""
-Evaluation metrics for phylogenetic GNN models.
-"""
+"""Evaluation metrics for phylogenetic GNN models."""
 
 import torch
 import torch.nn.functional as F
-from typing import Union, Dict
+
+__all__ = [
+    "mse_metric",
+    "mae_metric",
+    "r2_metric",
+    "rmse_metric",
+    "relative_error_metric",
+]
+
 
 def mse_metric(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
@@ -13,11 +19,12 @@ def mse_metric(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     Args:
         pred: Predictions [batch_size, output_dim]
         target: Ground truth [batch_size, output_dim]
-        
+
     Returns:
         MSE value as scalar tensor
     """
     return F.mse_loss(pred, target)
+
 
 def mae_metric(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
@@ -26,11 +33,12 @@ def mae_metric(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     Args:
         pred: Predictions [batch_size, output_dim]
         target: Ground truth [batch_size, output_dim]
-        
+
     Returns:
         MAE value as scalar tensor
     """
     return F.l1_loss(pred, target)
+
 
 def r2_metric(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
@@ -39,7 +47,7 @@ def r2_metric(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     Args:
         pred: Predictions [batch_size, output_dim]
         target: Ground truth [batch_size, output_dim]
-        
+
     Returns:
         R² value as scalar tensor
     """
@@ -48,6 +56,7 @@ def r2_metric(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     r2 = 1 - ss_res / (ss_tot + 1e-8)
     return r2
 
+
 def rmse_metric(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
     Root Mean Squared Error metric.
@@ -55,11 +64,12 @@ def rmse_metric(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     Args:
         pred: Predictions [batch_size, output_dim]
         target: Ground truth [batch_size, output_dim]
-        
+
     Returns:
         RMSE value as scalar tensor
     """
     return torch.sqrt(F.mse_loss(pred, target))
+
 
 def relative_error_metric(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
@@ -68,7 +78,7 @@ def relative_error_metric(pred: torch.Tensor, target: torch.Tensor) -> torch.Ten
     Args:
         pred: Predictions [batch_size, output_dim]
         target: Ground truth [batch_size, output_dim]
-        
+
     Returns:
         Mean relative error as scalar tensor
     """

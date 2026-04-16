@@ -1,28 +1,38 @@
 """
-Neural network models for phylogenetic tree analysis.
+Curated model-facing API for PhyloGNN.
 
-This module provides various GNN architectures for learning from phylogenetic
-trees, including GAT-based models, LSTM hybrids, and multi-task learning models.
+Package-level exports are limited to supported base classes and end-user model
+types. Low-level layers remain available from explicit module paths.
 """
 
-from .layers import GATBlock, PositionalEncoding, ResidualGATStack, MLPHead
-from .base import BasePhyloGNN, BaseGATNet
-from .gat_lstm import GATBiLSTMNet
-from .multitask import MultiTaskGATNet, TaskHead
+from importlib import import_module
+from typing import Any, Dict, Tuple
+
+
+_EXPORT_MAP: Dict[str, Tuple[str, str]] = {
+    "BasePhyloGNN": ("phylognn.models.base", "BasePhyloGNN"),
+    "BaseGATNet": ("phylognn.models.base", "BaseGATNet"),
+    "GATBiLSTMNet": ("phylognn.models.gat_lstm", "GATBiLSTMNet"),
+    "MultiTaskGATNet": ("phylognn.models.multitask", "MultiTaskGATNet"),
+}
 
 __all__ = [
-# Layers
-'GATBlock',
-'PositionalEncoding',
-'ResidualGATStack',
-'MLPHead',
-
-# Base classes
-'BasePhyloGNN',
-'BaseGATNet',
-
-# Models
-'GATBiLSTMNet',
-'MultiTaskGATNet',
-'TaskHead',
+    "BasePhyloGNN",
+    "BaseGATNet",
+    "GATBiLSTMNet",
+    "MultiTaskGATNet",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Lazily resolve curated model exports."""
+    if name in _EXPORT_MAP:
+        module_name, attr_name = _EXPORT_MAP[name]
+        module = import_module(module_name)
+        return getattr(module, attr_name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> Any:
+    """Return the standard module namespace plus curated exports."""
+    return sorted(set(globals()) | set(__all__))

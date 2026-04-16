@@ -51,7 +51,6 @@ from typing import (
     Literal,
     Mapping,
     Optional,
-    Sequence,
     Tuple,
     Union,
 )
@@ -164,7 +163,11 @@ class TrainingConfig:
     device: str = (
         "cuda"
         if torch.cuda.is_available()
-        else ("mps" if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available() else "cpu")
+        else (
+            "mps"
+            if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available()
+            else "cpu"
+        )
     )
     save_dir: str = "./checkpoints"
     save_best_only: bool = True
@@ -315,6 +318,8 @@ class Trainer:
         self.optimizer: Optimizer = self._create_optimizer()
         self.scheduler = self._create_scheduler()
 
+        # `current_epoch` stores the next epoch index to execute.
+        # This avoids rerunning the last completed epoch after resuming.
         self.current_epoch: int = 0
         self.best_epoch: Optional[int] = None
         self.best_val_loss: float = float("inf")
@@ -383,6 +388,39 @@ class Trainer:
         config_path = self.save_dir / "training_config.json"
         with config_path.open("w", encoding="utf-8") as f:
             json.dump(asdict(self.config), f, indent=2)
+
+    def _completed_epoch_count(self) -> int:
+        """
+        Return the number of fully completed epochs recorded in history.
+
+        The learning-rate history is appended exactly once per finished epoch
+        in every training mode, so it is a stable source of truth when
+        restoring checkpoints created by older trainer versions.
+        """
+        lr_history = self.history.get("lr", [])
+        if not isinstance(lr_history, list):
+            raise TypeError("history['lr'] must be a list.")
+        return len(lr_history)
+
+    def _resolve_resume_epoch(self, checkpoint: Mapping[str, Any]) -> int:
+        """
+        Resolve the next epoch index to execute after loading a checkpoint.
+
+        New checkpoints store `current_epoch` as the next epoch index.
+        Older checkpoints stored the last completed epoch index, so we fall
+        back to the recorded history length when it is ahead.
+        """
+        saved_epoch = checkpoint.get("current_epoch")
+        completed_epochs = self._completed_epoch_count()
+
+        if saved_epoch is None:
+            return completed_epochs
+        if not isinstance(saved_epoch, int):
+            raise TypeError("Checkpoint field 'current_epoch' must be an int.")
+        if saved_epoch < 0:
+            raise ValueError("Checkpoint field 'current_epoch' must be >= 0.")
+
+        return max(saved_epoch, completed_epochs)
 
     # -----------------------------------------------------------------
     # Optimizer / scheduler
@@ -531,8 +569,7 @@ class Trainer:
         target = getattr(batch, attr_name)
         if not isinstance(target, Tensor):
             raise TypeError(
-                f"Target attribute '{attr_name}' must be Tensor, "
-                f"got {type(target).__name__}."
+                f"Target attribute '{attr_name}' must be Tensor, " f"got {type(target).__name__}."
             )
         return target
 
@@ -659,9 +696,7 @@ class Trainer:
                 task_loss = self.loss_fn[task_name](pred, target)  # type: ignore[index]
 
                 if not isinstance(task_loss, Tensor):
-                    raise TypeError(
-                        f"Loss function for task '{task_name}' must return a Tensor."
-                    )
+                    raise TypeError(f"Loss function for task '{task_name}' must return a Tensor.")
 
                 total_loss = total_loss + task_loss
                 task_loss_totals[task_name] += _detach_item(task_loss)
@@ -818,6 +853,11 @@ class Trainer:
         Dict[str, List[float]]
             Training history.
 
+        Notes
+        -----
+        If `load_checkpoint()` was called beforehand, training resumes from the
+        next epoch recorded in the checkpoint instead of restarting.
+
         Raises
         ------
         ValueError
@@ -838,7 +878,6 @@ class Trainer:
             )
 
         for epoch_idx in range(self.current_epoch, self.config.epochs):
-            self.current_epoch = epoch_idx
             epoch_num = epoch_idx + 1
             epoch_start = time.time()
 
@@ -860,8 +899,14 @@ class Trainer:
             self.history["lr"].append(self._get_current_lr())
             self.history["epoch_time_sec"].append(epoch_time)
 
-            self._log_epoch_summary(train_metrics, None if val_loader is None else val_metrics, epoch_time)
+            self._log_epoch_summary(
+                train_metrics, None if val_loader is None else val_metrics, epoch_time
+            )
             self._step_scheduler(current_val_loss)
+
+            # Store the next epoch index before saving checkpoints so resume
+            # continues after the last fully processed epoch.
+            self.current_epoch = epoch_idx + 1
             self._handle_checkpointing_and_early_stopping(current_val_loss, epoch_num)
 
             if not self.config.save_best_only:
@@ -932,9 +977,7 @@ class Trainer:
                 )
             else:
                 print(
-                    f"Train Loss: {train_loss:.4f} | "
-                    f"LR: {lr_str} | "
-                    f"Time: {epoch_time:.2f}s"
+                    f"Train Loss: {train_loss:.4f} | " f"LR: {lr_str} | " f"Time: {epoch_time:.2f}s"
                 )
             return
 
@@ -948,11 +991,7 @@ class Trainer:
                 f"Time: {epoch_time:.2f}s"
             )
         else:
-            print(
-                f"Train Loss: {train_loss:.4f} | "
-                f"LR: {lr_str} | "
-                f"Time: {epoch_time:.2f}s"
-            )
+            print(f"Train Loss: {train_loss:.4f} | " f"LR: {lr_str} | " f"Time: {epoch_time:.2f}s")
 
     def _step_scheduler(self, current_val_loss: Optional[float]) -> None:
         """
@@ -1000,6 +1039,9 @@ class Trainer:
     def _checkpoint_state(self) -> Dict[str, Any]:
         """
         Build serializable checkpoint state.
+
+        The stored `current_epoch` value represents the next epoch index to
+        execute. This keeps resume behavior unambiguous.
         """
         state: Dict[str, Any] = {
             "model_state_dict": self.model.state_dict(),
@@ -1057,6 +1099,10 @@ class Trainer:
         - scheduler state (if present and scheduler exists)
         - history
         - epoch counters
+
+        The restored `current_epoch` value is normalized to mean "the next
+        epoch to run". Legacy checkpoints are upgraded automatically by using
+        the recorded history length as the lower bound.
         """
         checkpoint_path = self.save_dir / filename
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
@@ -1064,7 +1110,7 @@ class Trainer:
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.history = checkpoint.get("history", self.history)
-        self.current_epoch = checkpoint.get("current_epoch", 0)
+        self.current_epoch = self._resolve_resume_epoch(checkpoint)
         self.best_epoch = checkpoint.get("best_epoch", None)
         self.best_val_loss = checkpoint.get("best_val_loss", float("inf"))
         self.epochs_without_improvement = checkpoint.get("epochs_without_improvement", 0)

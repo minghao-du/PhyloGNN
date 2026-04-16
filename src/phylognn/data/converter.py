@@ -326,6 +326,7 @@ class TreeToGraphConverter:
     NODE_TYPE_VIRTUAL = 1
 
     VALID_TRAVERSALS = {"preorder", "postorder", "levelorder"}
+    IS_VIRTUAL_FEATURE_NAME = "is_virtual_node"
 
     def __init__(
         self,
@@ -341,9 +342,7 @@ class TreeToGraphConverter:
         copy_sampling_prob_to_virtual: bool = True,
     ):
         self.feature_names = (
-            tuple(feature_names)
-            if feature_names is not None
-            else self.DEFAULT_FEATURE_NAMES
+            tuple(feature_names) if feature_names is not None else self.DEFAULT_FEATURE_NAMES
         )
         self.add_virtual_nodes = add_virtual_nodes
         self.num_time_bins = num_time_bins
@@ -371,7 +370,7 @@ class TreeToGraphConverter:
             - "is_virtual_node"
         """
         if self.append_is_virtual_feature:
-            return self.feature_names + ("is_virtual",)
+            return self.feature_names + (self.IS_VIRTUAL_FEATURE_NAME,)
         return self.feature_names
 
     def convert(
@@ -461,7 +460,7 @@ class TreeToGraphConverter:
 
         # Mark virtual nodes explicitly for downstream convenience.
         data.virtual_node_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
-        data.virtual_node_mask[data.original_num_nodes:] = True
+        data.virtual_node_mask[data.original_num_nodes :] = True
 
         # Node type coding:
         # 0 = original tree node
@@ -471,7 +470,7 @@ class TreeToGraphConverter:
             self.NODE_TYPE_ORIGINAL,
             dtype=torch.long,
         )
-        data.node_type[data.original_num_nodes:] = self.NODE_TYPE_VIRTUAL
+        data.node_type[data.original_num_nodes :] = self.NODE_TYPE_VIRTUAL
 
         return data
 
@@ -711,7 +710,7 @@ class TreeToGraphConverter:
             raise ValueError("Cannot infer num_time_bins without 'time_bin' in feature_names")
 
         time_bin_idx = self.feature_names.index("time_bin")
-        original_time_bins = data.x[:data.original_num_nodes, time_bin_idx]
+        original_time_bins = data.x[: data.original_num_nodes, time_bin_idx]
 
         if original_time_bins.numel() == 0:
             raise ValueError("Cannot infer num_time_bins from empty original node set")
@@ -771,9 +770,7 @@ class TreeToGraphConverter:
             If `"time_bin"` is not present in `feature_names`.
         """
         if "time_bin" not in self.feature_names:
-            raise ValueError(
-                "feature_names must include 'time_bin' when add_virtual_nodes=True"
-            )
+            raise ValueError("feature_names must include 'time_bin' when add_virtual_nodes=True")
 
         num_time_bins = (
             self.num_time_bins
@@ -846,11 +843,15 @@ class TreeToGraphConverter:
         data.x = torch.cat([data.x, virtual_x], dim=0)
 
         if new_edges:
-            new_edge_index = torch.tensor(
-                new_edges,
-                dtype=torch.long,
-                device=data.x.device,
-            ).t().contiguous()
+            new_edge_index = (
+                torch.tensor(
+                    new_edges,
+                    dtype=torch.long,
+                    device=data.x.device,
+                )
+                .t()
+                .contiguous()
+            )
             new_edge_type = torch.tensor(
                 new_edge_types,
                 dtype=torch.long,
@@ -884,9 +885,7 @@ class TreeToGraphConverter:
                     "feature_names must include 'time_bin' when add_virtual_nodes=True"
                 )
             if self.num_time_bins is not None and self.num_time_bins < 2:
-                raise ValueError(
-                    f"num_time_bins must be at least 2, got {self.num_time_bins}"
-                )
+                raise ValueError(f"num_time_bins must be at least 2, got {self.num_time_bins}")
 
     def __repr__(self) -> str:
         return (

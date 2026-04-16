@@ -219,23 +219,15 @@ class GATBiLSTMNet(BaseGATNet):
 
         if temporal_mode != "none":
             if num_time_bins is None:
-                raise ValueError(
-                    "`num_time_bins` must be provided when `temporal_mode != 'none'`."
-                )
+                raise ValueError("`num_time_bins` must be provided when `temporal_mode != 'none'`.")
             if num_time_bins <= 0:
-                raise ValueError(
-                    f"`num_time_bins` must be > 0, got {num_time_bins}."
-                )
+                raise ValueError(f"`num_time_bins` must be > 0, got {num_time_bins}.")
 
         if temporal_hidden_dim <= 0:
-            raise ValueError(
-                f"`temporal_hidden_dim` must be > 0, got {temporal_hidden_dim}."
-            )
+            raise ValueError(f"`temporal_hidden_dim` must be > 0, got {temporal_hidden_dim}.")
 
         if num_lstm_layers <= 0:
-            raise ValueError(
-                f"`num_lstm_layers` must be > 0, got {num_lstm_layers}."
-            )
+            raise ValueError(f"`num_lstm_layers` must be > 0, got {num_lstm_layers}.")
 
         if graph_pool not in {"sum", "mean", "max"}:
             raise ValueError(
@@ -243,9 +235,7 @@ class GATBiLSTMNet(BaseGATNet):
             )
 
         if head_hidden_dim <= 0:
-            raise ValueError(
-                f"`head_hidden_dim` must be > 0, got {head_hidden_dim}."
-            )
+            raise ValueError(f"`head_hidden_dim` must be > 0, got {head_hidden_dim}.")
 
     def get_encoder_modules(self) -> Iterable[nn.Module]:
         """
@@ -371,9 +361,7 @@ class GATBiLSTMNet(BaseGATNet):
                 If time-bin tensor type is invalid.
         """
         if not hasattr(data, "time_bin") or data.time_bin is None:
-            raise ValueError(
-                "`data.time_bin` is required when `temporal_mode != 'none'`."
-            )
+            raise ValueError("`data.time_bin` is required when `temporal_mode != 'none'`.")
 
         if not torch.is_tensor(data.time_bin):
             raise TypeError("`data.time_bin` must be a torch.Tensor.")
@@ -474,9 +462,9 @@ class GATBiLSTMNet(BaseGATNet):
         )
         pooled = pooled.view(batch_size, num_time_bins, embedding_dim)
 
-        time_values = torch.arange(
-            num_time_bins, device=x.device, dtype=x.dtype
-        ).view(1, num_time_bins, 1)
+        time_values = torch.arange(num_time_bins, device=x.device, dtype=x.dtype).view(
+            1, num_time_bins, 1
+        )
         time_values = time_values.expand(batch_size, num_time_bins, 1)
 
         pooled = torch.cat([pooled, time_values], dim=-1)

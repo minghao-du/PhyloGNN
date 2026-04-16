@@ -43,7 +43,7 @@ def example_basic_usage():
     tree_with_features = engineer.add_features(
         tree,
         origin_time=10.0,
-        feature_names=None,   # add all features
+        feature_names=None,  # add all features
         rescale=True,
         inplace=True,
     )
