@@ -26,7 +26,7 @@ REMOVED_FILES = {
 def test_examples_inventory_contains_only_the_new_entry_points():
     present = {path.name for path in EXAMPLES_DIR.iterdir() if path.is_file()}
 
-    assert EXPECTED_FILES.issubset(present)
+    assert present == EXPECTED_FILES
     assert REMOVED_FILES.isdisjoint(present)
 
 
