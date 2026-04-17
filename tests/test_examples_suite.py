@@ -1,6 +1,10 @@
 """Smoke tests for the curated examples suite."""
 
 from pathlib import Path
+import subprocess
+import sys
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,6 +27,15 @@ REMOVED_FILES = {
 }
 
 
+def _run_example(script_name: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(EXAMPLES_DIR / script_name)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+
+
 def test_examples_inventory_contains_only_the_new_entry_points():
     present = {path.name for path in EXAMPLES_DIR.iterdir() if path.is_file()}
 
@@ -35,3 +48,17 @@ def test_examples_readme_references_each_supported_script():
 
     for filename in sorted(EXPECTED_FILES - {"README.md"}):
         assert filename in readme
+
+
+@pytest.mark.parametrize(
+    "script_name, expected_text",
+    [
+        ("feature_engineering.py", "Feature engineering summary"),
+        ("tree_to_graph.py", "Graph summary"),
+    ],
+)
+def test_self_contained_examples_run(script_name: str, expected_text: str):
+    completed = _run_example(script_name)
+
+    assert completed.returncode == 0, completed.stderr
+    assert expected_text in completed.stdout
