@@ -1,5 +1,6 @@
 """Smoke tests for the curated examples suite."""
 
+from functools import lru_cache
 from pathlib import Path
 import subprocess
 import sys
@@ -18,6 +19,8 @@ EXPECTED_FILES = {
     "single_task_training.py",
 }
 
+PYTORCH_PYTHON = Path("/Users/Minghao/opt/anaconda3/envs/pytorch/bin/python")
+
 REMOVED_FILES = {
     "examples_converter.py",
     "examples_tree_io.py",
@@ -27,9 +30,32 @@ REMOVED_FILES = {
 }
 
 
+def _python_supports_examples(python_executable: str) -> bool:
+    completed = subprocess.run(
+        [
+            python_executable,
+            "-c",
+            "import phylognn, torch, torch_geometric, ete3",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    return completed.returncode == 0
+
+
+@lru_cache(maxsize=1)
+def _selected_python_executable() -> str:
+    if _python_supports_examples(sys.executable):
+        return sys.executable
+    if PYTORCH_PYTHON.is_file() and _python_supports_examples(str(PYTORCH_PYTHON)):
+        return str(PYTORCH_PYTHON)
+    return sys.executable
+
+
 def _run_example(script_name: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, str(EXAMPLES_DIR / script_name)],
+        [_selected_python_executable(), str(EXAMPLES_DIR / script_name)],
         cwd=ROOT,
         text=True,
         capture_output=True,
