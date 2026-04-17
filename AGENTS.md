@@ -238,6 +238,8 @@ python -m build
 ## Active Technologies
 - Python >=3.8 + PyTorch, PyTorch Geometric, ETE3, NumPy; optional tree I/O path may use DendroPy via extras (001-api-exposure-refactor)
 - Source files, package metadata, and optional serialized `.pt` graph artifacts; no database (001-api-exposure-refactor)
+- Python >=3.8 + PyTorch, PyTorch Geometric, ETE3, NumPy; optional DendroPy for BEAST/tree I/O paths (001-critical-test-coverage)
+- Source files, pytest fixtures, and Markdown planning artifacts in the repository; no database (001-critical-test-coverage)
 
 ## Recent Changes
 - 001-api-exposure-refactor: Added Python >=3.8 + PyTorch, PyTorch Geometric, ETE3, NumPy; optional tree I/O path may use DendroPy via extras

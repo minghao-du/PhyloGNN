@@ -48,3 +48,17 @@ def test_add_features_accepts_read_only_feature_metadata():
         assert hasattr(node, "node_time")
         assert hasattr(node, "time_bin")
         assert hasattr(node, "is_internal")
+
+
+def test_add_features_rejects_duplicate_feature_requests():
+    """Feature selection should preserve a unique deterministic column order."""
+    engineer = TreeFeatureEngineer()
+    tree = Tree("(A:1,B:1)Root;", format=1)
+
+    with pytest.raises(ValueError, match="must not contain duplicates"):
+        engineer.add_features(
+            tree,
+            origin_time=2.0,
+            feature_names=("node_time", "node_time"),
+            rescale=False,
+        )

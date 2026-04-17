@@ -190,6 +190,13 @@ class TrainingConfig:
             raise ValueError("learning_rate must be > 0.")
         if self.weight_decay < 0:
             raise ValueError("weight_decay must be >= 0.")
+        if self.optimizer not in {"adam", "adamw", "sgd"}:
+            raise ValueError(f"optimizer must be one of ('adam', 'adamw', 'sgd'), got {self.optimizer!r}.")
+        if self.scheduler not in {None, "plateau", "step", "cosine"}:
+            raise ValueError(
+                "scheduler must be one of (None, 'plateau', 'step', 'cosine'), "
+                f"got {self.scheduler!r}."
+            )
         if self.scheduler_patience <= 0:
             raise ValueError("scheduler_patience must be > 0.")
         if not (0.0 < self.scheduler_factor <= 1.0):

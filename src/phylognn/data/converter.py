@@ -872,6 +872,8 @@ class TreeToGraphConverter:
         """Validate initialization parameters."""
         if not self.feature_names:
             raise ValueError("feature_names must contain at least one feature")
+        if len(set(self.feature_names)) != len(self.feature_names):
+            raise ValueError("feature_names must not contain duplicates")
 
         if self.traversal_strategy not in self.VALID_TRAVERSALS:
             raise ValueError(

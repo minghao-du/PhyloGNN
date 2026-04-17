@@ -141,6 +141,8 @@ class BasePhyloGNN(nn.Module, ABC):
                 "`data.x` must be a 2D tensor of shape "
                 f"[num_nodes, num_features], got shape {tuple(data.x.shape)}."
             )
+        if not data.x.is_floating_point():
+            raise TypeError("`data.x` must use a floating-point dtype.")
         if data.x.size(0) <= 0:
             raise ValueError("`data.x` must contain at least one node.")
 

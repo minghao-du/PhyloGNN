@@ -418,6 +418,9 @@ class TreeFeatureEngineer:
         ValueError
             If an unknown feature name is requested.
 
+        ValueError
+            If duplicate feature names are requested.
+
         Notes
         -----
         Dependency features are computed automatically when needed. For example:
@@ -443,6 +446,8 @@ class TreeFeatureEngineer:
         if feature_names is None:
             features_to_add = self.feature_names
         else:
+            if len(set(feature_names)) != len(feature_names):
+                raise ValueError("feature_names must not contain duplicates.")
             unknown_features = set(feature_names) - self.available_features
             if unknown_features:
                 raise ValueError(

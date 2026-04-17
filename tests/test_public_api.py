@@ -54,3 +54,23 @@ def test_io_module_defines_explicit_optional_tree_io_boundary():
 
     assert "read_tree_as_ete3" in io.__all__
     assert "TreeReadConfig" in io.__all__
+
+
+def test_root_package_dir_matches_curated_surface():
+    """Directory listings should advertise the same curated root package API."""
+    phylognn = importlib.import_module("phylognn")
+
+    for export_name in phylognn.__all__:
+        assert export_name in dir(phylognn)
+
+
+def test_root_package_rejects_hidden_optional_tree_io_names():
+    """Optional helpers must not leak into the root package namespace."""
+    phylognn = importlib.import_module("phylognn")
+
+    try:
+        getattr(phylognn, "read_tree_as_ete3")
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("Root package unexpectedly exposed optional tree I/O helper.")

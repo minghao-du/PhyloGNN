@@ -39,3 +39,9 @@ def test_convert_appends_virtual_node_feature_column_consistently():
     assert converter.output_feature_names[-1] == "is_virtual_node"
     assert data.x.shape[1] == len(converter.output_feature_names)
     assert data.virtual_node_mask.any()
+
+
+def test_converter_rejects_duplicate_feature_names():
+    """The converter should fail early on ambiguous feature-column definitions."""
+    with pytest.raises(ValueError, match="must not contain duplicates"):
+        TreeToGraphConverter(feature_names=("time_bin", "time_bin"))
