@@ -1,9 +1,11 @@
 """Smoke tests for the curated examples suite."""
 
+import os
 from functools import lru_cache
 from pathlib import Path
 import subprocess
 import sys
+from typing import List
 
 import pytest
 
@@ -18,8 +20,6 @@ EXPECTED_FILES = {
     "tree_io.py",
     "single_task_training.py",
 }
-
-PYTORCH_PYTHON = Path("/Users/Minghao/opt/anaconda3/envs/pytorch/bin/python")
 
 REMOVED_FILES = {
     "examples_converter.py",
@@ -44,12 +44,52 @@ def _python_supports_examples(python_executable: str) -> bool:
     return completed.returncode == 0
 
 
+def _candidate_python_executables() -> List[str]:
+    candidates = [sys.executable]
+
+    conda_default_env = os.environ.get("CONDA_DEFAULT_ENV")
+    seen_roots = set()
+    root_candidates = []
+
+    for raw_root in (
+        os.environ.get("CONDA_PREFIX"),
+        sys.prefix,
+        sys.base_prefix,
+    ):
+        if not raw_root:
+            continue
+        root = Path(raw_root)
+        if root in seen_roots:
+            continue
+        seen_roots.add(root)
+        root_candidates.append(root)
+
+    for conda_prefix_path in root_candidates:
+        prefix_python = conda_prefix_path / "bin" / "python"
+        if str(prefix_python) not in candidates:
+            candidates.append(str(prefix_python))
+
+        envs_dirs = [conda_prefix_path / "envs", conda_prefix_path.parent / "envs"]
+        for envs_dir in envs_dirs:
+            if conda_default_env and conda_default_env != "base":
+                named_env_python = envs_dir / conda_default_env / "bin" / "python"
+                if str(named_env_python) not in candidates:
+                    candidates.append(str(named_env_python))
+
+            if envs_dir.is_dir():
+                for env_dir in sorted(envs_dir.iterdir()):
+                    python_path = env_dir / "bin" / "python"
+                    if python_path.is_file() and str(python_path) not in candidates:
+                        candidates.append(str(python_path))
+
+    return candidates
+
+
 @lru_cache(maxsize=1)
 def _selected_python_executable() -> str:
-    if _python_supports_examples(sys.executable):
-        return sys.executable
-    if PYTORCH_PYTHON.is_file() and _python_supports_examples(str(PYTORCH_PYTHON)):
-        return str(PYTORCH_PYTHON)
+    for python_executable in _candidate_python_executables():
+        if _python_supports_examples(python_executable):
+            return python_executable
     return sys.executable
 
 
@@ -96,7 +136,7 @@ def test_self_contained_examples_run(script_name: str, expected_text: str):
         assert "root: node_time=4.00" in completed.stdout
     else:
         assert (
-            "feature_names: ('node_time', 'time_bin', 'branch_length', 'is_tip', 'is_virtual_node')"
+            "feature_names: ('node_time', 'time_bin', 'branch_length', 'is_tip')"
             in completed.stdout
         )
         assert "num_nodes: 5" in completed.stdout

@@ -30,6 +30,7 @@ def main() -> None:
     converter = TreeToGraphConverter(
         feature_names=FEATURE_NAMES,
         add_virtual_nodes=False,
+        append_is_virtual_feature=False,
         traversal_strategy=engineer.traversal_strategy,
     )
     data = converter.convert(tree, graph_attrs={"example_name": "tree_to_graph"})
