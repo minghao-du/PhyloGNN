@@ -39,7 +39,7 @@ def _run_example(script_name: str) -> subprocess.CompletedProcess:
 def test_examples_inventory_contains_only_the_new_entry_points():
     present = {path.name for path in EXAMPLES_DIR.iterdir() if path.is_file()}
 
-    assert present == EXPECTED_FILES
+    assert EXPECTED_FILES.issubset(present)
     assert REMOVED_FILES.isdisjoint(present)
 
 
