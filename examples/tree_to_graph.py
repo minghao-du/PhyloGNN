@@ -30,6 +30,7 @@ def main() -> None:
     converter = TreeToGraphConverter(
         feature_names=FEATURE_NAMES,
         add_virtual_nodes=False,
+        traversal_strategy=engineer.traversal_strategy,
     )
     data = converter.convert(tree, graph_attrs={"example_name": "tree_to_graph"})
 
@@ -38,7 +39,7 @@ def main() -> None:
     print(f"edge_index shape: {tuple(data.edge_index.shape)}")
     print(f"num_nodes: {data.num_nodes}")
     print(f"num_edges: {data.edge_index.size(1)}")
-    print(f"Feature set: {', '.join(FEATURE_NAMES)}")
+    print(f"feature_names: {converter.output_feature_names}")
     print(f"example_name: {data.example_name}")
 
 

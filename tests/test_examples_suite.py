@@ -63,8 +63,14 @@ def test_self_contained_examples_run(script_name: str, expected_text: str):
     assert completed.returncode == 0, completed.stderr
     assert expected_text in completed.stdout
     if script_name == "feature_engineering.py":
-        assert "Feature order: ['node_time', 'time_bin', 'branch_length', 'is_tip', 'is_internal']" in completed.stdout
+        assert (
+            "Feature order: ['node_time', 'time_bin', 'branch_length', 'is_tip', 'is_internal']"
+            in completed.stdout
+        )
         assert "root: node_time=4.00" in completed.stdout
     else:
-        assert "Feature set: node_time, time_bin, branch_length, is_tip" in completed.stdout
+        assert (
+            "feature_names: ('node_time', 'time_bin', 'branch_length', 'is_tip', 'is_virtual_node')"
+            in completed.stdout
+        )
         assert "num_nodes: 5" in completed.stdout
