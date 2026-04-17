@@ -36,7 +36,7 @@ def _run_example(script_name: str) -> subprocess.CompletedProcess:
     )
 
 
-def test_examples_inventory_contains_only_the_new_entry_points():
+def test_examples_inventory_contains_expected_entry_points():
     present = {path.name for path in EXAMPLES_DIR.iterdir() if path.is_file()}
 
     assert EXPECTED_FILES.issubset(present)
@@ -62,3 +62,9 @@ def test_self_contained_examples_run(script_name: str, expected_text: str):
 
     assert completed.returncode == 0, completed.stderr
     assert expected_text in completed.stdout
+    if script_name == "feature_engineering.py":
+        assert "Feature order: ['node_time', 'time_bin', 'branch_length', 'is_tip', 'is_internal']" in completed.stdout
+        assert "root: node_time=4.00" in completed.stdout
+    else:
+        assert "Feature set: node_time, time_bin, branch_length, is_tip" in completed.stdout
+        assert "num_nodes: 5" in completed.stdout
