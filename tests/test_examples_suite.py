@@ -1,11 +1,13 @@
 """Smoke tests for the curated examples suite."""
 
 import os
+import json
 from functools import lru_cache
 from pathlib import Path
 import subprocess
 import sys
-from typing import List
+import shutil
+from typing import List, Optional
 
 import pytest
 
@@ -44,53 +46,60 @@ def _python_supports_examples(python_executable: str) -> bool:
     return completed.returncode == 0
 
 
-def _candidate_python_executables() -> List[str]:
-    candidates = [sys.executable]
+def _conda_executable() -> Optional[str]:
+    conda_executable = os.environ.get("CONDA_EXE")
+    if conda_executable and Path(conda_executable).is_file():
+        return conda_executable
 
-    conda_default_env = os.environ.get("CONDA_DEFAULT_ENV")
-    seen_roots = set()
-    root_candidates = []
+    resolved = shutil.which("conda")
+    if resolved:
+        return resolved
 
-    for raw_root in (
-        os.environ.get("CONDA_PREFIX"),
-        sys.prefix,
-        sys.base_prefix,
-    ):
-        if not raw_root:
-            continue
-        root = Path(raw_root)
-        if root in seen_roots:
-            continue
-        seen_roots.add(root)
-        root_candidates.append(root)
+    return None
 
-    for conda_prefix_path in root_candidates:
-        prefix_python = conda_prefix_path / "bin" / "python"
-        if str(prefix_python) not in candidates:
-            candidates.append(str(prefix_python))
 
-        envs_dirs = [conda_prefix_path / "envs", conda_prefix_path.parent / "envs"]
-        for envs_dir in envs_dirs:
-            if conda_default_env and conda_default_env != "base":
-                named_env_python = envs_dir / conda_default_env / "bin" / "python"
-                if str(named_env_python) not in candidates:
-                    candidates.append(str(named_env_python))
+def _resolve_conda_env_python(env_name: str) -> Optional[str]:
+    conda_executable = _conda_executable()
+    if conda_executable is None:
+        return None
 
-            if envs_dir.is_dir():
-                for env_dir in sorted(envs_dir.iterdir()):
-                    python_path = env_dir / "bin" / "python"
-                    if python_path.is_file() and str(python_path) not in candidates:
-                        candidates.append(str(python_path))
+    completed = subprocess.run(
+        [conda_executable, "info", "--envs", "--json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    if completed.returncode != 0:
+        return None
 
-    return candidates
+    try:
+        envs = json.loads(completed.stdout).get("envs", [])
+    except (TypeError, ValueError):
+        return None
+
+    for env_path in envs:
+        if Path(env_path).name == env_name:
+            python_path = Path(env_path) / "bin" / "python"
+            if python_path.is_file():
+                return str(python_path)
+
+    return None
 
 
 @lru_cache(maxsize=1)
 def _selected_python_executable() -> str:
-    for python_executable in _candidate_python_executables():
-        if _python_supports_examples(python_executable):
-            return python_executable
-    return sys.executable
+    if _python_supports_examples(sys.executable):
+        return sys.executable
+
+    pytorch_python = _resolve_conda_env_python("pytorch")
+    if pytorch_python and _python_supports_examples(pytorch_python):
+        return pytorch_python
+
+    raise RuntimeError(
+        "Could not find a Python interpreter that can import phylognn, torch, "
+        "torch_geometric, and ete3. Tried the current interpreter and the "
+        "Conda environment named 'pytorch'."
+    )
 
 
 def _run_example(script_name: str) -> subprocess.CompletedProcess:
