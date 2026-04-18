@@ -1,15 +1,14 @@
 <!--
 Sync Impact Report
-Version change: template -> 1.0.0
+Version change: 1.0.0 -> 2.0.0
 Modified principles:
-- Placeholder Principle 1 -> I. User-Oriented Simulation-Based Inference
-- Placeholder Principle 2 -> II. Explicit Scientific and Data Contracts
-- Placeholder Principle 3 -> III. Test-Backed Scientific Correctness
-- Placeholder Principle 4 -> IV. Reproducible Workflow Integration
-- Placeholder Principle 5 -> V. Pragmatic Simplicity Over Perfection
+- I. User-Oriented Simulation-Based Inference -> I. Package Truth Over Examples
+- II. Explicit Scientific and Data Contracts -> II. Explicit Graph and Tensor Contracts
+- III. Test-Backed Scientific Correctness -> III. Deterministic Phylogenetic Semantics
+- IV. Reproducible Workflow Integration -> IV. Test-Backed Public Surface
+- V. Pragmatic Simplicity Over Perfection -> V. Environment-Constrained Minimal Delivery
 Added sections:
-- Engineering Standards
-- Delivery Workflow
+- None
 Removed sections:
 - None
 Templates requiring updates:
@@ -25,93 +24,90 @@ Follow-up TODOs:
 
 ## Core Principles
 
-### I. User-Oriented Simulation-Based Inference
-PhyloGNN MUST optimize for helping users perform simulation-based inference on
-phylogenetic data with as little friction as practical. Features MUST serve a
-real user workflow in the package, tests, or supported examples; speculative
-abstractions, framework-heavy detours, and research-only side paths MUST NOT
-displace delivery of usable SBI capabilities. Rationale: the package exists to
-make SBI accessible, not to maximize architectural novelty.
+### I. Package Truth Over Examples
+`src/phylognn/` and `tests/` MUST define correct behavior when examples or
+ad hoc scripts diverge. New features, fixes, and refactors MUST strengthen the
+Python package for converting phylogenetic trees into PyTorch Geometric data
+and training GNN models on those graphs; example scripts MAY illustrate usage
+but MUST NOT redefine package contracts. Rationale: repository drift is most
+likely when examples become the de facto specification.
 
-### II. Explicit Scientific and Data Contracts
-Public APIs, graph transformations, simulation interfaces, and workflow inputs
-MUST declare their contracts explicitly through types, docstrings, validation,
-and descriptive names. Code MUST fail fast on invalid shapes, dtypes, tree
-state, configuration, or workflow parameters; silent coercion and stringly
-typed control flow are prohibited unless an existing compatibility constraint is
-documented. Rationale: scientific software becomes untrustworthy when data
-contracts are implicit.
+### II. Explicit Graph and Tensor Contracts
+Code that constructs, mutates, loads, or consumes graph data MUST declare and
+validate the required contract explicitly. Required fields such as `x`,
+`edge_index`, `batch`, and task-specific attributes MUST be checked for shape,
+dtype, and semantic readiness before use. Graph-level metadata MUST use
+descriptive names that stay consistent with existing fields such as
+`node_names`, `edge_type`, and `original_num_nodes`, and public APIs MUST
+document these contracts through type hints and docstrings. Rationale:
+scientific graph code is only trustworthy when data assumptions are visible and
+enforced.
 
-### III. Test-Backed Scientific Correctness
-Every non-trivial behavioral change MUST include focused validation evidence in
-the form of unit, regression, integration, or workflow tests, unless the change
-is documentation-only and the omission is stated explicitly. Tests MUST prefer
-real fixtures and realistic package behavior over mocks, and reviews MUST treat
-scientific correctness, maintainability, and clean code concerns as first-class
-quality gates. Rationale: PhyloGNN must be credible both as research software
-and as a maintainable Python package.
+### III. Deterministic Phylogenetic Semantics
+Whenever traversal order, feature order, batching, or serialization affects
+outputs, the implementation MUST preserve deterministic behavior. Tree-to-graph
+conversion, feature engineering, dataset indexing, and related helpers MUST
+avoid hidden reordering, ambiguous naming, or nondeterministic iteration unless
+the behavior is explicitly documented and tested. Rationale: reproducibility in
+phylogenetic workflows depends on stable semantics, not just stable files.
 
-### IV. Reproducible Workflow Integration
-When a feature introduces or modifies pipeline behavior, the implementation MUST
-keep package code and workflow orchestration cleanly separated, with
-configuration externalized, outputs organized deterministically, and
-documentation sufficient for another user to reproduce the run. Snakemake or
-workflow-related assets MUST follow community best practices for structure,
-validation, and small-scale testability. Rationale: reproducibility is a core
-requirement for computational phylogenetics and SBI.
+### IV. Test-Backed Public Surface
+Every non-trivial behavioral change MUST ship with focused tests that exercise
+the affected package surface, using real fixtures and realistic `Data` objects
+where practical. Public API changes MUST update docstrings, exports such as
+`__all__`, and nearby tests; optional capability boundaries such as
+`phylognn.io` MUST remain explicit and MUST NOT leak into default package
+surfaces accidentally. Rationale: release safety depends on validating both
+behavior and what the package chooses to expose.
 
-### V. Pragmatic Simplicity Over Perfection
-Designs MUST start from the simplest approach that satisfies current user and
-scientific requirements. Perfection MUST NOT be the enemy of good: teams MAY
-defer polish, generalization, or automation when the deferral is explicit,
-bounded, and does not compromise correctness, reproducibility, or user-facing
-clarity. Complexity beyond the minimal viable design MUST be justified in the
-plan. Rationale: sustained delivery matters more than speculative completeness.
+### V. Environment-Constrained Minimal Delivery
+Changes MUST fit the repository's current abstractions and execution
+environment. Work MUST use the existing `pytorch` Conda environment on this
+machine, MUST avoid unrelated refactors, and MUST prefer minimal local changes
+over speculative architecture. New helpers, validators, and type aliases MUST
+only be introduced after checking whether an equivalent already exists nearby.
+Rationale: disciplined scope control keeps the package maintainable and reduces
+scientific regression risk.
 
 ## Engineering Standards
 
-- Package code under `src/phylognn/` and tests under `tests/` are the source of
-  truth when examples diverge.
-- Public functions, methods, and classes MUST use explicit type hints and
-  substantial docstrings when behavior, tensor shapes, graph fields, or feature
-  semantics are non-trivial.
-- Imports MUST be grouped consistently, names MUST reveal intent, and helpers
-  SHOULD be small and composable rather than multiplexing unrelated concerns.
-- Runtime validation MUST raise explicit `ValueError` or `TypeError` messages
-  consistent with the existing codebase conventions.
-- Graph and tensor code MUST preserve deterministic ordering whenever ordering
-  affects features, traversal, batching, or reproducibility.
-- Workflow configuration MUST use explicit files such as YAML where applicable;
-  required parameters MUST be validated directly instead of hidden behind
-  permissive defaults.
+- Package implementation lives under `src/phylognn/`, with `data/`, `models/`,
+  `training/`, and `utils/` treated as the canonical architectural units.
+- Tree, graph, and tensor code MUST raise explicit `ValueError` or `TypeError`
+  messages when contracts are violated rather than relying on implicit failures.
+- Public functions, methods, and classes MUST use explicit type hints, and
+  non-trivial behavior MUST be documented with docstrings that describe graph
+  fields, tensor shapes, and expected semantics.
+- When adding graph-level metadata or labels, naming MUST remain descriptive
+  and consistent with current package conventions.
+- Optional dependencies and optional APIs MUST remain clearly separated from the
+  default import surface so core usage does not depend on extra packages.
 
 ## Delivery Workflow
 
-- Every spec MUST identify the target user workflow, the scientific or data
-  contracts being introduced or changed, and the validation evidence required to
-  trust the result.
-- Every plan MUST pass the Constitution Check before research and design move
-  forward; any violation requires a written justification in Complexity
-  Tracking.
-- Every task list for non-trivial work MUST include validation tasks, docstring
-  or documentation updates where contracts change, and workflow documentation
-  tasks when reproducibility is affected.
-- Reviews MUST check for clean-code issues such as mixed responsibilities,
-  unclear naming, duplication, hidden imports without justification, and overuse
-  of mocks.
-- When workflow assets are added, reviews MUST also verify reproducible layout,
-  clear config ownership, and lightweight execution paths suitable for testing.
+- Before editing, contributors MUST read the target module and nearby tests to
+  understand the existing contract and avoid accidental surface changes.
+- Plans and specs MUST identify which package modules, graph fields, dataset
+  paths, or model interfaces are changing, and MUST state how determinism and
+  validation will be preserved.
+- Task lists for non-trivial work MUST include validation tasks and MUST include
+  docstring or export updates whenever public behavior changes.
+- Relevant tests MUST be run after code changes; narrow changes SHOULD start
+  with the smallest affected test file, class, or function before broader
+  verification.
+- `ruff check` and `black --check` on touched areas SHOULD be run when
+  practical, and any justified omission MUST be stated in the handoff.
 
 ## Governance
 
-This constitution supersedes local habits for planning and implementation within
-this repository. Amendments MUST be recorded in `.specify/memory/constitution.md`
-with a Sync Impact Report that identifies affected templates and follow-up work.
-Versioning follows semantic intent: MAJOR for incompatible governance changes or
-principle removals, MINOR for new principles or materially expanded obligations,
-and PATCH for clarifications that do not change required behavior. Compliance
-review is mandatory during planning, implementation, and review; if a change
-cannot satisfy a principle, the exception and rationale MUST be written in the
-relevant plan before implementation proceeds.
+This constitution supersedes informal practice for planning, implementation,
+and review in this repository. Amendments MUST be recorded in
+`.specify/memory/constitution.md` together with a Sync Impact Report that lists
+affected templates and any deferred follow-up. Versioning follows semantic
+intent: MAJOR for incompatible principle redefinitions or removals, MINOR for
+new principles or materially expanded obligations, and PATCH for clarifications
+that preserve the same required behavior. Compliance review is mandatory during
+planning, implementation, and review; if a change cannot satisfy a principle,
+the exception and rationale MUST be documented before implementation proceeds.
 
-**Version**: 1.0.0 | **Ratified**: 2026-04-16 | **Last Amended**: 2026-04-16
+**Version**: 2.0.0 | **Ratified**: 2026-04-16 | **Last Amended**: 2026-04-18

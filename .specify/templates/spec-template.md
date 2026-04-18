@@ -107,14 +107,15 @@
   Replace this section with the real API, data, and workflow contracts.
 -->
 
-- **Input Contracts**: [Tree formats, tensor shapes, config keys, workflow
-  inputs, and validation behavior]
+- **Input Contracts**: [Tree formats, required `Data` fields such as `x`,
+  `edge_index`, `batch`, task-specific attributes, config keys, and validation
+  behavior]
 - **Output Contracts**: [Produced graphs, predictions, files, metrics, reports,
-  and their guarantees]
-- **Failure Modes**: [How invalid values, inconsistent state, or missing config
-  MUST fail fast]
-- **Reproducibility Notes**: [Seeds, ordering guarantees, deterministic output
-  paths, workflow environment or config requirements]
+  export surface changes, and their guarantees]
+- **Failure Modes**: [How invalid values, inconsistent state, missing optional
+  dependencies, or shape/dtype errors MUST fail fast]
+- **Determinism Notes**: [Traversal order, feature order, sample-ID stability,
+  deterministic output paths, and any environment or config requirements]
 
 ## Success Criteria *(mandatory)*
 
@@ -150,7 +151,9 @@
   Non-trivial behavior changes are expected to list concrete tests here.
 -->
 
-- **Unit/Regression Tests**: [Specific modules, fixtures, or regression cases]
-- **Integration/Workflow Tests**: [End-to-end package or workflow checks]
+- **Unit/Regression Tests**: [Specific modules, fixtures, deterministic-order
+  cases, or regression cases]
+- **Integration/Workflow Tests**: [End-to-end package, example, or data-path
+  checks]
 - **Manual Verification**: [Only for areas that cannot be automated yet, with
   justification]

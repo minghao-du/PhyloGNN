@@ -32,18 +32,21 @@
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 - `User Value`: Confirm the feature directly improves a PhyloGNN user workflow
-  for simulation-based inference rather than adding speculative abstraction.
-- `Scientific Contracts`: List every public API, graph field, tensor shape,
-  configuration key, and workflow contract being added or changed. State how
-  invalid inputs fail fast.
-- `Validation Evidence`: Define the unit, regression, integration, or workflow
+  in tree-to-graph conversion, dataset handling, model training, or related
+  package behavior rather than adding speculative abstraction.
+- `Package Truth`: Identify the canonical package modules and tests for this
+  change, especially when examples or scripts also need updates.
+- `Graph Contracts`: List every public API, graph field, tensor shape, dtype,
+  metadata key, or optional dependency boundary being added or changed. State
+  how invalid inputs fail fast.
+- `Determinism`: Record any ordering, traversal, batching, serialization, or
+  sample-ID behavior that must remain deterministic and how the design protects
+  it.
+- `Validation Evidence`: Define the unit, regression, integration, or example
   tests required for this change. If any non-trivial change lacks tests,
   justify why.
-- `Reproducibility`: If workflows or pipelines are involved, document
-  repository layout, config files, output structure, and how the workflow will
-  be exercised with a small reproducible test path.
-- `Pragmatism`: Record what is intentionally deferred so perfection does not
-  block delivery, and explain why the reduced scope is still correct and usable.
+- `Pragmatism`: Record what is intentionally deferred so the implementation
+  stays minimal, local, and compatible with the existing `pytorch` environment.
 
 ## Project Structure
 
@@ -103,8 +106,9 @@ ios/ or android/
 └── [platform-specific structure: feature modules, UI flows, platform tests]
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: [Document the selected structure and replace the
+placeholder tree with the real repository paths, typically `src/phylognn/...`
+and `tests/...`]
 
 ## Complexity Tracking
 

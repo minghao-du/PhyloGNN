@@ -53,7 +53,7 @@ the omission must be justified in the plan.
 - [ ] T001 Create project structure per implementation plan
 - [ ] T002 Initialize [language] project with [framework] dependencies
 - [ ] T003 [P] Configure linting and formatting tools
-- [ ] T004 [P] Capture seeds, config files, or workflow scaffolding needed for reproducible runs
+- [ ] T004 [P] Capture deterministic ordering rules, sample-ID behavior, config files, or example scaffolding needed for reproducible runs
 
 ---
 
@@ -67,9 +67,9 @@ Examples of foundational tasks (adjust based on your project):
 
 - [ ] T005 Create shared domain models, graph/data schemas, or validators that all stories depend on
 - [ ] T006 [P] Establish fail-fast error handling and configuration validation
-- [ ] T007 [P] Setup workflow/config directory structure when pipelines are in scope
-- [ ] T008 Document contract-sensitive fixtures or sample data for tests
-- [ ] T009 Record deterministic output paths, seeds, or ordering guarantees
+- [ ] T007 [P] Setup shared validators, optional dependency boundaries, or config directory structure when they affect multiple stories
+- [ ] T008 Document contract-sensitive fixtures or sample tree/graph data for tests
+- [ ] T009 Record deterministic traversal, feature ordering, sample-ID, or output-path guarantees
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -96,8 +96,8 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T015 [US1] Implement [Service] in src/services/[service].py (depends on T013, T014)
 - [ ] T016 [US1] Implement [endpoint/feature] in src/[location]/[file].py
 - [ ] T017 [US1] Add validation and error handling
-- [ ] T018 [US1] Update docstrings and user-facing docs for changed contracts
-- [ ] T019 [US1] Add workflow/config documentation if reproducibility is affected
+- [ ] T018 [US1] Update docstrings, exports such as `__all__`, and user-facing docs for changed contracts
+- [ ] T019 [US1] Add determinism, config, or example documentation if reproducibility is affected
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -121,7 +121,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T024 [US2] Implement [Service] in src/services/[service].py
 - [ ] T025 [US2] Implement [endpoint/feature] in src/[location]/[file].py
 - [ ] T026 [US2] Integrate with User Story 1 components (if needed)
-- [ ] T027 [US2] Update docstrings and reproducibility docs for changed contracts
+- [ ] T027 [US2] Update docstrings, exports, and reproducibility docs for changed contracts
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
@@ -144,7 +144,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T031 [P] [US3] Create [Entity] model in src/models/[entity].py
 - [ ] T032 [US3] Implement [Service] in src/services/[service].py
 - [ ] T033 [US3] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T034 [US3] Update docstrings and reproducibility docs for changed contracts
+- [ ] T034 [US3] Update docstrings, exports, and reproducibility docs for changed contracts
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -164,7 +164,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX [P] Additional unit and regression tests in tests/unit/
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
-- [ ] TXXX [P] Validate workflow execution on a small reproducible dataset or config
+- [ ] TXXX [P] Validate package behavior, examples, or data loading on a small reproducible dataset or config
 
 ---
 
@@ -256,7 +256,7 @@ With multiple developers:
 - [Story] label maps task to specific user story for traceability
 - Each user story should be independently completable and testable
 - Verify tests fail before implementing
-- Prefer real fixtures and realistic workflows over mocks
+- Prefer real fixtures and realistic tree/graph flows over mocks
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
