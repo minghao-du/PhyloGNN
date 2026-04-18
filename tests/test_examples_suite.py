@@ -1,13 +1,14 @@
 """Smoke tests for the curated examples suite."""
 
-import os
+import importlib.util
 import json
+import os
 from functools import lru_cache
 from pathlib import Path
+import shutil
 import subprocess
 import sys
-import shutil
-from typing import List, Optional
+from typing import Dict, Optional
 
 import pytest
 
@@ -34,11 +35,7 @@ REMOVED_FILES = {
 
 def _python_supports_examples(python_executable: str) -> bool:
     completed = subprocess.run(
-        [
-            python_executable,
-            "-c",
-            "import phylognn, torch, torch_geometric, ete3",
-        ],
+        [python_executable, "-c", "import phylognn, torch, torch_geometric, ete3"],
         cwd=ROOT,
         text=True,
         capture_output=True,
@@ -102,12 +99,38 @@ def _selected_python_executable() -> str:
     )
 
 
-def _run_example(script_name: str) -> subprocess.CompletedProcess:
+def _python_has_module(module_name: str) -> bool:
+    completed = subprocess.run(
+        [
+            _selected_python_executable(),
+            "-c",
+            (
+                "import importlib.util, sys; "
+                f"sys.exit(0 if importlib.util.find_spec('{module_name}') else 1)"
+            ),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    return completed.returncode == 0
+
+
+def _run_example(
+    script_name: str,
+    *,
+    extra_env: Optional[Dict[str, str]] = None,
+) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    if extra_env:
+        env.update(extra_env)
+
     return subprocess.run(
         [_selected_python_executable(), str(EXAMPLES_DIR / script_name)],
         cwd=ROOT,
         text=True,
         capture_output=True,
+        env=env,
     )
 
 
@@ -123,6 +146,12 @@ def test_examples_readme_references_each_supported_script():
 
     for filename in sorted(EXPECTED_FILES - {"README.md"}):
         assert filename in readme
+
+    assert "documentation-first" in readme
+    assert "self-contained" in readme
+    assert "optional dependencies" in readme
+    assert "examples_data/simulated_trees/" in readme
+    assert "python examples/single_task_training.py" in readme
 
 
 @pytest.mark.parametrize(
@@ -149,3 +178,39 @@ def test_self_contained_examples_run(script_name: str, expected_text: str):
             in completed.stdout
         )
         assert "num_nodes: 5" in completed.stdout
+
+
+@pytest.mark.skipif(
+    not _python_has_module("dendropy"),
+    reason="Optional tree I/O dependency is not installed in the selected Python environment.",
+)
+def test_tree_io_example_runs_when_optional_dependency_is_available():
+    completed = _run_example("tree_io.py")
+
+    assert completed.returncode == 0, completed.stderr
+    assert "Tree I/O summary" in completed.stdout
+    assert "Loaded tree file:" in completed.stdout
+    assert "examples_data/simulated_trees/" in completed.stdout
+
+
+@pytest.mark.skipif(
+    _python_has_module("dendropy"),
+    reason="Missing-dependency path is only relevant when dendropy is unavailable.",
+)
+def test_tree_io_example_reports_missing_dependency_cleanly():
+    completed = _run_example("tree_io.py")
+
+    assert completed.returncode == 0
+    assert "Optional dependency missing: dendropy" in completed.stdout
+    assert 'pip install -e ".[beast]"' in completed.stdout
+    assert "Traceback" not in completed.stderr
+
+
+def test_single_task_training_example_runs():
+    completed = _run_example("single_task_training.py")
+
+    assert completed.returncode == 0, completed.stderr
+    assert "Training summary" in completed.stdout
+    assert "dataset sizes:" in completed.stdout
+    assert "prediction sample:" in completed.stdout
+

@@ -1,32 +1,45 @@
 # PhyloGNN Examples
 
-This directory is the planned example suite for the current public PhyloGNN API.
-The files are scaffolding for a documentation-first layout and will be filled in
-after the reset is complete.
+This directory is a documentation-first example suite for the current public
+PhyloGNN API. Start with the small self-contained demos, then move to the
+optional file-loading boundary and the lightweight training walkthrough.
 
-## Planned Example Order
+## Recommended Order
 
 1. `feature_engineering.py`
-   Planned entry point for building a small in-memory tree and attaching node features.
+   Self-contained introduction to `TreeFeatureEngineer` on an in-memory tree.
 2. `tree_to_graph.py`
-   Planned entry point for converting a featured tree into a PyTorch Geometric `Data` object.
+   Self-contained conversion from a featured tree to a PyTorch Geometric
+   `Data` object.
 3. `tree_io.py`
-   Planned entry point for reading tree input through the optional `phylognn.io` boundary.
+   Optional tree-loading example that reads repository sample data from
+   `examples_data/simulated_trees/` through `phylognn.io`.
 4. `single_task_training.py`
-   Planned entry point for a small single-task end-to-end training walkthrough.
+   Compact end-to-end single-task training example using the public workflow
+   entry points.
 
 ## Requirements
 
-- Core examples are intended to use the package runtime dependencies from `pyproject.toml`.
-- `tree_io.py` is intended to require the optional DendroPy dependency:
+- Install the package and core runtime dependencies before running the
+  self-contained examples.
+- The examples are intended to be run from the repository root after an
+  editable install such as `python -m pip install -e ".[dev]"`.
+- `feature_engineering.py` and `tree_to_graph.py` are self-contained and do not
+  require repository data files.
+
+## Optional Dependencies
+
+- `tree_io.py` depends on the optional DendroPy-backed tree I/O stack exposed by
+  `phylognn.io`.
+- The optional dependencies are isolated to file-loading workflows; the
+  self-contained demos do not require them.
+- Install the optional dependency set with:
 
 ```bash
 python -m pip install -e ".[beast]"
 ```
 
 ## Run Commands
-
-When the scripts are implemented, they are expected to be run with:
 
 ```bash
 python examples/feature_engineering.py
@@ -35,8 +48,21 @@ python examples/tree_io.py
 python examples/single_task_training.py
 ```
 
+## Expected Outputs
+
+- `feature_engineering.py` prints a `Feature engineering summary` plus a compact
+  node-by-node feature listing.
+- `tree_to_graph.py` prints a `Graph summary` with tensor shapes and selected
+  metadata.
+- `tree_io.py` prints a `Tree I/O summary` for a tree loaded from
+  `examples_data/simulated_trees/`, or a concise optional-dependency guidance
+  message when DendroPy is unavailable.
+- `single_task_training.py` prints a `Training summary`, dataset sizes, and a
+  prediction sample from a tiny single-task workflow.
+
 ## Notes
 
-- `feature_engineering.py` and `tree_to_graph.py` are planned as self-contained examples.
-- `tree_io.py` is planned to read from `examples_data/simulated_trees/`.
-- `single_task_training.py` is planned to stay intentionally small and focused on clarity.
+- Keep script output concise and high-signal; longer explanations belong here
+  rather than inside the scripts.
+- `single_task_training.py` writes checkpoints and history under
+  `example_outputs/single_task_training/`, which is safe to delete after use.
