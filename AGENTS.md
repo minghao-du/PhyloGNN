@@ -3,6 +3,11 @@
 This file gives repository-specific guidance for coding agents working in
 `/Users/Minghao/Research/PhyloGNN`.
 
+## External Rule Files
+
+- Follow `/Users/Minghao/Code/Codex/my-codex-agent/docs/agent-rules/programming.md` for general cross-language programming guidance.
+- Repository-specific rules in this `AGENTS.md` take precedence over the general guidance when they conflict.
+
 ## Scope
 
 - This is a Python package for converting phylogenetic trees into PyTorch
@@ -13,14 +18,6 @@ This file gives repository-specific guidance for coding agents working in
 - Treat `src/phylognn/` and `tests/` as the source of truth when examples and
   implementation disagree.
 
-## Repository Rules Files
-
-- No repository Cursor rules were found in `.cursor/rules/`.
-- No `.cursorrules` file was found.
-- No Copilot instructions file was found at
-  `.github/copilot-instructions.md`.
-- Therefore, follow this `AGENTS.md` plus the existing codebase conventions.
-
 ## Environment And Setup
 
 - Python requirement: `>=3.8`.
@@ -29,27 +26,36 @@ This file gives repository-specific guidance for coding agents working in
   `numpy`.
 - Dev dependencies include `pytest`, `black`, and `ruff`.
 
-Recommended setup:
+On this machine, prefer the existing Conda environment:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
+conda activate pytorch
+```
+
+If the environment is missing package updates, install them into that active
+environment:
+
+```bash
 python -m pip install -e ".[dev]"
 ```
 
-If you need optional dataset or workflow extras:
+If you need optional dataset or workflow extras in the same environment:
 
 ```bash
 python -m pip install -e ".[all]"
 python -m pip install -e ".[beast]"
 ```
 
+If the `pytorch` Conda environment is unavailable, stop immediately and inform
+the user that the required Conda environment does not exist. Do not create a
+new virtual environment or install dependencies elsewhere.
+
 ## Build, Lint, And Test Commands
 
 Install editable package with dev tools:
 
 ```bash
+conda activate pytorch
 python -m pip install -e ".[dev]"
 ```
 
@@ -124,70 +130,7 @@ python -m build
 - `src/phylognn/utils/`: small helper utilities.
 - `tests/`: pytest-based unit tests.
 
-## General Coding Style
-
-- Follow Black formatting with line length 100.
-- Follow Ruff linting with line length 100.
-- Use 4-space indentation.
-- Prefer ASCII unless a file already uses another language or Unicode symbols.
-- Keep public APIs explicit and stable.
-- Prefer readability and explicit contracts over cleverness.
-
-## Imports
-
-- Group imports in this order:
-  1. future imports
-  2. standard library
-  3. third-party packages
-  4. local package imports
-- Separate groups with a single blank line.
-- Prefer explicit imports over wildcard imports.
-- Use relative imports within a package module when importing siblings.
-- Keep import lists readable; use parenthesized multi-line imports when needed.
-
-## Typing
-
-- Add type hints to public functions, methods, and class attributes.
-- This codebase uses `Optional`, `Union`, `Literal`, `Sequence`, `Mapping`, and
-  `Tuple` heavily; stay consistent with existing style.
-- For reusable signatures, create type aliases near the top of the module.
-- Use `from __future__ import annotations` in modules that benefit from forward
-  references or modern annotation behavior.
-- Return concrete, predictable types.
-- Validate runtime assumptions even when types are present.
-
-## Naming Conventions
-
-- Classes: `PascalCase`.
-- Functions and methods: `snake_case`.
-- Variables and attributes: `snake_case`.
-- Constants: `UPPER_SNAKE_CASE`.
-- Type aliases use descriptive `PascalCase` names such as `PathLike` or
-  `ModelOutput`.
-- Test classes start with `Test...` and test methods start with `test_...`.
-
-## Docstrings And Documentation
-
-- The repository strongly favors substantial docstrings, especially in core
-  modules under `src/phylognn/`.
-- Use triple-double-quoted docstrings.
-- For public classes and methods, document parameters, behavior, return values,
-  and raised exceptions when the behavior is non-trivial.
-- Explain data contracts clearly, especially tensor shapes, graph fields, and
-  feature semantics.
-- Keep comments sparse; prefer clear code and docstrings.
-
-## Error Handling And Validation
-
-- Validate inputs early.
-- Raise `ValueError` for invalid values or inconsistent state.
-- Raise `TypeError` for wrong object types or wrong tensor dtypes.
-- Error messages should be explicit and actionable.
-- Existing code frequently validates dimensions, allowed literal values,
-  positivity constraints, and required attributes; preserve that pattern.
-- Do not silently coerce invalid inputs unless there is an established reason.
-
-## Data And Tensor Conventions
+## Project-Specific Conventions
 
 - PyTorch Geometric `Data` objects are core inputs and outputs.
 - Be explicit about required fields such as `x`, `edge_index`, `batch`, and
@@ -196,27 +139,6 @@ python -m build
 - Preserve deterministic ordering when feature order or traversal order matters.
 - When adding graph-level metadata, keep names descriptive and consistent with
   current fields like `node_names`, `edge_type`, and `original_num_nodes`.
-
-## API Design Preferences
-
-- Prefer small, composable helpers plus a clearly documented public method.
-- Keep feature engineering, graph conversion, model logic, and training logic
-  separated by responsibility.
-- Reuse existing abstractions before adding new parallel ones.
-- Preserve backward-compatible parameter names unless the task explicitly calls
-  for breaking changes.
-- When adding options, validate them centrally with dedicated helper methods.
-
-## Testing Expectations
-
-- Add or update pytest coverage for any non-trivial behavioral change.
-- Prefer focused unit tests over broad integration tests unless needed.
-- Match the existing style of direct assertions and `pytest.raises(...)`.
-- Use parametrization for repeated validation cases.
-- When fixing a bug, add a regression test close to the affected module area.
-
-## Working In This Repository
-
 - Check whether a similar helper, validator, or type alias already exists before
   introducing a new one.
 - Favor consistency with `src/phylognn/data/`, `src/phylognn/models/`, and
@@ -235,11 +157,3 @@ python -m build
 - Run `ruff check` and `black --check` on touched areas when practical.
 - If you add a new public API or behavior contract, update docstrings and tests.
 
-## Active Technologies
-- Python >=3.8 + PyTorch, PyTorch Geometric, ETE3, NumPy; optional tree I/O path may use DendroPy via extras (001-api-exposure-refactor)
-- Source files, package metadata, and optional serialized `.pt` graph artifacts; no database (001-api-exposure-refactor)
-- Python >=3.8 + PyTorch, PyTorch Geometric, ETE3, NumPy; optional DendroPy for BEAST/tree I/O paths (001-critical-test-coverage)
-- Source files, pytest fixtures, and Markdown planning artifacts in the repository; no database (001-critical-test-coverage)
-
-## Recent Changes
-- 001-api-exposure-refactor: Added Python >=3.8 + PyTorch, PyTorch Geometric, ETE3, NumPy; optional tree I/O path may use DendroPy via extras
