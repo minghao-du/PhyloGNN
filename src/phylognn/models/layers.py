@@ -632,7 +632,7 @@ class MLPHead(nn.Module):
         self.output_activation = output_activation
 
         layers = []
-        current_dim = input
+        current_dim = input_dim
 
         for _ in range(num_hidden_layers):
             layers.extend(
