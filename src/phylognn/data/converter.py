@@ -636,7 +636,7 @@ class TreeToGraphConverter:
         node_names: List[str] = []
 
         for node in nodes:
-            node_names.append(node.name if getattr(node, "", None) else "")
+            node_names.append(node.name if getattr(node, "name", "") else "")
 
             row: List[float] = []
             for feature_name in self.feature_names:
@@ -729,6 +729,8 @@ class TreeToGraphConverter:
         -------------
         - `feature_names` must contain "time_bin"
         - `data` must already represent original tree nodes
+        - original-node `time_bin` values must be integer-like
+        - original-node `time_bin` values must lie in `[0, num_time_bins - 1]`
 
         Virtual node indexing
         ---------------------
@@ -768,6 +770,14 @@ class TreeToGraphConverter:
         ------
         ValueError
             If `"time_bin"` is not present in `feature_names`.
+
+        ValueError
+            If any original-node `time_bin` lies outside the configured range
+            `[0, num_time_bins - 1]`.
+
+        AssertionError
+            If any original-node `time_bin` is not integer-like before
+            conversion to `torch.long`.
         """
         if "time_bin" not in self.feature_names:
             raise ValueError("feature_names must include 'time_bin' when add_virtual_nodes=True")
@@ -809,12 +819,28 @@ class TreeToGraphConverter:
         new_edges: List[List[int]] = []
         new_edge_types: List[int] = []
 
-        original_time_bins = data.x[:num_original_nodes, time_bin_idx].long()
+        original_time_bins = data.x[:num_original_nodes, time_bin_idx]
+        rounded_time_bins = torch.round(original_time_bins)
+        assert torch.allclose(
+            original_time_bins,
+            rounded_time_bins,
+            atol=1e-6,
+            rtol=0.0,
+        ), "Original-node time_bin values must be integer-like before conversion."
+
+        original_time_bins = rounded_time_bins.long()
+        invalid_mask = (original_time_bins < 0) | (original_time_bins >= num_time_bins)
+        if torch.any(invalid_mask):
+            invalid_bins = sorted(set(original_time_bins[invalid_mask].tolist()))
+            raise ValueError(
+                "Original-node time_bin values fall outside configured range "
+                f"[0, {num_time_bins - 1}]: {invalid_bins}"
+            )
+
         bin_to_node_indices = {i: [] for i in range(num_time_bins)}
 
         for node_idx, bin_value in enumerate(original_time_bins.tolist()):
-            if 0 <= bin_value < num_time_bins:
-                bin_to_node_indices[bin_value].append(node_idx)
+            bin_to_node_indices[bin_value].append(node_idx)
 
         # Connect each virtual node to original nodes in the same time bin.
         if self.connect_virtual_to_real:
