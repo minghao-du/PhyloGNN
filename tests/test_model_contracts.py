@@ -247,6 +247,85 @@ def test_gat_bilstm_non_lstm_modes_do_not_create_recurrent_encoder():
     assert not hasattr(fc_model, "temporal_encoder")
 
 
+def test_gat_bilstm_exposes_named_temporal_dimensions_in_lstm_mode():
+    """Temporal dimensions should be inspectable without magic-number arithmetic."""
+    model = GATBiLSTMNet(
+        input_dim=4,
+        output_dim=1,
+        temporal_mode="lstm",
+        num_time_bins=2,
+        gat_hidden_dim=3,
+        gat_heads=2,
+        temporal_hidden_dim=5,
+    )
+
+    assert model.time_bin_scalar_feature_dim == 1
+    assert model.temporal_input_dim == model.get_embedding_dim() + model.time_bin_scalar_feature_dim
+    assert model.temporal_output_dim == model.temporal_encoder.output_dim == 10
+
+
+def test_gat_bilstm_default_fc_hidden_dims_preserve_existing_widths():
+    """Omitting FC widths should preserve the historical hidden-size-derived widths."""
+    model = GATBiLSTMNet(
+        input_dim=4,
+        output_dim=1,
+        temporal_mode="fc",
+        num_time_bins=3,
+        gat_hidden_dim=2,
+        gat_heads=1,
+        temporal_hidden_dim=5,
+    )
+
+    linear_layers = [module for module in model.temporal_mlp if isinstance(module, nn.Linear)]
+
+    assert model.time_bin_scalar_feature_dim == 1
+    assert model.temporal_input_dim == 3
+    assert model.resolved_temporal_fc_hidden_dims == (20, 10)
+    assert model.temporal_output_dim == 10
+    assert [(layer.in_features, layer.out_features) for layer in linear_layers] == [
+        (9, 20),
+        (20, 10),
+    ]
+
+
+def test_gat_bilstm_accepts_custom_fc_hidden_dims_with_variable_depth():
+    """Explicit FC widths should define both temporal MLP depth and output width."""
+    model = GATBiLSTMNet(
+        input_dim=4,
+        output_dim=1,
+        temporal_mode="fc",
+        num_time_bins=2,
+        gat_hidden_dim=2,
+        gat_heads=1,
+        temporal_hidden_dim=5,
+        temporal_fc_hidden_dims=(7, 5, 3),
+    )
+
+    linear_layers = [module for module in model.temporal_mlp if isinstance(module, nn.Linear)]
+
+    assert model.resolved_temporal_fc_hidden_dims == (7, 5, 3)
+    assert model.temporal_output_dim == 3
+    assert [(layer.in_features, layer.out_features) for layer in linear_layers] == [
+        (6, 7),
+        (7, 5),
+        (5, 3),
+    ]
+    assert "temporal_fc_hidden_dims=(7, 5, 3)" in model.extra_repr()
+
+
+@pytest.mark.parametrize("temporal_fc_hidden_dims", [(), (8, 0), (-1,), (8.0,), ("8",)])
+def test_gat_bilstm_rejects_invalid_fc_hidden_dims(temporal_fc_hidden_dims):
+    """Explicit FC width sequences must be non-empty positive integer sequences."""
+    with pytest.raises((TypeError, ValueError), match="temporal_fc_hidden_dims"):
+        GATBiLSTMNet(
+            input_dim=4,
+            output_dim=1,
+            temporal_mode="fc",
+            num_time_bins=2,
+            temporal_fc_hidden_dims=temporal_fc_hidden_dims,
+        )
+
+
 def test_gat_bilstm_lstm_forward_shape_is_unchanged():
     """A valid batched temporal graph should still produce graph-level outputs."""
     model = GATBiLSTMNet(
@@ -277,4 +356,5 @@ def test_gat_bilstm_keeps_graph_specific_time_bin_pooling_boundary():
     )
 
     assert pooled.shape == (2, 2, 3)
+    assert pooled.size(-1) == 2 + GATBiLSTMNet.TIME_BIN_SCALAR_FEATURE_DIM
     assert torch.allclose(pooled[0, :, -1], torch.tensor([0.0, 1.0]))

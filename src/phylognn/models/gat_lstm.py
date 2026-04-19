@@ -21,7 +21,7 @@ Supported temporal modes:
 
 from __future__ import annotations
 
-from typing import Iterable, Literal, Optional
+from typing import Iterable, Literal, Optional, Sequence, Tuple
 
 import torch
 import torch.nn as nn
@@ -85,6 +85,12 @@ class GATBiLSTMNet(BaseGATNet):
             Total number of time bins. Required if temporal_mode != "none".
         temporal_hidden_dim:
             Hidden dimension used by the FC or LSTM temporal encoder.
+        temporal_fc_hidden_dims:
+            Optional FC temporal encoder layer widths. If None, defaults to
+            widths derived from `temporal_hidden_dim` and
+            `DEFAULT_TEMPORAL_FC_WIDTH_MULTIPLIERS` to preserve previous
+            behavior. If provided, must be a non-empty sequence of positive
+            integers; each item creates one FC temporal layer.
         num_lstm_layers:
             Number of stacked recurrent layers in the BiLSTM encoder.
             Used only when `temporal_mode="lstm"`.
@@ -103,6 +109,9 @@ class GATBiLSTMNet(BaseGATNet):
         Tensor of shape [batch_size, output_dim].
     """
 
+    TIME_BIN_SCALAR_FEATURE_DIM = 1
+    DEFAULT_TEMPORAL_FC_WIDTH_MULTIPLIERS = (4, 2)
+
     def __init__(
         self,
         input_dim: int,
@@ -117,6 +126,7 @@ class GATBiLSTMNet(BaseGATNet):
         temporal_mode: TemporalMode = "lstm",
         num_time_bins: Optional[int] = None,
         temporal_hidden_dim: int = 128,
+        temporal_fc_hidden_dims: Optional[Sequence[int]] = None,
         num_lstm_layers: int = 2,
         temporal_aggregation: TemporalAggregation = "mean",
         graph_pool: GraphPooling = "sum",
@@ -128,6 +138,7 @@ class GATBiLSTMNet(BaseGATNet):
             temporal_mode=temporal_mode,
             num_time_bins=num_time_bins,
             temporal_hidden_dim=temporal_hidden_dim,
+            temporal_fc_hidden_dims=temporal_fc_hidden_dims,
             num_lstm_layers=num_lstm_layers,
             temporal_aggregation=temporal_aggregation,
             graph_pool=graph_pool,
@@ -149,6 +160,10 @@ class GATBiLSTMNet(BaseGATNet):
         self.temporal_mode = temporal_mode
         self.num_time_bins = num_time_bins
         self.temporal_hidden_dim = temporal_hidden_dim
+        self.resolved_temporal_fc_hidden_dims = self._resolve_temporal_fc_hidden_dims(
+            temporal_hidden_dim=temporal_hidden_dim,
+            temporal_fc_hidden_dims=temporal_fc_hidden_dims,
+        )
         self.num_lstm_layers = num_lstm_layers
         self.temporal_aggregation = temporal_aggregation
         self.graph_pool = graph_pool
@@ -156,34 +171,33 @@ class GATBiLSTMNet(BaseGATNet):
         self.output_positive = output_positive
 
         encoder_dim = self.get_embedding_dim()
+        self.time_bin_scalar_feature_dim = self.TIME_BIN_SCALAR_FEATURE_DIM
+        self.temporal_input_dim = encoder_dim + self.time_bin_scalar_feature_dim
 
         if self.temporal_mode == "none":
             head_input_dim = encoder_dim
+            self.temporal_output_dim = encoder_dim
 
         elif self.temporal_mode == "fc":
-            temporal_input_dim = self.num_time_bins * (encoder_dim + 1)
-            self.temporal_mlp = nn.Sequential(
-                nn.Linear(temporal_input_dim, temporal_hidden_dim * 4),
-                nn.ReLU(),
-                nn.BatchNorm1d(temporal_hidden_dim * 4),
-                nn.Dropout(dropout_prob),
-                nn.Linear(temporal_hidden_dim * 4, temporal_hidden_dim * 2),
-                nn.ReLU(),
-                nn.BatchNorm1d(temporal_hidden_dim * 2),
-                nn.Dropout(dropout_prob),
+            temporal_input_dim = self.num_time_bins * self.temporal_input_dim
+            self.temporal_mlp = self._build_temporal_mlp(
+                input_dim=temporal_input_dim,
+                hidden_dims=self.resolved_temporal_fc_hidden_dims,
+                dropout_prob=dropout_prob,
             )
-            head_input_dim = temporal_hidden_dim * 2
+            self.temporal_output_dim = self.resolved_temporal_fc_hidden_dims[-1]
+            head_input_dim = self.temporal_output_dim
 
         elif self.temporal_mode == "lstm":
-            lstm_input_dim = encoder_dim + 1
             self.temporal_encoder = TemporalBiLSTMEncoder(
-                input_dim=lstm_input_dim,
+                input_dim=self.temporal_input_dim,
                 hidden_dim=temporal_hidden_dim,
                 num_layers=num_lstm_layers,
                 dropout_prob=dropout_prob,
                 aggregation=temporal_aggregation,
             )
-            head_input_dim = temporal_hidden_dim * 2
+            self.temporal_output_dim = self.temporal_encoder.output_dim
+            head_input_dim = self.temporal_output_dim
 
         self.head = MLPHead(
             input_dim=head_input_dim,
@@ -202,6 +216,7 @@ class GATBiLSTMNet(BaseGATNet):
         temporal_mode: TemporalMode,
         num_time_bins: Optional[int],
         temporal_hidden_dim: int,
+        temporal_fc_hidden_dims: Optional[Sequence[int]],
         num_lstm_layers: int,
         temporal_aggregation: TemporalAggregation,
         graph_pool: GraphPooling,
@@ -231,6 +246,8 @@ class GATBiLSTMNet(BaseGATNet):
         if temporal_hidden_dim <= 0:
             raise ValueError(f"`temporal_hidden_dim` must be > 0, got {temporal_hidden_dim}.")
 
+        GATBiLSTMNet._validate_temporal_fc_hidden_dims(temporal_fc_hidden_dims)
+
         if num_lstm_layers <= 0:
             raise ValueError(f"`num_lstm_layers` must be > 0, got {num_lstm_layers}.")
 
@@ -247,6 +264,85 @@ class GATBiLSTMNet(BaseGATNet):
 
         if head_hidden_dim <= 0:
             raise ValueError(f"`head_hidden_dim` must be > 0, got {head_hidden_dim}.")
+
+    @staticmethod
+    def _validate_temporal_fc_hidden_dims(
+        temporal_fc_hidden_dims: Optional[Sequence[int]],
+    ) -> None:
+        """
+        Validate optional FC temporal layer widths.
+
+        Raises:
+            TypeError:
+        If an explicit width is not an integer.
+            ValueError:
+                If the explicit sequence is empty or contains non-positive widths.
+        """
+        if temporal_fc_hidden_dims is None:
+            return
+
+        try:
+            widths = tuple(temporal_fc_hidden_dims)
+        except TypeError as exc:
+            raise TypeError(
+                "`temporal_fc_hidden_dims` must be a non-empty sequence of positive integers."
+            ) from exc
+
+        if len(widths) == 0:
+            raise ValueError("`temporal_fc_hidden_dims` must be non-empty when provided.")
+
+        for width in widths:
+            if not isinstance(width, int) or isinstance(width, bool):
+                raise TypeError(
+                    "`temporal_fc_hidden_dims` must contain only positive integers, "
+                    f"got {width!r}."
+                )
+            if width <= 0:
+                raise ValueError(
+                    "`temporal_fc_hidden_dims` must contain only positive integers, "
+                    f"got {width}."
+                )
+
+    @staticmethod
+    def _resolve_temporal_fc_hidden_dims(
+        temporal_hidden_dim: int,
+        temporal_fc_hidden_dims: Optional[Sequence[int]],
+    ) -> Tuple[int, ...]:
+        """
+        Return the FC temporal widths used to build the temporal MLP.
+        """
+        if temporal_fc_hidden_dims is None:
+            return tuple(
+                temporal_hidden_dim * multiplier
+                for multiplier in GATBiLSTMNet.DEFAULT_TEMPORAL_FC_WIDTH_MULTIPLIERS
+            )
+
+        return tuple(temporal_fc_hidden_dims)
+
+    @staticmethod
+    def _build_temporal_mlp(
+        input_dim: int,
+        hidden_dims: Sequence[int],
+        dropout_prob: float,
+    ) -> nn.Sequential:
+        """
+        Build an FC temporal encoder from explicit layer widths.
+        """
+        layers = []
+        current_dim = input_dim
+
+        for hidden_dim in hidden_dims:
+            layers.extend(
+                [
+                    nn.Linear(current_dim, hidden_dim),
+                    nn.ReLU(),
+                    nn.BatchNorm1d(hidden_dim),
+                    nn.Dropout(dropout_prob),
+                ]
+            )
+            current_dim = hidden_dim
+
+        return nn.Sequential(*layers)
 
     def get_encoder_modules(self) -> Iterable[nn.Module]:
         """
@@ -436,7 +532,11 @@ class GATBiLSTMNet(BaseGATNet):
 
         Shape invariants:
             - x.shape[0] == time_bin.shape[0] == batch.shape[0]
-            - output.shape == [batch_size, num_time_bins, embedding_dim + 1]
+            - output.shape == [
+              batch_size,
+              num_time_bins,
+              embedding_dim + TIME_BIN_SCALAR_FEATURE_DIM,
+              ]
 
         Args:
             x:
@@ -450,7 +550,7 @@ class GATBiLSTMNet(BaseGATNet):
 
         Returns:
             Time-binned graph representation
-            [batch_size, num_time_bins, embedding_dim + 1].
+            [batch_size, num_time_bins, embedding_dim + TIME_BIN_SCALAR_FEATURE_DIM].
         """
         batch_size = int(batch.max().item()) + 1
         embedding_dim = x.size(1)
@@ -466,9 +566,11 @@ class GATBiLSTMNet(BaseGATNet):
         pooled = pooled.view(batch_size, num_time_bins, embedding_dim)
 
         time_values = torch.arange(num_time_bins, device=x.device, dtype=x.dtype).view(
-            1, num_time_bins, 1
+            1, num_time_bins, GATBiLSTMNet.TIME_BIN_SCALAR_FEATURE_DIM
         )
-        time_values = time_values.expand(batch_size, num_time_bins, 1)
+        time_values = time_values.expand(
+            batch_size, num_time_bins, GATBiLSTMNet.TIME_BIN_SCALAR_FEATURE_DIM
+        )
 
         pooled = torch.cat([pooled, time_values], dim=-1)
         return pooled
@@ -482,10 +584,11 @@ class GATBiLSTMNet(BaseGATNet):
 
         Args:
             pooled:
-                Time-binned tensor [batch_size, num_time_bins, embedding_dim + 1].
+                Time-binned tensor
+                [batch_size, num_time_bins, embedding_dim + TIME_BIN_SCALAR_FEATURE_DIM].
 
         Returns:
-            Graph representation [batch_size, temporal_hidden_dim * 2].
+            Graph representation [batch_size, temporal_output_dim].
         """
         return self.temporal_encoder(pooled)
 
@@ -498,6 +601,7 @@ class GATBiLSTMNet(BaseGATNet):
             f"temporal_mode={self.temporal_mode}, "
             f"num_time_bins={self.num_time_bins}, "
             f"temporal_hidden_dim={self.temporal_hidden_dim}, "
+            f"temporal_fc_hidden_dims={self.resolved_temporal_fc_hidden_dims}, "
             f"num_lstm_layers={self.num_lstm_layers}, "
             f"temporal_aggregation={self.temporal_aggregation}, "
             f"graph_pool={self.graph_pool}, "

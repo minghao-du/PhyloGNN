@@ -157,9 +157,3 @@ python -m build
 - Run `ruff check` and `black --check` on touched areas when practical.
 - If you add a new public API or behavior contract, update docstrings and tests.
 
-
-## Active Technologies
-- Python >=3.8 + PyTorch, PyTorch Geometric, torch-scatter, pytest (001-extract-temporal-encoder)
-
-## Recent Changes
-- 001-extract-temporal-encoder: Added Python >=3.8 + PyTorch, PyTorch Geometric, torch-scatter, pytest
