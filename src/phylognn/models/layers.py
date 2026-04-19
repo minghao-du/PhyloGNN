@@ -6,6 +6,7 @@ This module provides:
     - plain GAT stacks
     - residual GAT stacks
     - sinusoidal positional encoding
+    - bidirectional LSTM temporal sequence encoding
     - flexible MLP heads
 
 Design principles:
@@ -24,6 +25,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GATConv
 
 GATEncoderType = Literal["gat", "res_gat"]
+TemporalAggregation = Literal["mean", "last", "max"]
 
 
 class GATBlock(nn.Module):
@@ -555,6 +557,148 @@ class PositionalEncoding(nn.Module):
 
         x = x + self.pe[:, : x.size(1)]
         return self.dropout(x)
+
+
+class TemporalBiLSTMEncoder(nn.Module):
+    """
+    Reusable bidirectional LSTM encoder for prepared temporal sequences.
+
+    This layer is independent from PyG graph metadata. Graph-specific pooling
+    into time bins must happen before calling this encoder.
+
+    Processing order:
+        LayerNorm(input) -> BiLSTM -> LayerNorm(output) -> Dropout -> aggregation
+
+    Args:
+        input_dim:
+            Feature dimension of each sequence step.
+        hidden_dim:
+            Hidden dimension for one LSTM direction.
+        num_layers:
+            Number of stacked recurrent layers.
+        dropout_prob:
+            Dropout probability applied to recurrent outputs. The LSTM-internal
+            dropout follows PyTorch semantics and is active only when
+            `num_layers > 1`.
+        aggregation:
+            Temporal aggregation rule:
+                - "mean": average recurrent outputs across sequence steps
+                - "last": select the final recurrent output
+                - "max": take the maximum across sequence steps
+
+    Input:
+        - sequence: [batch_size, seq_len, input_dim]
+
+    Output:
+        - [batch_size, hidden_dim * 2]
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        num_layers: int = 2,
+        dropout_prob: float = 0.2,
+        aggregation: TemporalAggregation = "mean",
+    ) -> None:
+        super().__init__()
+
+        if input_dim <= 0:
+            raise ValueError(f"`input_dim` must be > 0, got {input_dim}.")
+        if hidden_dim <= 0:
+            raise ValueError(f"`hidden_dim` must be > 0, got {hidden_dim}.")
+        if num_layers <= 0:
+            raise ValueError(f"`num_layers` must be > 0, got {num_layers}.")
+        if not (0.0 <= dropout_prob < 1.0):
+            raise ValueError(f"`dropout_prob` must be in [0, 1), got {dropout_prob}.")
+        if aggregation not in {"mean", "last", "max"}:
+            raise ValueError(
+                f"`aggregation` must be one of ('mean', 'last', 'max'), got {aggregation!r}."
+            )
+
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.dropout_prob = dropout_prob
+        self.aggregation = aggregation
+        self.output_dim = hidden_dim * 2
+
+        self.input_norm = nn.LayerNorm(input_dim)
+        self.lstm = nn.LSTM(
+            input_size=input_dim,
+            hidden_size=hidden_dim,
+            num_layers=num_layers,
+            batch_first=True,
+            bidirectional=True,
+            dropout=dropout_prob if num_layers > 1 else 0.0,
+        )
+        self.output_norm = nn.LayerNorm(self.output_dim)
+        self.dropout = nn.Dropout(dropout_prob)
+
+    def reset_parameters(self) -> None:
+        """
+        Reset all learnable parameters in the encoder.
+        """
+        self.input_norm.reset_parameters()
+        self.lstm.reset_parameters()
+        self.output_norm.reset_parameters()
+
+    def forward(self, sequence: torch.Tensor) -> torch.Tensor:
+        """
+        Encode a prepared temporal sequence.
+
+        Args:
+            sequence:
+                Tensor of shape [batch_size, seq_len, input_dim].
+
+        Returns:
+            Tensor of shape [batch_size, hidden_dim * 2].
+
+        Raises:
+            TypeError:
+                If `sequence` is not a torch tensor.
+            ValueError:
+                If rank, sequence length, or feature dimension is invalid.
+        """
+        if not torch.is_tensor(sequence):
+            raise TypeError("`sequence` must be a torch.Tensor.")
+        if sequence.dim() != 3:
+            raise ValueError(
+                "`sequence` must be 3D [batch_size, seq_len, input_dim], "
+                f"got shape {tuple(sequence.shape)}."
+            )
+        if sequence.size(1) <= 0:
+            raise ValueError("`sequence` length must be > 0.")
+        if sequence.size(2) != self.input_dim:
+            raise ValueError(
+                f"`sequence` feature dim must equal input_dim={self.input_dim}, "
+                f"got {sequence.size(2)}."
+            )
+
+        sequence = self.input_norm(sequence)
+        recurrent_output, _ = self.lstm(sequence)
+        recurrent_output = self.output_norm(recurrent_output)
+        recurrent_output = self.dropout(recurrent_output)
+        return self._aggregate(recurrent_output)
+
+    def _aggregate(self, recurrent_output: torch.Tensor) -> torch.Tensor:
+        if self.aggregation == "mean":
+            return recurrent_output.mean(dim=1)
+        if self.aggregation == "last":
+            return recurrent_output[:, -1, :]
+        if self.aggregation == "max":
+            return recurrent_output.max(dim=1).values
+
+        raise RuntimeError(f"Unsupported aggregation={self.aggregation!r}.")
+
+    def extra_repr(self) -> str:
+        return (
+            f"input_dim={self.input_dim}, "
+            f"hidden_dim={self.hidden_dim}, "
+            f"num_layers={self.num_layers}, "
+            f"dropout_prob={self.dropout_prob}, "
+            f"aggregation={self.aggregation!r}"
+        )
 
 
 class MLPHead(nn.Module):

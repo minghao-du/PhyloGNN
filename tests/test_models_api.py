@@ -13,6 +13,7 @@ def test_models_package_exports_supported_model_surface():
         "BasePhyloGNN",
         "BaseGATNet",
         "GATBiLSTMNet",
+        "TemporalBiLSTMEncoder",
     ]
 
 
@@ -27,6 +28,8 @@ def test_models_package_dir_contains_curated_names():
 def test_models_package_rejects_low_level_helpers_from_facade():
     """Low-level implementation helpers stay off the package facade."""
     models = importlib.import_module("phylognn.models")
+
+    assert models.TemporalBiLSTMEncoder.__name__ == "TemporalBiLSTMEncoder"
 
     for hidden_name in {"GATBlock", "ResidualGATBlock", "ResidualGATStack", "MLPHead"}:
         assert hidden_name not in models.__all__

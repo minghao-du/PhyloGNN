@@ -16,7 +16,7 @@ data contract explicit:
 Supported temporal modes:
     - "none": graph-level pooling directly from GAT node embeddings
     - "fc": time-bin pooling followed by flattening and FC temporal encoder
-    - "lstm": time-bin pooling followed by bidirectional LSTM encoder
+    - "lstm": time-bin pooling followed by a reusable bidirectional LSTM encoder
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from torch_geometric.nn import global_add_pool, global_max_pool, global_mean_poo
 from torch_scatter import scatter
 
 from .base import BaseGATNet, GATEncoderType, _reset_module_parameters
-from .layers import MLPHead
+from .layers import MLPHead, TemporalAggregation, TemporalBiLSTMEncoder
 
 TemporalMode = Literal["none", "fc", "lstm"]
 GraphPooling = Literal["sum", "mean", "max"]
@@ -88,6 +88,10 @@ class GATBiLSTMNet(BaseGATNet):
         num_lstm_layers:
             Number of stacked recurrent layers in the BiLSTM encoder.
             Used only when `temporal_mode="lstm"`.
+        temporal_aggregation:
+            Recurrent sequence aggregation used by `temporal_mode="lstm"`:
+            "mean", "last", or "max". Defaults to "mean" to preserve the
+            previous graph-temporal behavior.
         graph_pool:
             Graph pooling mode used when `temporal_mode="none"`.
         head_hidden_dim:
@@ -114,6 +118,7 @@ class GATBiLSTMNet(BaseGATNet):
         num_time_bins: Optional[int] = None,
         temporal_hidden_dim: int = 128,
         num_lstm_layers: int = 2,
+        temporal_aggregation: TemporalAggregation = "mean",
         graph_pool: GraphPooling = "sum",
         head_hidden_dim: int = 64,
         output_positive: bool = False,
@@ -124,6 +129,7 @@ class GATBiLSTMNet(BaseGATNet):
             num_time_bins=num_time_bins,
             temporal_hidden_dim=temporal_hidden_dim,
             num_lstm_layers=num_lstm_layers,
+            temporal_aggregation=temporal_aggregation,
             graph_pool=graph_pool,
             head_hidden_dim=head_hidden_dim,
         )
@@ -144,6 +150,7 @@ class GATBiLSTMNet(BaseGATNet):
         self.num_time_bins = num_time_bins
         self.temporal_hidden_dim = temporal_hidden_dim
         self.num_lstm_layers = num_lstm_layers
+        self.temporal_aggregation = temporal_aggregation
         self.graph_pool = graph_pool
         self.head_hidden_dim = head_hidden_dim
         self.output_positive = output_positive
@@ -169,16 +176,13 @@ class GATBiLSTMNet(BaseGATNet):
 
         elif self.temporal_mode == "lstm":
             lstm_input_dim = encoder_dim + 1
-            self.temporal_input_norm = nn.LayerNorm(lstm_input_dim)
-            self.temporal_lstm = nn.LSTM(
-                input_size=lstm_input_dim,
-                hidden_size=temporal_hidden_dim,
+            self.temporal_encoder = TemporalBiLSTMEncoder(
+                input_dim=lstm_input_dim,
+                hidden_dim=temporal_hidden_dim,
                 num_layers=num_lstm_layers,
-                batch_first=True,
-                bidirectional=True,
-                dropout=dropout_prob if num_lstm_layers > 1 else 0.0,
+                dropout_prob=dropout_prob,
+                aggregation=temporal_aggregation,
             )
-            self.temporal_output_norm = nn.LayerNorm(temporal_hidden_dim * 2)
             head_input_dim = temporal_hidden_dim * 2
 
         self.head = MLPHead(
@@ -199,6 +203,7 @@ class GATBiLSTMNet(BaseGATNet):
         num_time_bins: Optional[int],
         temporal_hidden_dim: int,
         num_lstm_layers: int,
+        temporal_aggregation: TemporalAggregation,
         graph_pool: GraphPooling,
         head_hidden_dim: int,
     ) -> None:
@@ -229,6 +234,12 @@ class GATBiLSTMNet(BaseGATNet):
         if num_lstm_layers <= 0:
             raise ValueError(f"`num_lstm_layers` must be > 0, got {num_lstm_layers}.")
 
+        if temporal_aggregation not in {"mean", "last", "max"}:
+            raise ValueError(
+                "`temporal_aggregation` must be one of ('mean', 'last', 'max'), "
+                f"got {temporal_aggregation!r}."
+            )
+
         if graph_pool not in {"sum", "mean", "max"}:
             raise ValueError(
                 f"`graph_pool` must be one of ('sum', 'mean', 'max'), got {graph_pool!r}."
@@ -249,13 +260,7 @@ class GATBiLSTMNet(BaseGATNet):
         if self.temporal_mode == "fc":
             modules.append(self.temporal_mlp)
         elif self.temporal_mode == "lstm":
-            modules.extend(
-                [
-                    self.temporal_input_norm,
-                    self.temporal_lstm,
-                    self.temporal_output_norm,
-                ]
-            )
+            modules.append(self.temporal_encoder)
 
         return modules
 
@@ -283,9 +288,7 @@ class GATBiLSTMNet(BaseGATNet):
             for module in self.temporal_mlp:
                 _reset_module_parameters(module)
         elif self.temporal_mode == "lstm":
-            _reset_module_parameters(self.temporal_input_norm)
-            _reset_module_parameters(self.temporal_lstm)
-            _reset_module_parameters(self.temporal_output_norm)
+            _reset_module_parameters(self.temporal_encoder)
 
         _reset_module_parameters(self.head)
 
@@ -472,14 +475,10 @@ class GATBiLSTMNet(BaseGATNet):
 
     def _encode_temporal_sequence(self, pooled: torch.Tensor) -> torch.Tensor:
         """
-        Encode time-binned sequences with a bidirectional LSTM.
+        Encode time-binned graph sequences with the reusable temporal encoder.
 
-        Processing steps:
-            1. LayerNorm on input sequence
-            2. BiLSTM over time bins
-            3. LayerNorm on recurrent outputs
-            4. Dropout
-            5. Mean pooling over the temporal dimension
+        Graph-specific time-bin pooling is owned by `GATBiLSTMNet`; this method
+        delegates only the prepared sequence tensor to `TemporalBiLSTMEncoder`.
 
         Args:
             pooled:
@@ -488,11 +487,7 @@ class GATBiLSTMNet(BaseGATNet):
         Returns:
             Graph representation [batch_size, temporal_hidden_dim * 2].
         """
-        pooled = self.temporal_input_norm(pooled)
-        lstm_out, _ = self.temporal_lstm(pooled)
-        lstm_out = self.temporal_output_norm(lstm_out)
-        lstm_out = self.dropout(lstm_out)
-        return lstm_out.mean(dim=1)
+        return self.temporal_encoder(pooled)
 
     def extra_repr(self) -> str:
         """
@@ -504,6 +499,7 @@ class GATBiLSTMNet(BaseGATNet):
             f"num_time_bins={self.num_time_bins}, "
             f"temporal_hidden_dim={self.temporal_hidden_dim}, "
             f"num_lstm_layers={self.num_lstm_layers}, "
+            f"temporal_aggregation={self.temporal_aggregation}, "
             f"graph_pool={self.graph_pool}, "
             f"head_hidden_dim={self.head_hidden_dim}, "
             f"output_positive={self.output_positive}"

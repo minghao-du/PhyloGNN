@@ -14,6 +14,7 @@ def test_root_package_exposes_curated_public_names():
         "TrainingConfig",
         "Trainer",
         "GATBiLSTMNet",
+        "TemporalBiLSTMEncoder",
         "__version__",
     ]
     assert "read_tree_as_ete3" not in phylognn.__all__
@@ -35,7 +36,9 @@ def test_models_subpackage_hides_low_level_layers():
         "BasePhyloGNN",
         "BaseGATNet",
         "GATBiLSTMNet",
+        "TemporalBiLSTMEncoder",
     ]
+    assert models.TemporalBiLSTMEncoder.__name__ == "TemporalBiLSTMEncoder"
     for hidden_name in {
         "GATBlock",
         "ResidualGATStack",
@@ -59,6 +62,8 @@ def test_root_package_dir_matches_curated_surface():
 
     for export_name in phylognn.__all__:
         assert export_name in dir(phylognn)
+
+    assert phylognn.TemporalBiLSTMEncoder.__name__ == "TemporalBiLSTMEncoder"
 
 
 def test_root_package_rejects_hidden_optional_tree_io_names():
