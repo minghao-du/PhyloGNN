@@ -14,7 +14,6 @@ def test_root_package_exposes_curated_public_names():
         "TrainingConfig",
         "Trainer",
         "GATBiLSTMNet",
-        "MultiTaskGATNet",
         "__version__",
     ]
     assert "read_tree_as_ete3" not in phylognn.__all__
@@ -36,14 +35,12 @@ def test_models_subpackage_hides_low_level_layers():
         "BasePhyloGNN",
         "BaseGATNet",
         "GATBiLSTMNet",
-        "MultiTaskGATNet",
     ]
     for hidden_name in {
         "GATBlock",
         "ResidualGATStack",
         "PositionalEncoding",
         "MLPHead",
-        "TaskHead",
     }:
         assert hidden_name not in models.__all__
 

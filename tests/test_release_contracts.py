@@ -10,7 +10,7 @@ import pytest
     [
         ("phylognn", {"TreeFeatureEngineer", "TreeToGraphConverter", "TrainingConfig", "Trainer"}),
         ("phylognn.data", {"TreeFeatureEngineer", "TreeToGraphConverter"}),
-        ("phylognn.models", {"BasePhyloGNN", "GATBiLSTMNet", "MultiTaskGATNet"}),
+        ("phylognn.models", {"BasePhyloGNN", "GATBiLSTMNet"}),
         ("phylognn.training", {"Trainer", "TrainingConfig", "rmse_metric"}),
         ("phylognn.io", {"TreeReadConfig", "read_tree_as_ete3"}),
         ("phylognn.utils", {"get_max_meta_time"}),

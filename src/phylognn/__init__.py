@@ -19,7 +19,6 @@ _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
     "TrainingConfig": ("phylognn.training", "TrainingConfig"),
     "Trainer": ("phylognn.training", "Trainer"),
     "GATBiLSTMNet": ("phylognn.models", "GATBiLSTMNet"),
-    "MultiTaskGATNet": ("phylognn.models", "MultiTaskGATNet"),
 }
 
 __all__ = [
@@ -28,7 +27,6 @@ __all__ = [
     "TrainingConfig",
     "Trainer",
     "GATBiLSTMNet",
-    "MultiTaskGATNet",
     "__version__",
 ]
 

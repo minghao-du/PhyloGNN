@@ -12,7 +12,7 @@ require_modules("torch_geometric")
 
 from phylognn.training.dataset import DatasetSplit
 from phylognn.training.metrics import mae_metric, mse_metric, relative_error_metric, rmse_metric
-from phylognn.training.trainer import TrainingConfig, _detach_item, _safe_mean, _sanitize_task_name
+from phylognn.training.trainer import TrainingConfig, _detach_item, _safe_mean
 
 
 def test_dataset_split_from_dict_preserves_names_and_membership():
@@ -60,8 +60,7 @@ def test_training_config_rejects_unknown_optimizer_and_scheduler():
 
 
 def test_trainer_helper_functions_preserve_scalar_contracts():
-    """Internal helpers should keep names safe and scalar conversions explicit."""
-    assert _sanitize_task_name("task 1/alpha") == "task_1_alpha"
+    """Internal helpers should keep scalar conversions explicit."""
     assert _detach_item(torch.tensor(3.5)) == 3.5
     assert _safe_mean(9.0, 3) == 3.0
 

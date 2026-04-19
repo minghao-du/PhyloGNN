@@ -13,7 +13,6 @@ from torch_geometric.data import Data
 from phylognn.models.base import BaseGATNet, BasePhyloGNN
 from phylognn.models.gat_lstm import GATBiLSTMNet
 from phylognn.models.layers import GATBlock
-from phylognn.models.multitask import MultiTaskGATNet
 
 
 class _DummyPhyloModel(BasePhyloGNN):
@@ -64,27 +63,3 @@ def test_gat_bilstm_requires_num_time_bins_for_temporal_modes():
     with pytest.raises(ValueError, match="num_time_bins"):
         GATBiLSTMNet(input_dim=4, output_dim=1, temporal_mode="fc", num_time_bins=None)
 
-
-def test_multitask_model_returns_named_outputs():
-    """The multi-task model should return a dict keyed by task name."""
-    model = MultiTaskGATNet(
-        input_dim=2,
-        task_configs=[{"name": "alpha", "output_dim": 1}, {"name": "beta", "output_dim": 2}],
-        preprocess_fc_dim=4,
-        gat_hidden_dim=2,
-        gat_heads=1,
-        num_gat_layers=1,
-        num_lstm_layers=1,
-        dropout_prob=0.0,
-    )
-    data = Data(
-        x=torch.tensor([[0.1, 0.0], [0.2, 0.0], [0.3, 1.0], [0.4, 1.0]], dtype=torch.float32),
-        edge_index=torch.tensor([[0, 1, 2], [1, 0, 3]], dtype=torch.long),
-        batch=torch.tensor([0, 0, 0, 0], dtype=torch.long),
-    )
-
-    outputs = model(data)
-
-    assert set(outputs) == {"alpha", "beta"}
-    assert outputs["alpha"].shape == (1, 1)
-    assert outputs["beta"].shape == (1, 2)

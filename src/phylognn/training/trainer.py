@@ -6,13 +6,7 @@ Specification
 This module provides a production-oriented trainer for PyTorch / PyG models
 working with the following dataset conventions:
 
-1. Single-task datasets
-   - each sample exposes its target as `data.y`
-
-2. Multi-task datasets
-   - each sample exposes task-specific targets as:
-       `data.y_<sanitized_task_name>`
-   - and may optionally expose `data.task_names`
+Each sample exposes its target as `data.y`.
 
 This trainer is designed to work cleanly with:
 - `SplitPhyloDataset`
@@ -24,17 +18,13 @@ Engineering goals
 - deterministic and checkpointable training flow
 - strong validation of inputs and runtime assumptions
 - explicit typing and clear docstrings
-- robust support for both single-task and multi-task learning
+- robust support for single-output training
 - minimal coupling to model implementation details
 - ergonomic defaults for common training workflows
 
 Notes
 -----
-- The trainer assumes the model returns:
-    * single-task: `Tensor`
-    * multi-task: `dict[str, Tensor]`
-- For multi-task training, `loss_fn` must be `dict[str, Callable]`
-  whose keys match the model output keys.
+- The trainer assumes the model returns a `Tensor`.
 - Metrics are optional.
 - Best-model checkpointing, history saving, and resume-loading are supported.
 """
@@ -43,20 +33,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Literal,
-    Mapping,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import Any, Callable, Dict, List, Literal, Mapping, Optional, Tuple, Union
 
 import json
-import re
 import time
 
 import torch
@@ -74,9 +53,7 @@ from tqdm import tqdm
 # ---------------------------------------------------------------------
 LossFn = Callable[[Tensor, Tensor], Tensor]
 MetricFn = Callable[[Tensor, Tensor], Union[Tensor, float]]
-SingleOrMultiLoss = Union[LossFn, Dict[str, LossFn]]
 MetricsMap = Dict[str, MetricFn]
-ModelOutput = Union[Tensor, Dict[str, Tensor]]
 
 
 # ---------------------------------------------------------------------
@@ -212,21 +189,6 @@ class TrainingConfig:
 # ---------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------
-def _sanitize_task_name(task_name: str) -> str:
-    """
-    Convert an arbitrary task name into a safe attribute suffix.
-
-    Examples
-    --------
-    "task-1" -> "task_1"
-    "my score" -> "my_score"
-    """
-    if not isinstance(task_name, str):
-        raise TypeError(f"task_name must be str, got {type(task_name).__name__}.")
-    sanitized = re.sub(r"\W+", "_", task_name).strip("_")
-    return sanitized or "task"
-
-
 def _detach_item(x: Union[Tensor, float, int]) -> float:
     """
     Convert a scalar tensor / numeric value into float.
@@ -256,33 +218,12 @@ class Trainer:
 
     Specification
     -------------
-    - Supports both single-task and multi-task learning
-    - Works with datasets exposing:
-        * single-task target as `data.y`
-        * multi-task targets as `data.y_<sanitized_task_name>`
+    - Works with datasets exposing target as `data.y`
     - Maintains training history across epochs
     - Supports checkpoint save/load
     - Supports optional validation and early stopping
     - Supports optional metric computation
     - Uses PyG `DataLoader` by default when loaders are not provided
-
-    Multi-task conventions
-    ----------------------
-    If `loss_fn` is a dict, the trainer operates in multi-task mode.
-
-    Expected model output:
-        {
-            "task_a": Tensor,
-            "task_b": Tensor,
-            ...
-        }
-
-    Expected batch targets:
-        batch.y_task_a
-        batch.y_task_b
-        ...
-
-    where task names are sanitized using `_sanitize_task_name`.
 
     Parameters
     ----------
@@ -292,21 +233,20 @@ class Trainer:
     config : TrainingConfig
         Training configuration.
 
-    loss_fn : callable or dict[str, callable], optional
+    loss_fn : callable, optional
         Loss function(s). If omitted, defaults to `nn.MSELoss()` for
-        single-task mode.
+        standard regression.
 
     metrics : dict[str, callable], optional
-        Metrics for single-task training only by default.
-        Each metric must accept `(pred, target)` and return a scalar tensor
-        or numeric value.
+        Each metric must accept `(pred, target)` and return a scalar tensor or
+        numeric value.
     """
 
     def __init__(
         self,
         model: nn.Module,
         config: TrainingConfig,
-        loss_fn: Optional[SingleOrMultiLoss] = None,
+        loss_fn: Optional[LossFn] = None,
         metrics: Optional[MetricsMap] = None,
     ) -> None:
         config.validate()
@@ -316,8 +256,7 @@ class Trainer:
         self.device = torch.device(config.device)
         self.model.to(self.device)
 
-        self.loss_fn: SingleOrMultiLoss = nn.MSELoss() if loss_fn is None else loss_fn
-        self.is_multitask = isinstance(self.loss_fn, dict)
+        self.loss_fn: LossFn = nn.MSELoss() if loss_fn is None else loss_fn
 
         self.metrics: MetricsMap = metrics or {}
         self._validate_loss_and_metrics()
@@ -346,16 +285,8 @@ class Trainer:
         """
         Validate loss / metric configuration.
         """
-        if self.is_multitask:
-            if not self.loss_fn:
-                raise ValueError("Multi-task loss_fn dict must not be empty.")
-            if not all(isinstance(k, str) for k in self.loss_fn.keys()):
-                raise TypeError("All multi-task loss keys must be strings.")
-            if not all(callable(v) for v in self.loss_fn.values()):
-                raise TypeError("All multi-task loss values must be callable.")
-        else:
-            if not callable(self.loss_fn):
-                raise TypeError("loss_fn must be callable in single-task mode.")
+        if not callable(self.loss_fn):
+            raise TypeError("loss_fn must be callable.")
 
         if not isinstance(self.metrics, dict):
             raise TypeError("metrics must be a dict[str, callable] or None.")
@@ -368,17 +299,6 @@ class Trainer:
         """
         Build the training history structure.
         """
-        if self.is_multitask:
-            task_names = list(self.loss_fn.keys())  # type: ignore[union-attr]
-            return {
-                **{f"train_loss_{task}": [] for task in task_names},
-                **{f"val_loss_{task}": [] for task in task_names},
-                "train_loss_total": [],
-                "val_loss_total": [],
-                "lr": [],
-                "epoch_time_sec": [],
-            }
-
         return {
             "train_loss": [],
             "val_loss": [],
@@ -525,7 +445,7 @@ class Trainer:
     # -----------------------------------------------------------------
     def _extract_single_target(self, batch: Data) -> Tensor:
         """
-        Extract single-task target tensor from batch.
+        Extract target tensor from batch.
 
         Raises
         ------
@@ -534,49 +454,12 @@ class Trainer:
         """
         if not hasattr(batch, "y"):
             raise AttributeError(
-                "Single-task training expects batch.y, but batch has no attribute 'y'."
+                "Training expects batch.y, but batch has no attribute 'y'."
             )
         target = batch.y
         if not isinstance(target, Tensor):
             raise TypeError(
-                f"Single-task target batch.y must be a Tensor, got {type(target).__name__}."
-            )
-        return target
-
-    def _extract_multitask_target(self, batch: Data, task_name: str) -> Tensor:
-        """
-        Extract one multi-task target tensor from batch.
-
-        Target lookup order
-        -------------------
-        1. batch.y[task_name] if batch.y is a dict-like mapping
-        2. batch.y_<sanitized_task_name>
-
-        Raises
-        ------
-        AttributeError
-            If no target is found for the task.
-        """
-        if hasattr(batch, "y") and isinstance(batch.y, Mapping) and task_name in batch.y:
-            target = batch.y[task_name]
-            if not isinstance(target, Tensor):
-                raise TypeError(
-                    f"Target for task '{task_name}' in batch.y must be Tensor, "
-                    f"got {type(target).__name__}."
-                )
-            return target
-
-        attr_name = f"y_{_sanitize_task_name(task_name)}"
-        if not hasattr(batch, attr_name):
-            raise AttributeError(
-                f"Multi-task training expects target attribute '{attr_name}' "
-                f"for task '{task_name}', but it is missing."
-            )
-
-        target = getattr(batch, attr_name)
-        if not isinstance(target, Tensor):
-            raise TypeError(
-                f"Target attribute '{attr_name}' must be Tensor, " f"got {type(target).__name__}."
+                f"Target batch.y must be a Tensor, got {type(target).__name__}."
             )
         return target
 
@@ -601,8 +484,6 @@ class Trainer:
             raise ValueError("train_loader is empty.")
 
         self.model.train()
-        if self.is_multitask:
-            return self._train_epoch_multitask(train_loader)
         return self._train_epoch_single(train_loader)
 
     def _train_epoch_single(self, train_loader: DataLoader) -> Dict[str, float]:
@@ -627,11 +508,11 @@ class Trainer:
             pred = self.model(batch)
             if not isinstance(pred, Tensor):
                 raise TypeError(
-                    f"Single-task model output must be Tensor, got {type(pred).__name__}."
+                    f"Model output must be Tensor, got {type(pred).__name__}."
                 )
 
             target = self._extract_single_target(batch)
-            loss = self.loss_fn(pred, target)  # type: ignore[misc]
+            loss = self.loss_fn(pred, target)
 
             if not isinstance(loss, Tensor):
                 raise TypeError("Loss function must return a torch.Tensor.")
@@ -660,78 +541,6 @@ class Trainer:
             results[name] = _safe_mean(total, num_batches)
         return results
 
-    def _train_epoch_multitask(self, train_loader: DataLoader) -> Dict[str, float]:
-        """
-        Train one epoch in multi-task mode.
-        """
-        task_names = list(self.loss_fn.keys())  # type: ignore[union-attr]
-        task_loss_totals = {task: 0.0 for task in task_names}
-        total_loss_sum = 0.0
-
-        pbar = tqdm(
-            train_loader,
-            disable=not self.config.verbose,
-            desc="Training",
-            leave=False,
-        )
-
-        for batch in pbar:
-            batch = self._move_batch_to_device(batch)
-
-            self.optimizer.zero_grad(set_to_none=True)
-
-            outputs = self.model(batch)
-            if not isinstance(outputs, Mapping):
-                raise TypeError(
-                    f"Multi-task model output must be dict-like, got {type(outputs).__name__}."
-                )
-
-            total_loss: Tensor = torch.zeros((), device=self.device)
-
-            for task_name in task_names:
-                if task_name not in outputs:
-                    raise KeyError(f"Model output missing task '{task_name}'.")
-
-                pred = outputs[task_name]
-                if not isinstance(pred, Tensor):
-                    raise TypeError(
-                        f"Model output for task '{task_name}' must be Tensor, "
-                        f"got {type(pred).__name__}."
-                    )
-
-                target = self._extract_multitask_target(batch, task_name).to(self.device)
-                task_loss = self.loss_fn[task_name](pred, target)  # type: ignore[index]
-
-                if not isinstance(task_loss, Tensor):
-                    raise TypeError(f"Loss function for task '{task_name}' must return a Tensor.")
-
-                total_loss = total_loss + task_loss
-                task_loss_totals[task_name] += _detach_item(task_loss)
-
-            total_loss.backward()
-
-            if self.config.gradient_clip_val is not None:
-                torch.nn.utils.clip_grad_norm_(
-                    self.model.parameters(),
-                    self.config.gradient_clip_val,
-                )
-
-            self.optimizer.step()
-
-            total_loss_sum += _detach_item(total_loss)
-            pbar.set_postfix(
-                total_loss=f"{_detach_item(total_loss):.4f}",
-                lr=f"{self._get_current_lr():.2e}",
-            )
-
-        num_batches = len(train_loader)
-        results = {
-            f"loss_{task_name}": _safe_mean(task_loss_totals[task_name], num_batches)
-            for task_name in task_names
-        }
-        results["loss_total"] = _safe_mean(total_loss_sum, num_batches)
-        return results
-
     @torch.no_grad()
     def validate(self, val_loader: DataLoader) -> Dict[str, float]:
         """
@@ -751,8 +560,6 @@ class Trainer:
             raise ValueError("val_loader is empty.")
 
         self.model.eval()
-        if self.is_multitask:
-            return self._validate_multitask(val_loader)
         return self._validate_single(val_loader)
 
     def _validate_single(self, val_loader: DataLoader) -> Dict[str, float]:
@@ -768,11 +575,11 @@ class Trainer:
             pred = self.model(batch)
             if not isinstance(pred, Tensor):
                 raise TypeError(
-                    f"Single-task model output must be Tensor, got {type(pred).__name__}."
+                    f"Model output must be Tensor, got {type(pred).__name__}."
                 )
 
             target = self._extract_single_target(batch)
-            loss = self.loss_fn(pred, target)  # type: ignore[misc]
+            loss = self.loss_fn(pred, target)
 
             total_loss += _detach_item(loss)
 
@@ -783,46 +590,6 @@ class Trainer:
         results = {"loss": _safe_mean(total_loss, num_batches)}
         for name, total in metric_totals.items():
             results[name] = _safe_mean(total, num_batches)
-        return results
-
-    def _validate_multitask(self, val_loader: DataLoader) -> Dict[str, float]:
-        """
-        Validate one epoch in multi-task mode.
-        """
-        task_names = list(self.loss_fn.keys())  # type: ignore[union-attr]
-        task_loss_totals = {task: 0.0 for task in task_names}
-        total_loss_sum = 0.0
-
-        for batch in val_loader:
-            batch = self._move_batch_to_device(batch)
-
-            outputs = self.model(batch)
-            if not isinstance(outputs, Mapping):
-                raise TypeError(
-                    f"Multi-task model output must be dict-like, got {type(outputs).__name__}."
-                )
-
-            total_loss: Tensor = torch.zeros((), device=self.device)
-
-            for task_name in task_names:
-                if task_name not in outputs:
-                    raise KeyError(f"Model output missing task '{task_name}'.")
-
-                pred = outputs[task_name]
-                target = self._extract_multitask_target(batch, task_name).to(self.device)
-                task_loss = self.loss_fn[task_name](pred, target)  # type: ignore[index]
-
-                total_loss = total_loss + task_loss
-                task_loss_totals[task_name] += _detach_item(task_loss)
-
-            total_loss_sum += _detach_item(total_loss)
-
-        num_batches = len(val_loader)
-        results = {
-            f"loss_{task_name}": _safe_mean(task_loss_totals[task_name], num_batches)
-            for task_name in task_names
-        }
-        results["loss_total"] = _safe_mean(total_loss_sum, num_batches)
         return results
 
     # -----------------------------------------------------------------
@@ -898,9 +665,7 @@ class Trainer:
             if val_loader is not None:
                 val_metrics = self.validate(val_loader)
                 self._append_val_history(val_metrics)
-                current_val_loss = (
-                    val_metrics["loss_total"] if self.is_multitask else val_metrics["loss"]
-                )
+                current_val_loss = val_metrics["loss"]
 
             epoch_time = time.time() - epoch_start
             self.history["lr"].append(self._get_current_lr())
@@ -936,27 +701,19 @@ class Trainer:
         """
         Append train metrics to history.
         """
-        if self.is_multitask:
-            for key, value in train_metrics.items():
-                self.history[f"train_{key}"].append(value)
-        else:
-            self.history["train_loss"].append(train_metrics["loss"])
-            for name, value in train_metrics.items():
-                if name != "loss":
-                    self.history[f"train_{name}"].append(value)
+        self.history["train_loss"].append(train_metrics["loss"])
+        for name, value in train_metrics.items():
+            if name != "loss":
+                self.history[f"train_{name}"].append(value)
 
     def _append_val_history(self, val_metrics: Dict[str, float]) -> None:
         """
         Append validation metrics to history.
         """
-        if self.is_multitask:
-            for key, value in val_metrics.items():
-                self.history[f"val_{key}"].append(value)
-        else:
-            self.history["val_loss"].append(val_metrics["loss"])
-            for name, value in val_metrics.items():
-                if name != "loss":
-                    self.history[f"val_{name}"].append(value)
+        self.history["val_loss"].append(val_metrics["loss"])
+        for name, value in val_metrics.items():
+            if name != "loss":
+                self.history[f"val_{name}"].append(value)
 
     def _log_epoch_summary(
         self,
@@ -971,22 +728,6 @@ class Trainer:
             return
 
         lr_str = f"{self._get_current_lr():.2e}"
-
-        if self.is_multitask:
-            train_loss = train_metrics["loss_total"]
-            if val_metrics is not None:
-                val_loss = val_metrics["loss_total"]
-                print(
-                    f"Train Loss: {train_loss:.4f} | "
-                    f"Val Loss: {val_loss:.4f} | "
-                    f"LR: {lr_str} | "
-                    f"Time: {epoch_time:.2f}s"
-                )
-            else:
-                print(
-                    f"Train Loss: {train_loss:.4f} | " f"LR: {lr_str} | " f"Time: {epoch_time:.2f}s"
-                )
-            return
 
         train_loss = train_metrics["loss"]
         if val_metrics is not None:
@@ -1059,7 +800,6 @@ class Trainer:
             "best_epoch": self.best_epoch,
             "best_val_loss": self.best_val_loss,
             "epochs_without_improvement": self.epochs_without_improvement,
-            "is_multitask": self.is_multitask,
         }
 
         if self.scheduler is not None:
@@ -1164,9 +904,7 @@ class Trainer:
         return_sample_ids: bool = False,
     ) -> Union[
         Tensor,
-        Dict[str, Tensor],
         Tuple[Tensor, List[str]],
-        Tuple[Dict[str, Tensor], List[str]],
     ]:
         """
         Run model prediction.
@@ -1187,8 +925,8 @@ class Trainer:
 
         Returns
         -------
-        Tensor or Dict[str, Tensor]
-            Predictions for single-task or multi-task mode.
+        Tensor
+            Predictions.
 
         Or, if `return_sample_ids=True`:
             (predictions, sample_ids)
@@ -1212,34 +950,6 @@ class Trainer:
 
         collected_sample_ids: List[str] = []
 
-        if self.is_multitask:
-            task_names = list(self.loss_fn.keys())  # type: ignore[union-attr]
-            pred_buffers: Dict[str, List[Tensor]] = {task: [] for task in task_names}
-
-            for batch in loader:
-                if return_sample_ids:
-                    collected_sample_ids.extend(self._extract_batch_sample_ids(batch))
-
-                batch = self._move_batch_to_device(batch)
-                outputs = self.model(batch)
-
-                if not isinstance(outputs, Mapping):
-                    raise TypeError(
-                        f"Multi-task model output must be dict-like, got {type(outputs).__name__}."
-                    )
-
-                for task_name in task_names:
-                    if task_name not in outputs:
-                        raise KeyError(f"Model output missing task '{task_name}'.")
-                    pred_buffers[task_name].append(outputs[task_name].detach().cpu())
-
-            predictions = {
-                task: torch.cat(parts, dim=0) if parts else torch.empty(0)
-                for task, parts in pred_buffers.items()
-            }
-
-            return (predictions, collected_sample_ids) if return_sample_ids else predictions
-
         pred_parts: List[Tensor] = []
 
         for batch in loader:
@@ -1251,7 +961,7 @@ class Trainer:
 
             if not isinstance(pred, Tensor):
                 raise TypeError(
-                    f"Single-task model output must be Tensor, got {type(pred).__name__}."
+                    f"Model output must be Tensor, got {type(pred).__name__}."
                 )
 
             pred_parts.append(pred.detach().cpu())
@@ -1293,7 +1003,7 @@ def create_default_trainer(
     batch_size: int = 32,
     learning_rate: float = 1e-3,
     weight_decay: float = 1e-5,
-    loss_fn: Optional[SingleOrMultiLoss] = None,
+    loss_fn: Optional[LossFn] = None,
     metrics: Optional[MetricsMap] = None,
     optimizer: Literal["adam", "adamw", "sgd"] = "adam",
     scheduler: Optional[Literal["plateau", "step", "cosine"]] = "plateau",

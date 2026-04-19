@@ -81,23 +81,13 @@ This convention enables:
 
 Label attachment contract
 -------------------------
-Single-task:
-- `data.y`
-
-Multi-task:
-- `data.y_<task_name>` for each task
-- `data.task_names` as a list of original task names
-
-Rationale:
-- attaching a Python dict directly to `data.y` is often less robust for PyG
-  batching and downstream engineering than explicit attributes.
+Labels are attached as `data.y`.
 
 Accepted label formats
 ----------------------
 Each label object may be:
 - `torch.Tensor`
 - numeric scalar (`int`, `float`, `bool`)
-- `dict[str, torch.Tensor | numeric scalar]`
 
 Split strategies
 ----------------
@@ -184,7 +174,6 @@ from typing import (
 )
 import numbers
 import random
-import re
 
 import torch
 from torch import Tensor
@@ -196,8 +185,8 @@ from torch_geometric.data import Data, Dataset
 # ---------------------------------------------------------------------
 PathLike = Union[str, Path]
 LabelValue = Union[Tensor, numbers.Real]
-LoadedLabelObject = Union[Tensor, Dict[str, Tensor]]
-InMemoryLabels = Union[Tensor, Mapping[str, Tensor]]
+LoadedLabelObject = Tensor
+InMemoryLabels = Tensor
 
 
 # ---------------------------------------------------------------------
@@ -279,7 +268,6 @@ def _normalize_label_object(label_obj: object) -> LoadedLabelObject:
     ----------------------
     - Tensor
     - numeric scalar
-    - dict[str, Tensor or numeric scalar]
 
     Returns
     -------
@@ -297,32 +285,7 @@ def _normalize_label_object(label_obj: object) -> LoadedLabelObject:
     if isinstance(label_obj, numbers.Real):
         return torch.tensor(label_obj, dtype=torch.float32)
 
-    if isinstance(label_obj, Mapping):
-        normalized: Dict[str, Tensor] = {}
-        for key, value in label_obj.items():
-            if not isinstance(key, str):
-                raise TypeError(f"Task name must be str, got {type(key).__name__}.")
-            normalized[key] = _to_tensor(value)
-        return normalized
-
-    raise TypeError(
-        "Unsupported label format. Expected one of: "
-        "torch.Tensor, numeric scalar, or dict[str, Tensor|numeric scalar]."
-    )
-
-
-def _sanitize_task_name(task_name: str) -> str:
-    """
-    Convert an arbitrary task name into a safe attribute suffix.
-
-    Example
-    -------
-    'speciation-rate' -> 'speciation_rate'
-    """
-    sanitized = re.sub(r"\W+", "_", task_name).strip("_")
-    if not sanitized:
-        raise ValueError(f"Invalid task name: {task_name!r}")
-    return sanitized
+    raise TypeError("Unsupported label format. Expected torch.Tensor or numeric scalar.")
 
 
 def _attach_label_to_data(data: Data, label_obj: LoadedLabelObject) -> Data:
@@ -331,24 +294,9 @@ def _attach_label_to_data(data: Data, label_obj: LoadedLabelObject) -> Data:
 
     Specification
     -------------
-    Single-task:
     - `data.y = tensor`
-
-    Multi-task:
-    - `data.y_<task_name> = tensor`
-    - `data.task_names = List[str]`
     """
-    if isinstance(label_obj, Tensor):
-        data.y = label_obj
-        return data
-
-    task_names: List[str] = []
-    for task_name, task_tensor in label_obj.items():
-        safe_name = _sanitize_task_name(task_name)
-        setattr(data, f"y_{safe_name}", task_tensor)
-        task_names.append(task_name)
-
-    data.task_names = task_names
+    data.y = label_obj
     return data
 
 
@@ -926,15 +874,11 @@ class SplitPhyloDataset(_BaseSplitAwareDataset):
     data_list : Sequence[Data]
         Graphs already loaded in memory.
 
-    labels : Optional[Tensor or Dict[str, Tensor]], default=None
+    labels : Optional[Tensor], default=None
         Per-sample targets.
 
-        Supported forms:
-        - single-task:
-            Tensor of shape [num_samples, ...]
-        - multi-task:
-            dict[str, Tensor], where each tensor has first dimension
-            equal to `num_samples`
+        Supported form:
+        - Tensor of shape [num_samples, ...]
 
     sample_ids : Optional[Sequence[str]], default=None
         Stable sample identifiers.
@@ -969,7 +913,6 @@ class SplitPhyloDataset(_BaseSplitAwareDataset):
             self._validate_graph(data, idx) for idx, data in enumerate(data_list)
         ]
         self._labels = labels
-        self._task_names: Optional[List[str]] = None
 
         self.sample_ids = (
             [str(i) for i in range(len(self._data_list))]
@@ -1023,24 +966,7 @@ class SplitPhyloDataset(_BaseSplitAwareDataset):
                 )
             return
 
-        if isinstance(self._labels, Mapping):
-            self._task_names = list(self._labels.keys())
-            for task_name, task_tensor in self._labels.items():
-                if not isinstance(task_name, str):
-                    raise TypeError(f"Task name must be str, got {type(task_name).__name__}.")
-                if not isinstance(task_tensor, Tensor):
-                    raise TypeError(
-                        f"Task '{task_name}' labels must be a torch.Tensor, "
-                        f"got {type(task_tensor).__name__}."
-                    )
-                if len(task_tensor) != n:
-                    raise ValueError(
-                        f"Task '{task_name}' contains {len(task_tensor)} samples, "
-                        f"but dataset contains {n} graphs."
-                    )
-            return
-
-        raise TypeError("labels must be one of: None, torch.Tensor, or dict[str, torch.Tensor].")
+        raise TypeError("labels must be None or a torch.Tensor.")
 
     def len(self) -> int:
         """Return number of graphs."""
@@ -1053,13 +979,7 @@ class SplitPhyloDataset(_BaseSplitAwareDataset):
         data = _clone_data(self._data_list[idx])
 
         if self._labels is not None:
-            if isinstance(self._labels, Tensor):
-                data.y = self._labels[idx]
-            else:
-                for task_name, task_tensor in self._labels.items():
-                    safe_name = _sanitize_task_name(task_name)
-                    setattr(data, f"y_{safe_name}", task_tensor[idx])
-                data.task_names = list(self._labels.keys())
+            data.y = self._labels[idx]
 
         data.sample_id = self.sample_ids[idx]
 
@@ -1067,12 +987,6 @@ class SplitPhyloDataset(_BaseSplitAwareDataset):
             data = self.transform(data)
 
         return data
-
-    def get_task_names(self) -> Optional[List[str]]:
-        """
-        Return multi-task names if available.
-        """
-        return None if self._task_names is None else self._task_names.copy()
 
     def __repr__(self) -> str:
         return (
@@ -1132,7 +1046,6 @@ class SplitPhyloDiskDataset(_BaseSplitAwareDataset):
     - Label files may contain:
         * Tensor
         * numeric scalar
-        * dict[str, Tensor | numeric scalar]
     - Retrieved graphs are cloned before mutation
     - `sample_id` is attached to each returned graph
 
@@ -1178,7 +1091,6 @@ class SplitPhyloDiskDataset(_BaseSplitAwareDataset):
         self._graph_paths: List[Path] = []
         self._label_paths: Optional[List[Optional[Path]]] = None
         self.sample_ids: List[str] = []
-        self._task_names: Optional[List[str]] = None
 
         self._graph_cache: Dict[int, Data] = {}
         self._label_cache: Dict[int, LoadedLabelObject] = {}
@@ -1232,8 +1144,6 @@ class SplitPhyloDiskDataset(_BaseSplitAwareDataset):
                         "Missing label files for the following graph files:\n" f"{preview}{extra}"
                     )
 
-            self._infer_task_names_if_possible()
-
     def _validate_directories(self) -> None:
         """
         Validate graph/label directories.
@@ -1277,21 +1187,6 @@ class SplitPhyloDiskDataset(_BaseSplitAwareDataset):
         relative = graph_path.relative_to(self.graph_dir)
         candidate = self.label_dir / relative
         return candidate if candidate.exists() and candidate.is_file() else None
-
-    def _infer_task_names_if_possible(self) -> None:
-        """
-        Best-effort inference of multi-task names from the first available label.
-        """
-        if self._label_paths is None:
-            return
-
-        first_label_path = next((p for p in self._label_paths if p is not None), None)
-        if first_label_path is None:
-            return
-
-        label_obj = self._load_label_file(first_label_path)
-        if isinstance(label_obj, dict):
-            self._task_names = list(label_obj.keys())
 
     # ---------------------------------------------------------
     # Loading helpers
@@ -1390,12 +1285,6 @@ class SplitPhyloDiskDataset(_BaseSplitAwareDataset):
         if self._label_paths is None:
             return None
         return self._label_paths[idx]
-
-    def get_task_names(self) -> Optional[List[str]]:
-        """
-        Return inferred multi-task names if available.
-        """
-        return None if self._task_names is None else self._task_names.copy()
 
     def export_split_manifests(
         self,
