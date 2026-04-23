@@ -20,7 +20,7 @@ This file gives repository-specific guidance for coding agents working in
 
 ## Environment And Setup
 
-- Python requirement: `>=3.8`.
+- Python requirement: `>=3.12`.
 - Packaging is defined in `pyproject.toml` using setuptools.
 - Core runtime dependencies include `torch`, `torch-geometric`, `ete3`, and
   `numpy`.
@@ -29,7 +29,7 @@ This file gives repository-specific guidance for coding agents working in
 On this machine, prefer the existing Conda environment:
 
 ```bash
-conda activate pytorch
+conda activate phylognn
 ```
 
 If the environment is missing package updates, install them into that active

@@ -7,7 +7,7 @@ name = "phylognn"
 version = "0.1.0"
 description = "Convert phylogenetic trees to graph neural network data"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 authors = [
 {name = "Minghao Du", email = "du.minghao@outlook.com"}
 ]
