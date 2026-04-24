@@ -46,7 +46,7 @@ python -m pip install -e ".[all]"
 python -m pip install -e ".[beast]"
 ```
 
-If the `pytorch` Conda environment is unavailable, stop immediately and inform
+If the `phylognn` Conda environment is unavailable, stop immediately and inform
 the user that the required Conda environment does not exist. Do not create a
 new virtual environment or install dependencies elsewhere.
 
@@ -55,7 +55,7 @@ new virtual environment or install dependencies elsewhere.
 Install editable package with dev tools:
 
 ```bash
-conda activate pytorch
+conda activate phylognn
 python -m pip install -e ".[dev]"
 ```
 
@@ -157,3 +157,10 @@ python -m build
 - Run `ruff check` and `black --check` on touched areas when practical.
 - If you add a new public API or behavior contract, update docstrings and tests.
 
+
+## Active Technologies
+- Python >=3.12 + PyTorch, PyTorch Geometric, stdlib `tomllib`, pytest; no new TOML parser dependency (001-toml-training-config)
+- Local TOML files as user input; existing trainer checkpoint/history files remain unchanged (001-toml-training-config)
+
+## Recent Changes
+- 001-toml-training-config: Added Python >=3.12 + PyTorch, PyTorch Geometric, stdlib `tomllib`, pytest; no new TOML parser dependency

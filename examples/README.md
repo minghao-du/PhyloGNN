@@ -17,6 +17,9 @@ optional file-loading boundary and the lightweight training walkthrough.
 4. `single_task_training.py`
    Compact end-to-end single-task training example using the public workflow
    entry points.
+5. `toml_training_config.py`
+   TOML-backed training setup example using `toml_training_config.toml` for
+   model and trainer configuration while keeping data outside the config file.
 
 ## Requirements
 
@@ -46,6 +49,7 @@ python examples/feature_engineering.py
 python examples/tree_to_graph.py
 python examples/tree_io.py
 python examples/single_task_training.py
+python examples/toml_training_config.py
 ```
 
 ## Expected Outputs
@@ -59,6 +63,8 @@ python examples/single_task_training.py
   message when DendroPy is unavailable.
 - `single_task_training.py` prints a `Training summary`, dataset sizes, and a
   prediction sample from a tiny single-task workflow.
+- `toml_training_config.py` prints a `TOML training config summary` showing the
+  configured model, trainer settings, and selected built-in metrics.
 
 ## Notes
 
@@ -66,3 +72,9 @@ python examples/single_task_training.py
   rather than inside the scripts.
 - `single_task_training.py` writes checkpoints and history under
   `example_outputs/single_task_training/`, which is safe to delete after use.
+- `toml_training_config.toml` defines a representative quickstart setup with a
+  tiny non-temporal GAT model and one-epoch trainer settings. The invalid
+  configuration suite should cover missing files, malformed TOML, missing
+  required sections and model dimensions, unknown keys, unsupported model,
+  loss, and metric names, duplicate metric names, wrong value types, and
+  invalid numeric ranges.

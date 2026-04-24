@@ -1,0 +1,28 @@
+[model]
+type = "GATBiLSTMNet"
+
+[model.params]
+input_dim = 4
+output_dim = 1
+temporal_mode = "none"
+gat_hidden_dim = 8
+gat_heads = 1
+num_gat_layers = 1
+dropout_prob = 0.0
+head_hidden_dim = 8
+
+[training]
+epochs = 1
+batch_size = 2
+learning_rate = 0.001
+weight_decay = 0.0
+scheduler = "none"
+early_stopping_patience = 0
+save_dir = "./example_outputs/toml_training_config"
+verbose = false
+
+[loss]
+name = "mse"
+
+[metrics]
+names = ["mse", "rmse"]

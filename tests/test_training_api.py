@@ -8,13 +8,17 @@ def test_training_package_uses_canonical_all_exports():
     training = importlib.import_module("phylognn.training")
 
     assert training.__all__ == [
+        "ConfiguredTrainingSetup",
         "DatasetSplit",
         "SplitDatasetView",
         "SplitPhyloDataset",
         "SplitPhyloDiskDataset",
         "Trainer",
+        "TrainingConfigError",
         "TrainingConfig",
         "create_default_trainer",
+        "create_trainer_from_config",
+        "load_training_config",
         "mse_metric",
         "mae_metric",
         "r2_metric",
@@ -28,7 +32,13 @@ def test_training_package_exports_intended_metrics_and_factory_names():
     """The curated public contract should include metrics and the trainer factory."""
     training = importlib.import_module("phylognn.training")
 
-    for export_name in {"create_default_trainer", "rmse_metric", "relative_error_metric"}:
+    for export_name in {
+        "create_default_trainer",
+        "create_trainer_from_config",
+        "load_training_config",
+        "rmse_metric",
+        "relative_error_metric",
+    }:
         assert export_name in training.__all__
 
 

@@ -47,7 +47,6 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
-
 # ---------------------------------------------------------------------
 # Typing aliases
 # ---------------------------------------------------------------------
@@ -168,7 +167,9 @@ class TrainingConfig:
         if self.weight_decay < 0:
             raise ValueError("weight_decay must be >= 0.")
         if self.optimizer not in {"adam", "adamw", "sgd"}:
-            raise ValueError(f"optimizer must be one of ('adam', 'adamw', 'sgd'), got {self.optimizer!r}.")
+            raise ValueError(
+                f"optimizer must be one of ('adam', 'adamw', 'sgd'), got {self.optimizer!r}."
+            )
         if self.scheduler not in {None, "plateau", "step", "cosine"}:
             raise ValueError(
                 "scheduler must be one of (None, 'plateau', 'step', 'cosine'), "
@@ -453,14 +454,10 @@ class Trainer:
             If `batch.y` does not exist.
         """
         if not hasattr(batch, "y"):
-            raise AttributeError(
-                "Training expects batch.y, but batch has no attribute 'y'."
-            )
+            raise AttributeError("Training expects batch.y, but batch has no attribute 'y'.")
         target = batch.y
         if not isinstance(target, Tensor):
-            raise TypeError(
-                f"Target batch.y must be a Tensor, got {type(target).__name__}."
-            )
+            raise TypeError(f"Target batch.y must be a Tensor, got {type(target).__name__}.")
         return target
 
     # -----------------------------------------------------------------
@@ -507,9 +504,7 @@ class Trainer:
 
             pred = self.model(batch)
             if not isinstance(pred, Tensor):
-                raise TypeError(
-                    f"Model output must be Tensor, got {type(pred).__name__}."
-                )
+                raise TypeError(f"Model output must be Tensor, got {type(pred).__name__}.")
 
             target = self._extract_single_target(batch)
             loss = self.loss_fn(pred, target)
@@ -574,9 +569,7 @@ class Trainer:
 
             pred = self.model(batch)
             if not isinstance(pred, Tensor):
-                raise TypeError(
-                    f"Model output must be Tensor, got {type(pred).__name__}."
-                )
+                raise TypeError(f"Model output must be Tensor, got {type(pred).__name__}.")
 
             target = self._extract_single_target(batch)
             loss = self.loss_fn(pred, target)
@@ -960,9 +953,7 @@ class Trainer:
             pred = self.model(batch)
 
             if not isinstance(pred, Tensor):
-                raise TypeError(
-                    f"Model output must be Tensor, got {type(pred).__name__}."
-                )
+                raise TypeError(f"Model output must be Tensor, got {type(pred).__name__}.")
 
             pred_parts.append(pred.detach().cpu())
 

@@ -8,15 +8,18 @@ metric helpers intended for end-user workflows.
 from importlib import import_module
 from typing import Any, Dict, Tuple
 
-
 _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
+    "ConfiguredTrainingSetup": ("phylognn.training.config", "ConfiguredTrainingSetup"),
     "DatasetSplit": ("phylognn.training.dataset", "DatasetSplit"),
     "SplitDatasetView": ("phylognn.training.dataset", "SplitDatasetView"),
     "SplitPhyloDataset": ("phylognn.training.dataset", "SplitPhyloDataset"),
     "SplitPhyloDiskDataset": ("phylognn.training.dataset", "SplitPhyloDiskDataset"),
     "Trainer": ("phylognn.training.trainer", "Trainer"),
+    "TrainingConfigError": ("phylognn.training.config", "TrainingConfigError"),
     "TrainingConfig": ("phylognn.training.trainer", "TrainingConfig"),
     "create_default_trainer": ("phylognn.training.trainer", "create_default_trainer"),
+    "create_trainer_from_config": ("phylognn.training.config", "create_trainer_from_config"),
+    "load_training_config": ("phylognn.training.config", "load_training_config"),
     "mse_metric": ("phylognn.training.metrics", "mse_metric"),
     "mae_metric": ("phylognn.training.metrics", "mae_metric"),
     "r2_metric": ("phylognn.training.metrics", "r2_metric"),
@@ -25,13 +28,17 @@ _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
 }
 
 __all__ = [
+    "ConfiguredTrainingSetup",
     "DatasetSplit",
     "SplitDatasetView",
     "SplitPhyloDataset",
     "SplitPhyloDiskDataset",
     "Trainer",
+    "TrainingConfigError",
     "TrainingConfig",
     "create_default_trainer",
+    "create_trainer_from_config",
+    "load_training_config",
     "mse_metric",
     "mae_metric",
     "r2_metric",

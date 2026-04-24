@@ -179,7 +179,6 @@ import torch
 from torch import Tensor
 from torch_geometric.data import Data, Dataset
 
-
 # ---------------------------------------------------------------------
 # Type aliases
 # ---------------------------------------------------------------------

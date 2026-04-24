@@ -1,6 +1,5 @@
 """Smoke tests for the curated examples suite."""
 
-import importlib.util
 import json
 import os
 from functools import lru_cache
@@ -12,7 +11,6 @@ from typing import Dict, Optional
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_DIR = ROOT / "examples"
 
@@ -22,6 +20,8 @@ EXPECTED_FILES = {
     "tree_to_graph.py",
     "tree_io.py",
     "single_task_training.py",
+    "toml_training_config.py",
+    "toml_training_config.toml",
 }
 
 REMOVED_FILES = {
@@ -34,11 +34,14 @@ REMOVED_FILES = {
 
 
 def _python_supports_examples(python_executable: str) -> bool:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT / "src")
     completed = subprocess.run(
         [python_executable, "-c", "import phylognn, torch, torch_geometric, ete3"],
         cwd=ROOT,
         text=True,
         capture_output=True,
+        env=env,
     )
     return completed.returncode == 0
 
@@ -88,18 +91,20 @@ def _selected_python_executable() -> str:
     if _python_supports_examples(sys.executable):
         return sys.executable
 
-    pytorch_python = _resolve_conda_env_python("pytorch")
-    if pytorch_python and _python_supports_examples(pytorch_python):
-        return pytorch_python
+    phylognn_python = _resolve_conda_env_python("phylognn")
+    if phylognn_python and _python_supports_examples(phylognn_python):
+        return phylognn_python
 
     raise RuntimeError(
         "Could not find a Python interpreter that can import phylognn, torch, "
         "torch_geometric, and ete3. Tried the current interpreter and the "
-        "Conda environment named 'pytorch'."
+        "Conda environment named 'phylognn'."
     )
 
 
 def _python_has_module(module_name: str) -> bool:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT / "src")
     completed = subprocess.run(
         [
             _selected_python_executable(),
@@ -112,6 +117,7 @@ def _python_has_module(module_name: str) -> bool:
         cwd=ROOT,
         text=True,
         capture_output=True,
+        env=env,
     )
     return completed.returncode == 0
 
@@ -122,6 +128,7 @@ def _run_example(
     extra_env: Optional[Dict[str, str]] = None,
 ) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT / "src")
     if extra_env:
         env.update(extra_env)
 
@@ -180,30 +187,18 @@ def test_self_contained_examples_run(script_name: str, expected_text: str):
         assert "num_nodes: 5" in completed.stdout
 
 
-@pytest.mark.skipif(
-    not _python_has_module("dendropy"),
-    reason="Optional tree I/O dependency is not installed in the selected Python environment.",
-)
-def test_tree_io_example_runs_when_optional_dependency_is_available():
+def test_tree_io_example_handles_available_or_missing_optional_dependency():
     completed = _run_example("tree_io.py")
 
     assert completed.returncode == 0, completed.stderr
-    assert "Tree I/O summary" in completed.stdout
-    assert "Loaded tree file:" in completed.stdout
-    assert "examples_data/simulated_trees/" in completed.stdout
-
-
-@pytest.mark.skipif(
-    _python_has_module("dendropy"),
-    reason="Missing-dependency path is only relevant when dendropy is unavailable.",
-)
-def test_tree_io_example_reports_missing_dependency_cleanly():
-    completed = _run_example("tree_io.py")
-
-    assert completed.returncode == 0
-    assert "Optional dependency missing: dendropy" in completed.stdout
-    assert 'pip install -e ".[beast]"' in completed.stdout
-    assert "Traceback" not in completed.stderr
+    if _python_has_module("dendropy"):
+        assert "Tree I/O summary" in completed.stdout
+        assert "Loaded tree file:" in completed.stdout
+        assert "examples_data/simulated_trees/" in completed.stdout
+    else:
+        assert "Optional dependency missing: dendropy" in completed.stdout
+        assert 'pip install -e ".[beast]"' in completed.stdout
+        assert "Traceback" not in completed.stderr
 
 
 def test_single_task_training_example_runs():
@@ -214,3 +209,11 @@ def test_single_task_training_example_runs():
     assert "dataset sizes:" in completed.stdout
     assert "prediction sample:" in completed.stdout
 
+
+def test_toml_training_config_example_runs():
+    completed = _run_example("toml_training_config.py")
+
+    assert completed.returncode == 0, completed.stderr
+    assert "TOML training config summary" in completed.stdout
+    assert "configured model: GATBiLSTMNet" in completed.stdout
+    assert "metrics: mse, rmse" in completed.stdout
