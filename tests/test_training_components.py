@@ -1,11 +1,10 @@
 """Contract tests for dataset, trainer, and metric internals."""
 
-from pathlib import Path
+# ruff: noqa: E402
 
 import pytest
 
 from tests.support import require_modules
-
 
 torch = pytest.importorskip("torch")
 require_modules("torch_geometric")

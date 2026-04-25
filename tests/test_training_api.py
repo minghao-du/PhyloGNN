@@ -16,6 +16,10 @@ def test_training_package_uses_canonical_all_exports():
         "Trainer",
         "TrainingConfigError",
         "TrainingConfig",
+        "TrackingConfig",
+        "TrackingError",
+        "TrackingRunInfo",
+        "WandbTracker",
         "create_default_trainer",
         "create_trainer_from_config",
         "load_training_config",
@@ -38,6 +42,10 @@ def test_training_package_exports_intended_metrics_and_factory_names():
         "load_training_config",
         "rmse_metric",
         "relative_error_metric",
+        "TrackingConfig",
+        "TrackingError",
+        "TrackingRunInfo",
+        "WandbTracker",
     }:
         assert export_name in training.__all__
 

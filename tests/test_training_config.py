@@ -18,6 +18,7 @@ from phylognn.training import (
     Trainer,
     TrainingConfig,
     TrainingConfigError,
+    TrackingConfig,
     create_trainer_from_config,
     load_training_config,
 )
@@ -67,6 +68,8 @@ def test_load_training_config_builds_minimal_setup(tmp_path: Path):
     assert setup.training_config.batch_size == 16
     assert type(setup.loss_fn).__name__ == "MSELoss"
     assert set(setup.metrics) == {"mse", "mae"}
+    assert setup.tracking_config == TrackingConfig()
+    assert setup.tracking_metadata["data.config_file"] == "training.toml"
 
 
 def test_load_training_config_applies_defaults_for_omitted_optional_values(tmp_path: Path):
@@ -93,6 +96,7 @@ epochs = 1
     assert setup.training_config.scheduler == TrainingConfig().scheduler
     assert type(setup.loss_fn).__name__ == "MSELoss"
     assert setup.metrics == {}
+    assert setup.tracking_config.enabled is False
 
 
 def test_create_trainer_from_config_leaves_data_to_caller(tmp_path: Path):
@@ -105,6 +109,7 @@ def test_create_trainer_from_config_leaves_data_to_caller(tmp_path: Path):
 
     assert isinstance(trainer, Trainer)
     assert trainer.config.epochs == 1
+    assert trainer.tracking_config.enabled is False
     with pytest.raises(ValueError, match="train_dataset or train_loader"):
         trainer.fit()
 
@@ -318,3 +323,63 @@ def test_explicit_overrides_win_over_toml_values(tmp_path: Path):
     assert setup.training_config.save_dir == str(tmp_path / "run")
     assert type(setup.loss_fn).__name__ == "L1Loss"
     assert list(setup.metrics) == ["rmse", "relative_error"]
+
+
+def test_tracking_section_builds_enabled_tracking_setup(tmp_path: Path):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config(epochs=1) + """
+[tracking]
+enabled = true
+backend = "wandb"
+project = "phylognn"
+run_name = "baseline"
+group = "ablation"
+job_type = "train"
+tags = ["baseline", "gat"]
+dataset_id = "dataset-v1"
+""",
+    )
+
+    setup = load_training_config(config_path)
+    trainer = create_trainer_from_config(
+        config_path,
+        training_overrides={"save_dir": str(tmp_path / "checkpoints"), "verbose": False},
+    )
+
+    assert setup.tracking_config.enabled is True
+    assert setup.tracking_config.project == "phylognn"
+    assert setup.tracking_config.tags == ("baseline", "gat")
+    assert setup.tracking_metadata["tracking.group"] == "ablation"
+    assert setup.tracking_metadata["tracking.tags"] == ("baseline", "gat")
+    assert setup.tracking_metadata["data.dataset_id"] == "dataset-v1"
+    assert setup.tracking_metadata["data.config_file"] == "training.toml"
+    assert setup.tracking_metadata["training.save_dir"] == "checkpoints"
+    assert trainer.tracking_config.enabled is True
+
+
+@pytest.mark.parametrize(
+    "tracking_text, pattern",
+    [
+        ("enabled = true\nproject = 123\n", "tracking.project"),
+        ("enabled = true\nproject = 'phylognn'\ntags = 'bad'\n", "tracking.tags"),
+        ("enabled = 'yes'\nproject = 'phylognn'\n", "tracking.enabled"),
+        ("enabled = true\nproject = 'phylognn'\nunknown = true\n", "unknown key.*tracking"),
+        ("enabled = true\n", "tracking.project"),
+    ],
+)
+def test_invalid_tracking_config_fails_before_training(
+    tmp_path: Path,
+    tracking_text: str,
+    pattern: str,
+):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config(epochs=1) + f"""
+[tracking]
+{tracking_text}
+""",
+    )
+
+    with pytest.raises(TrainingConfigError, match=pattern):
+        load_training_config(config_path)

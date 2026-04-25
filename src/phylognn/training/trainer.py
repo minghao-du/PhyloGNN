@@ -47,6 +47,16 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
+from phylognn.training.tracking import (
+    TrackerProtocol,
+    TrackingConfig,
+    build_epoch_metrics,
+    build_final_metrics,
+    build_status_metrics,
+    create_tracker,
+    sanitize_config_metadata,
+)
+
 # ---------------------------------------------------------------------
 # Typing aliases
 # ---------------------------------------------------------------------
@@ -241,6 +251,15 @@ class Trainer:
     metrics : dict[str, callable], optional
         Each metric must accept `(pred, target)` and return a scalar tensor or
         numeric value.
+
+    tracking_config : TrackingConfig, optional
+        Optional experiment tracking settings. Disabled or omitted tracking
+        keeps the existing local-only training workflow and does not import
+        wandb.
+
+    tracker : TrackerProtocol, optional
+        Test or custom tracker implementation. When omitted, the tracker is
+        created from `tracking_config`.
     """
 
     def __init__(
@@ -249,6 +268,9 @@ class Trainer:
         config: TrainingConfig,
         loss_fn: Optional[LossFn] = None,
         metrics: Optional[MetricsMap] = None,
+        tracking_config: Optional[TrackingConfig] = None,
+        tracking_metadata: Optional[Mapping[str, object]] = None,
+        tracker: Optional[TrackerProtocol] = None,
     ) -> None:
         config.validate()
 
@@ -261,6 +283,14 @@ class Trainer:
 
         self.metrics: MetricsMap = metrics or {}
         self._validate_loss_and_metrics()
+
+        self.tracking_config = tracking_config or TrackingConfig(enabled=False)
+        self.tracking_config.validate()
+        self.tracking_metadata = sanitize_config_metadata(tracking_metadata or {})
+        self.tracker: TrackerProtocol = (
+            tracker if tracker is not None else create_tracker(self.tracking_config)
+        )
+        self._tracking_started = False
 
         self.optimizer: Optimizer = self._create_optimizer()
         self.scheduler = self._create_scheduler()
@@ -644,51 +674,115 @@ class Trainer:
                 shuffle=False,
             )
 
-        for epoch_idx in range(self.current_epoch, self.config.epochs):
-            epoch_num = epoch_idx + 1
-            epoch_start = time.time()
+        self._start_tracking()
 
-            if self.config.verbose:
-                print(f"\nEpoch {epoch_num}/{self.config.epochs}")
+        try:
+            for epoch_idx in range(self.current_epoch, self.config.epochs):
+                epoch_num = epoch_idx + 1
+                epoch_start = time.time()
 
-            train_metrics = self.train_epoch(train_loader)
-            self._append_train_history(train_metrics)
-
-            current_val_loss: Optional[float] = None
-            if val_loader is not None:
-                val_metrics = self.validate(val_loader)
-                self._append_val_history(val_metrics)
-                current_val_loss = val_metrics["loss"]
-
-            epoch_time = time.time() - epoch_start
-            self.history["lr"].append(self._get_current_lr())
-            self.history["epoch_time_sec"].append(epoch_time)
-
-            self._log_epoch_summary(
-                train_metrics, None if val_loader is None else val_metrics, epoch_time
-            )
-            self._step_scheduler(current_val_loss)
-
-            # Store the next epoch index before saving checkpoints so resume
-            # continues after the last fully processed epoch.
-            self.current_epoch = epoch_idx + 1
-            self._handle_checkpointing_and_early_stopping(current_val_loss, epoch_num)
-
-            if not self.config.save_best_only:
-                self.save_checkpoint(f"checkpoint_epoch_{epoch_num}.pt")
-
-            if (
-                val_loader is not None
-                and self.config.early_stopping_patience is not None
-                and self.epochs_without_improvement >= self.config.early_stopping_patience
-            ):
                 if self.config.verbose:
-                    print(f"Early stopping triggered at epoch {epoch_num}.")
-                break
+                    print(f"\nEpoch {epoch_num}/{self.config.epochs}")
 
-        self.save_checkpoint("final_model.pt")
-        self.save_history()
-        return self.history
+                train_metrics = self.train_epoch(train_loader)
+                self._append_train_history(train_metrics)
+
+                val_metrics: Optional[Dict[str, float]] = None
+                current_val_loss: Optional[float] = None
+                if val_loader is not None:
+                    val_metrics = self.validate(val_loader)
+                    self._append_val_history(val_metrics)
+                    current_val_loss = val_metrics["loss"]
+
+                epoch_time = time.time() - epoch_start
+                current_lr = self._get_current_lr()
+                self.history["lr"].append(current_lr)
+                self.history["epoch_time_sec"].append(epoch_time)
+
+                self._log_epoch_summary(train_metrics, val_metrics, epoch_time)
+                self._step_scheduler(current_val_loss)
+
+                # Store the next epoch index before saving checkpoints so resume
+                # continues after the last fully processed epoch.
+                self.current_epoch = epoch_idx + 1
+                self._handle_checkpointing_and_early_stopping(current_val_loss, epoch_num)
+                self._log_tracking_epoch(
+                    train_metrics, val_metrics, current_lr, epoch_time, epoch_num
+                )
+
+                if not self.config.save_best_only:
+                    self.save_checkpoint(f"checkpoint_epoch_{epoch_num}.pt")
+
+                if (
+                    val_loader is not None
+                    and self.config.early_stopping_patience is not None
+                    and self.epochs_without_improvement >= self.config.early_stopping_patience
+                ):
+                    if self.config.verbose:
+                        print(f"Early stopping triggered at epoch {epoch_num}.")
+                    break
+
+            self.save_checkpoint("final_model.pt")
+            self.save_history()
+            self._finish_tracking("completed")
+            return self.history
+        except KeyboardInterrupt:
+            self._finish_tracking("interrupted")
+            raise
+        except Exception:
+            self._finish_tracking("failed")
+            raise
+
+    def _start_tracking(self) -> None:
+        """
+        Initialize experiment tracking before any epoch work begins.
+        """
+        if not self.tracking_config.enabled:
+            return
+        info = self.tracker.start(self.tracking_metadata)
+        self._tracking_started = True
+        identity_parts = [
+            part
+            for part in (
+                f"id={info.run_id}" if info.run_id else None,
+                f"name={info.run_name}" if info.run_name else None,
+                f"url={info.run_url}" if info.run_url else None,
+            )
+            if part is not None
+        ]
+        if identity_parts:
+            print("Tracking run: " + " ".join(identity_parts))
+
+    def _log_tracking_epoch(
+        self,
+        train_metrics: Dict[str, float],
+        val_metrics: Optional[Dict[str, float]],
+        lr: float,
+        epoch_time: float,
+        epoch_num: int,
+    ) -> None:
+        if not self.tracking_config.enabled:
+            return
+        payload = build_epoch_metrics(
+            train_metrics=train_metrics,
+            val_metrics=val_metrics,
+            lr=lr,
+            epoch_time_sec=epoch_time,
+        )
+        self.tracker.log_metrics(payload, step=epoch_num)
+
+    def _finish_tracking(self, status: Literal["completed", "failed", "interrupted"]) -> None:
+        if not self.tracking_config.enabled or not self._tracking_started:
+            return
+        step = max(self.current_epoch, 0)
+        final_metrics = build_final_metrics(
+            best_val_loss=self.best_val_loss,
+            best_epoch=self.best_epoch,
+        )
+        if final_metrics:
+            self.tracker.log_metrics(final_metrics, step=step)
+        self.tracker.log_metrics(build_status_metrics(status), step=step)
+        self.tracker.finish(status)
 
     def _append_train_history(self, train_metrics: Dict[str, float]) -> None:
         """

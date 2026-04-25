@@ -161,6 +161,8 @@ python -m build
 ## Active Technologies
 - Python >=3.12 + PyTorch, PyTorch Geometric, stdlib `tomllib`, pytest; no new TOML parser dependency (001-toml-training-config)
 - Local TOML files as user input; existing trainer checkpoint/history files remain unchanged (001-toml-training-config)
+- Python >=3.12 + PyTorch, PyTorch Geometric, stdlib `tomllib`, pytest; new optional extra `wandb` required only when tracking is enabled (001-wandb-training-logging)
+- Existing local checkpoint/history files remain unchanged; external wandb run stores configuration, metrics, and status only (001-wandb-training-logging)
 
 ## Recent Changes
 - 001-toml-training-config: Added Python >=3.12 + PyTorch, PyTorch Geometric, stdlib `tomllib`, pytest; no new TOML parser dependency

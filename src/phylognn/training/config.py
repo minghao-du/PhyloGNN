@@ -10,7 +10,7 @@ caller through the existing `Trainer.fit()` API.
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence, Union
 
@@ -30,6 +30,11 @@ from phylognn.training.metrics import (
     rmse_metric,
 )
 from phylognn.training.trainer import LossFn, MetricsMap, Trainer, TrainingConfig
+from phylognn.training.tracking import (
+    TrackingConfig,
+    TrackingError,
+    build_experiment_config,
+)
 
 
 class TrainingConfigError(ValueError):
@@ -48,19 +53,25 @@ class ConfiguredTrainingSetup:
         training_config: Existing `TrainingConfig` built from effective values.
         loss_fn: Selected built-in loss callable.
         metrics: Selected built-in metrics keyed by metric name.
+        tracking_config: Optional experiment tracking configuration resolved
+            from `[tracking]`. Missing sections default to disabled tracking.
+        tracking_metadata: Sanitized comparable run metadata passed to
+            `Trainer` when tracking is enabled.
     """
 
     model: GATBiLSTMNet
     training_config: TrainingConfig
     loss_fn: LossFn
     metrics: MetricsMap
+    tracking_config: TrackingConfig
+    tracking_metadata: Mapping[str, object]
 
 
 PathLike = Union[str, Path]
 
 SUPPORTED_MODEL_TYPES = frozenset({"GATBiLSTMNet"})
 
-TOP_LEVEL_KEYS = frozenset({"model", "training", "loss", "metrics"})
+TOP_LEVEL_KEYS = frozenset({"model", "training", "loss", "metrics", "tracking"})
 MODEL_KEYS = frozenset({"type", "params"})
 MODEL_PARAM_KEYS = frozenset(
     {
@@ -97,6 +108,19 @@ TRAINING_BOOL_KEYS = frozenset(
 )
 LOSS_KEYS = frozenset({"name"})
 METRICS_KEYS = frozenset({"names"})
+TRACKING_KEYS = frozenset(
+    {
+        "enabled",
+        "backend",
+        "project",
+        "entity",
+        "run_name",
+        "group",
+        "job_type",
+        "tags",
+        "dataset_id",
+    }
+)
 
 LOSS_REGISTRY: Mapping[str, type[nn.Module]] = {
     "mse": nn.MSELoss,
@@ -166,7 +190,17 @@ def load_training_config(
         model = GATBiLSTMNet(**model_params)
         training_config = TrainingConfig(**training_values)
         training_config.validate()
-    except (TypeError, ValueError) as exc:
+        tracking_config = _resolve_tracking_config(raw_config, config_path=config_path)
+        tracking_metadata = build_experiment_config(
+            model_type=model_config["type"],
+            model_params=model_params,
+            training_values=asdict(training_config),
+            loss_name=loss_name,
+            metric_names=metric_names,
+            tracking_config=tracking_config,
+            config_path=config_path,
+        )
+    except (TypeError, ValueError, TrackingError) as exc:
         raise TrainingConfigError(f"{config_path}: invalid configuration value: {exc}") from exc
 
     return ConfiguredTrainingSetup(
@@ -174,6 +208,8 @@ def load_training_config(
         training_config=training_config,
         loss_fn=LOSS_REGISTRY[loss_name](),
         metrics={name: METRIC_REGISTRY[name] for name in metric_names},
+        tracking_config=tracking_config,
+        tracking_metadata=tracking_metadata,
     )
 
 
@@ -205,6 +241,8 @@ def create_trainer_from_config(
         config=setup.training_config,
         loss_fn=setup.loss_fn,
         metrics=setup.metrics,
+        tracking_config=setup.tracking_config,
+        tracking_metadata=setup.tracking_metadata,
     )
 
 
@@ -260,6 +298,12 @@ def _validate_config_document(raw_config: Mapping[str, Any], *, config_path: Pat
         metrics_config = _require_mapping(raw_config["metrics"], "metrics", config_path)
         _reject_unknown_keys(
             metrics_config, METRICS_KEYS, section="metrics", config_path=config_path
+        )
+
+    if "tracking" in raw_config:
+        tracking_config = _require_mapping(raw_config["tracking"], "tracking", config_path)
+        _reject_unknown_keys(
+            tracking_config, TRACKING_KEYS, section="tracking", config_path=config_path
         )
 
 
@@ -418,6 +462,41 @@ def _resolve_metric_names(
             f"{config_path}: unsupported metric name(s) {unknown!r}; expected one of ({valid})."
         )
     return names
+
+
+def _resolve_tracking_config(
+    raw_config: Mapping[str, Any],
+    *,
+    config_path: Path,
+) -> TrackingConfig:
+    tracking_values = dict(
+        _require_mapping(raw_config.get("tracking", {}), "tracking", config_path)
+    )
+    if "tags" in tracking_values:
+        tags = tracking_values["tags"]
+        if isinstance(tags, str) or not isinstance(tags, Sequence):
+            raise TrainingConfigError(f"{config_path}: tracking.tags must be a list of strings.")
+        if any(not isinstance(tag, str) for tag in tags):
+            raise TrainingConfigError(f"{config_path}: tracking.tags must contain only strings.")
+        tracking_values["tags"] = tuple(tags)
+
+    if "enabled" in tracking_values and not isinstance(tracking_values["enabled"], bool):
+        raise TrainingConfigError(f"{config_path}: tracking.enabled must be a boolean.")
+
+    for key in sorted(TRACKING_KEYS - {"enabled", "tags"}):
+        if (
+            key in tracking_values
+            and tracking_values[key] is not None
+            and not isinstance(tracking_values[key], str)
+        ):
+            raise TrainingConfigError(f"{config_path}: tracking.{key} must be a string.")
+
+    try:
+        tracking_config = TrackingConfig(**tracking_values)
+        tracking_config.validate()
+    except TypeError as exc:
+        raise TrainingConfigError(f"{config_path}: invalid tracking configuration: {exc}") from exc
+    return tracking_config
 
 
 def _raise_missing(key_path: str, config_path: Path) -> None:

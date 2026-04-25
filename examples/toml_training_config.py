@@ -37,6 +37,7 @@ def main() -> None:
     print(f"batch_size: {setup.training_config.batch_size}")
     print(f"trainer device: {trainer.config.device}")
     print(f"metrics: {', '.join(setup.metrics)}")
+    print(f"tracking: {'enabled' if setup.tracking_config.enabled else 'disabled'}")
     print(f"output_dir: {OUTPUT_DIR.relative_to(ROOT)}")
 
 

@@ -27,10 +27,14 @@ dev = [
 beast = [
 "dendropy>=4.6.0",
 ]
+wandb = [
+"wandb>=0.16.0",
+]
 all = [
 "dendropy>=4.6.0",
 "pandas>=2.0.0",
 "tqdm>=4.65.0",
+"wandb>=0.16.0",
 ]
 
 [tool.setuptools.packages.find]
