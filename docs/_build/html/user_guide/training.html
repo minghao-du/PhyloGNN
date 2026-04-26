@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Training &#8212; PhyloGNN 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Metrics And Tracking" href="metrics_tracking.html" />
+    <link rel="prev" title="Feature Engineering" href="feature_engineering.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="training">
+<h1>Training<a class="headerlink" href="#training" title="Link to this heading">¶</a></h1>
+<p>Training utilities expect PyTorch Geometric graph samples whose target is
+stored as <cite>data.y</cite>. Datasets, splits, and loaders are caller-controlled; TOML
+configuration builds models and trainer settings but does not discover data.</p>
+<section id="datasets-and-splits">
+<h2>Datasets and splits<a class="headerlink" href="#datasets-and-splits" title="Link to this heading">¶</a></h2>
+<p>Use <cite>SplitPhyloDataset</cite> for in-memory <cite>Data</cite> objects and labels. Use
+<cite>SplitPhyloDiskDataset</cite> when graphs and labels are stored as mirrored <cite>.pt</cite>
+files. <cite>DatasetSplit</cite> supports deterministic ratio-based splits and explicit
+split manifests with one sample ID per line.</p>
+</section>
+<section id="trainer-setup">
+<h2>Trainer setup<a class="headerlink" href="#trainer-setup" title="Link to this heading">¶</a></h2>
+<p><cite>TrainingConfig</cite> controls epochs, batch size, optimizer, scheduler, device,
+checkpoint directory, early stopping, gradient clipping, and DataLoader
+options. <cite>Trainer</cite> validates the config, creates the optimizer and scheduler,
+writes <cite>config.json</cite>, stores training history, and saves checkpoints.</p>
+</section>
+<section id="toml-setup">
+<h2>TOML setup<a class="headerlink" href="#toml-setup" title="Link to this heading">¶</a></h2>
+<p><cite>load_training_config()</cite> returns a <cite>ConfiguredTrainingSetup</cite> containing a
+<cite>GATBiLSTMNet</cite>, <cite>TrainingConfig</cite>, loss, metrics, tracking configuration, and
+sanitized tracking metadata. <cite>create_trainer_from_config()</cite> creates a
+<cite>Trainer</cite> from the same TOML file.</p>
+</section>
+<section id="model-data-contract">
+<h2>Model data contract<a class="headerlink" href="#model-data-contract" title="Link to this heading">¶</a></h2>
+<p>All model inputs need <cite>data.x</cite> and <cite>data.edge_index</cite>. Batched graph-level
+training needs <cite>data.batch</cite>. Temporal modes of <cite>GATBiLSTMNet</cite> require
+<cite>data.time_bin</cite> as a node-aligned tensor. The training dataset must provide
+<cite>data.y</cite> for loss computation.</p>
+</section>
+<section id="outputs">
+<h2>Outputs<a class="headerlink" href="#outputs" title="Link to this heading">¶</a></h2>
+<p>Training writes checkpoints and <cite>history.json</cite> under <cite>save_dir</cite>. The final
+checkpoint is always saved; best-checkpoint behavior is controlled by
+<cite>save_best_only</cite>.</p>
+</section>
+<section id="related-pages">
+<h2>Related pages<a class="headerlink" href="#related-pages" title="Link to this heading">¶</a></h2>
+<p>See <a class="reference internal" href="../concepts/training_config.html"><span class="doc">Training Configuration</span></a>, <a class="reference internal" href="metrics_tracking.html"><span class="doc">Metrics And Tracking</span></a>,
+<a class="reference internal" href="../reference/training.html"><span class="doc">Training Reference</span></a>, and <a class="reference internal" href="../troubleshooting.html"><span class="doc">Troubleshooting</span></a>.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">PhyloGNN</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="tree_input.html">Tree Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graph_conversion.html">Graph Conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature_engineering.html">Feature Engineering</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="metrics_tracking.html">Metrics And Tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#workflow-map">Workflow map</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="feature_engineering.html" title="previous chapter">Feature Engineering</a></li>
+      <li>Next: <a href="metrics_tracking.html" title="next chapter">Metrics And Tracking</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Minghao Du.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/user_guide/training.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

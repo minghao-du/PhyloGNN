@@ -1,0 +1,11 @@
+Concepts
+========
+
+These pages define shared terms used by the quickstart, workflow guides, and
+reference pages.
+
+.. toctree::
+   :maxdepth: 1
+
+   graph_data
+   training_config

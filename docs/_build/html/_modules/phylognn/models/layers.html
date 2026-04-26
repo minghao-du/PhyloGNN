@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>phylognn.models.layers &#8212; PhyloGNN 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for phylognn.models.layers</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Reusable neural network building blocks for phylogenetic GNN models.</span>
+
+<span class="sd">This module provides:</span>
+<span class="sd">    - graph attention blocks</span>
+<span class="sd">    - plain GAT stacks</span>
+<span class="sd">    - residual GAT stacks</span>
+<span class="sd">    - sinusoidal positional encoding</span>
+<span class="sd">    - bidirectional LSTM temporal sequence encoding</span>
+<span class="sd">    - flexible MLP heads</span>
+
+<span class="sd">Design principles:</span>
+<span class="sd">    - each custom module exposes an explicit `reset_parameters()` where possible</span>
+<span class="sd">    - docstrings specify tensor shapes and computation order</span>
+<span class="sd">    - building blocks are reusable across multiple downstream models</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn.functional</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">F</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch_geometric.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">GATConv</span>
+
+<span class="n">GATEncoderType</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;gat&quot;</span><span class="p">,</span> <span class="s2">&quot;res_gat&quot;</span><span class="p">]</span>
+<span class="n">TemporalAggregation</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;last&quot;</span><span class="p">,</span> <span class="s2">&quot;max&quot;</span><span class="p">]</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">GATBlock</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Graph Attention block with activation, normalization, and dropout.</span>
+
+<span class="sd">    Computation order:</span>
+<span class="sd">        GATConv -&gt; ELU -&gt; BatchNorm1d -&gt; Dropout</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        in_channels:</span>
+<span class="sd">            Number of input node features.</span>
+<span class="sd">        out_channels:</span>
+<span class="sd">            Number of output features per attention head.</span>
+<span class="sd">        heads:</span>
+<span class="sd">            Number of attention heads.</span>
+<span class="sd">        dropout_prob:</span>
+<span class="sd">            Dropout probability used inside GATConv and after normalization.</span>
+<span class="sd">        concat:</span>
+<span class="sd">            Whether attention head outputs are concatenated.</span>
+<span class="sd">        negative_slope:</span>
+<span class="sd">            Negative slope used in GAT attention mechanism.</span>
+
+<span class="sd">    Input:</span>
+<span class="sd">        - x: [num_nodes, in_channels]</span>
+<span class="sd">        - edge_index: [2, num_edges]</span>
+
+<span class="sd">    Output:</span>
+<span class="sd">        - [num_nodes, out_channels * heads] if `concat=True`</span>
+<span class="sd">        - [num_nodes, out_channels] if `concat=False`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">in_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">out_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">heads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">dropout_prob</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="n">concat</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">negative_slope</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">in_channels</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`in_channels` must be &gt; 0, got </span><span class="si">{</span><span class="n">in_channels</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">out_channels</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`out_channels` must be &gt; 0, got </span><span class="si">{</span><span class="n">out_channels</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">heads</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`heads` must be &gt; 0, got </span><span class="si">{</span><span class="n">heads</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">dropout_prob</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`dropout_prob` must be in [0, 1), got </span><span class="si">{</span><span class="n">dropout_prob</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_channels</span> <span class="o">=</span> <span class="n">in_channels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_channels</span> <span class="o">=</span> <span class="n">out_channels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heads</span> <span class="o">=</span> <span class="n">heads</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">concat</span> <span class="o">=</span> <span class="n">concat</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout_prob</span> <span class="o">=</span> <span class="n">dropout_prob</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">negative_slope</span> <span class="o">=</span> <span class="n">negative_slope</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">gat</span> <span class="o">=</span> <span class="n">GATConv</span><span class="p">(</span>
+            <span class="n">in_channels</span><span class="o">=</span><span class="n">in_channels</span><span class="p">,</span>
+            <span class="n">out_channels</span><span class="o">=</span><span class="n">out_channels</span><span class="p">,</span>
+            <span class="n">heads</span><span class="o">=</span><span class="n">heads</span><span class="p">,</span>
+            <span class="n">dropout</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+            <span class="n">concat</span><span class="o">=</span><span class="n">concat</span><span class="p">,</span>
+            <span class="n">negative_slope</span><span class="o">=</span><span class="n">negative_slope</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">bn_dim</span> <span class="o">=</span> <span class="n">out_channels</span> <span class="o">*</span> <span class="n">heads</span> <span class="k">if</span> <span class="n">concat</span> <span class="k">else</span> <span class="n">out_channels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bn</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm1d</span><span class="p">(</span><span class="n">bn_dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout_prob</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">output_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Effective output feature dimension.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Output channel dimension after head concatenation/aggregation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_channels</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">heads</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">concat</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_channels</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reset all learnable parameters in the block.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gat</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bn</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply graph attention, activation, normalization, and dropout.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x:</span>
+<span class="sd">                Node feature matrix of shape [num_nodes, in_channels].</span>
+<span class="sd">            edge_index:</span>
+<span class="sd">                Graph connectivity of shape [2, num_edges].</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Node embeddings of shape [num_nodes, output_dim].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gat</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">elu</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;in_channels=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">in_channels</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;out_channels=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">out_channels</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;heads=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">heads</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;concat=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">concat</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;dropout_prob=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dropout_prob</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">GATStack</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plain stack of GAT blocks without residual connections.</span>
+
+<span class="sd">    Architecture:</span>
+<span class="sd">        x -&gt; GATBlock_1 -&gt; GATBlock_2 -&gt; ... -&gt; GATBlock_L</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        in_channels:</span>
+<span class="sd">            Input node feature dimension.</span>
+<span class="sd">        hidden_channels:</span>
+<span class="sd">            Output dimension per attention head.</span>
+<span class="sd">        num_layers:</span>
+<span class="sd">            Number of stacked GAT blocks.</span>
+<span class="sd">        heads:</span>
+<span class="sd">            Number of attention heads per block.</span>
+<span class="sd">        dropout_prob:</span>
+<span class="sd">            Dropout probability used in each block.</span>
+
+<span class="sd">    Output dimension:</span>
+<span class="sd">        `hidden_channels * heads`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">in_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">hidden_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="n">heads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">dropout_prob</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">in_channels</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`in_channels` must be &gt; 0, got </span><span class="si">{</span><span class="n">in_channels</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">hidden_channels</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`hidden_channels` must be &gt; 0, got </span><span class="si">{</span><span class="n">hidden_channels</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_layers</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`num_layers` must be &gt; 0, got </span><span class="si">{</span><span class="n">num_layers</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">heads</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`heads` must be &gt; 0, got </span><span class="si">{</span><span class="n">heads</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_channels</span> <span class="o">=</span> <span class="n">in_channels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hidden_channels</span> <span class="o">=</span> <span class="n">hidden_channels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_layers</span> <span class="o">=</span> <span class="n">num_layers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heads</span> <span class="o">=</span> <span class="n">heads</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout_prob</span> <span class="o">=</span> <span class="n">dropout_prob</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">=</span> <span class="n">hidden_channels</span> <span class="o">*</span> <span class="n">heads</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">()</span>
+        <span class="n">current_dim</span> <span class="o">=</span> <span class="n">in_channels</span>
+
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">GATBlock</span><span class="p">(</span>
+                    <span class="n">in_channels</span><span class="o">=</span><span class="n">current_dim</span><span class="p">,</span>
+                    <span class="n">out_channels</span><span class="o">=</span><span class="n">hidden_channels</span><span class="p">,</span>
+                    <span class="n">heads</span><span class="o">=</span><span class="n">heads</span><span class="p">,</span>
+                    <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+                    <span class="n">concat</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="n">current_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reset all GAT blocks.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">:</span>
+            <span class="n">block</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply stacked GAT blocks without residual connections.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x:</span>
+<span class="sd">                Node features [num_nodes, in_channels].</span>
+<span class="sd">            edge_index:</span>
+<span class="sd">                Graph connectivity [2, num_edges].</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Node embeddings [num_nodes, hidden_channels * heads].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">block</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;in_channels=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">in_channels</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;hidden_channels=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">hidden_channels</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;num_layers=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_layers</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;heads=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">heads</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;dropout_prob=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dropout_prob</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ResidualGATBlock</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Residual graph attention block.</span>
+
+<span class="sd">    Structure:</span>
+<span class="sd">        residual projection(x) + GATBlock(x, edge_index)</span>
+
+<span class="sd">    A learnable linear projection is used when the input dimension differs from</span>
+<span class="sd">    the GAT block output dimension.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        in_channels:</span>
+<span class="sd">            Input node feature dimension.</span>
+<span class="sd">        out_channels:</span>
+<span class="sd">            Output feature dimension per GAT head.</span>
+<span class="sd">        heads:</span>
+<span class="sd">            Number of attention heads.</span>
+<span class="sd">        dropout_prob:</span>
+<span class="sd">            Dropout probability used inside the GAT block.</span>
+
+<span class="sd">    Input:</span>
+<span class="sd">        - x: [num_nodes, in_channels]</span>
+<span class="sd">        - edge_index: [2, num_edges]</span>
+
+<span class="sd">    Output:</span>
+<span class="sd">        - [num_nodes, out_channels * heads]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">in_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">out_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">heads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">dropout_prob</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">gat_block</span> <span class="o">=</span> <span class="n">GATBlock</span><span class="p">(</span>
+            <span class="n">in_channels</span><span class="o">=</span><span class="n">in_channels</span><span class="p">,</span>
+            <span class="n">out_channels</span><span class="o">=</span><span class="n">out_channels</span><span class="p">,</span>
+            <span class="n">heads</span><span class="o">=</span><span class="n">heads</span><span class="p">,</span>
+            <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+            <span class="n">concat</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">=</span> <span class="n">out_channels</span> <span class="o">*</span> <span class="n">heads</span>
+
+        <span class="k">if</span> <span class="n">in_channels</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">residual_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">residual_proj</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">in_channels</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reset GAT and residual projection parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gat_block</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">residual_proj</span><span class="p">,</span> <span class="s2">&quot;reset_parameters&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">residual_proj</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply residual GAT transformation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x:</span>
+<span class="sd">                Node features [num_nodes, in_channels].</span>
+<span class="sd">            edge_index:</span>
+<span class="sd">                Graph connectivity [2, num_edges].</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Node features [num_nodes, output_dim].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">gat_block</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">residual_proj</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ResidualGATStack</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Stack of residual GAT blocks.</span>
+
+<span class="sd">    Architecture:</span>
+<span class="sd">        x</span>
+<span class="sd">          -&gt; ResidualGATBlock_1</span>
+<span class="sd">          -&gt; ResidualGATBlock_2</span>
+<span class="sd">          -&gt; ...</span>
+<span class="sd">          -&gt; ResidualGATBlock_L</span>
+
+<span class="sd">    The first block may project from `in_channels` to `hidden_channels * heads`.</span>
+<span class="sd">    Subsequent blocks keep a constant embedding dimension.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        in_channels:</span>
+<span class="sd">            Input node feature dimension.</span>
+<span class="sd">        hidden_channels:</span>
+<span class="sd">            Hidden dimension per attention head.</span>
+<span class="sd">        num_layers:</span>
+<span class="sd">            Number of residual GAT blocks.</span>
+<span class="sd">        heads:</span>
+<span class="sd">            Number of attention heads.</span>
+<span class="sd">        dropout_prob:</span>
+<span class="sd">            Dropout probability used in each block.</span>
+
+<span class="sd">    Output dimension:</span>
+<span class="sd">        `hidden_channels * heads`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">in_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">hidden_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="n">heads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">dropout_prob</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">in_channels</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`in_channels` must be &gt; 0, got </span><span class="si">{</span><span class="n">in_channels</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">hidden_channels</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`hidden_channels` must be &gt; 0, got </span><span class="si">{</span><span class="n">hidden_channels</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_layers</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`num_layers` must be &gt; 0, got </span><span class="si">{</span><span class="n">num_layers</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">heads</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`heads` must be &gt; 0, got </span><span class="si">{</span><span class="n">heads</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_channels</span> <span class="o">=</span> <span class="n">in_channels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hidden_channels</span> <span class="o">=</span> <span class="n">hidden_channels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_layers</span> <span class="o">=</span> <span class="n">num_layers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">heads</span> <span class="o">=</span> <span class="n">heads</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout_prob</span> <span class="o">=</span> <span class="n">dropout_prob</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">=</span> <span class="n">hidden_channels</span> <span class="o">*</span> <span class="n">heads</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">()</span>
+        <span class="n">current_dim</span> <span class="o">=</span> <span class="n">in_channels</span>
+
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_layers</span><span class="p">):</span>
+            <span class="n">block</span> <span class="o">=</span> <span class="n">ResidualGATBlock</span><span class="p">(</span>
+                <span class="n">in_channels</span><span class="o">=</span><span class="n">current_dim</span><span class="p">,</span>
+                <span class="n">out_channels</span><span class="o">=</span><span class="n">hidden_channels</span><span class="p">,</span>
+                <span class="n">heads</span><span class="o">=</span><span class="n">heads</span><span class="p">,</span>
+                <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="p">)</span>
+            <span class="n">current_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reset all residual GAT blocks.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">:</span>
+            <span class="n">block</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply stacked residual GAT blocks.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x:</span>
+<span class="sd">                Node features [num_nodes, in_channels].</span>
+<span class="sd">            edge_index:</span>
+<span class="sd">                Graph connectivity [2, num_edges].</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Node embeddings [num_nodes, hidden_channels * heads].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">block</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;in_channels=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">in_channels</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;hidden_channels=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">hidden_channels</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;num_layers=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_layers</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;heads=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">heads</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;dropout_prob=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dropout_prob</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">build_gat_encoder</span><span class="p">(</span>
+    <span class="n">encoder_type</span><span class="p">:</span> <span class="n">GATEncoderType</span><span class="p">,</span>
+    <span class="n">in_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">hidden_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">heads</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">dropout_prob</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Build a GAT encoder stack.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        encoder_type:</span>
+<span class="sd">            Encoder variant:</span>
+<span class="sd">                - &quot;gat&quot;: plain stacked GAT blocks</span>
+<span class="sd">                - &quot;res_gat&quot;: residual GAT stack</span>
+<span class="sd">        in_channels:</span>
+<span class="sd">            Input node feature dimension.</span>
+<span class="sd">        hidden_channels:</span>
+<span class="sd">            Hidden dimension per attention head.</span>
+<span class="sd">        num_layers:</span>
+<span class="sd">            Number of GAT layers.</span>
+<span class="sd">        heads:</span>
+<span class="sd">            Number of attention heads.</span>
+<span class="sd">        dropout_prob:</span>
+<span class="sd">            Dropout probability.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A GAT encoder module.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError:</span>
+<span class="sd">            If `encoder_type` is unsupported.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">encoder_type</span> <span class="o">==</span> <span class="s2">&quot;gat&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">GATStack</span><span class="p">(</span>
+            <span class="n">in_channels</span><span class="o">=</span><span class="n">in_channels</span><span class="p">,</span>
+            <span class="n">hidden_channels</span><span class="o">=</span><span class="n">hidden_channels</span><span class="p">,</span>
+            <span class="n">num_layers</span><span class="o">=</span><span class="n">num_layers</span><span class="p">,</span>
+            <span class="n">heads</span><span class="o">=</span><span class="n">heads</span><span class="p">,</span>
+            <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">encoder_type</span> <span class="o">==</span> <span class="s2">&quot;res_gat&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ResidualGATStack</span><span class="p">(</span>
+            <span class="n">in_channels</span><span class="o">=</span><span class="n">in_channels</span><span class="p">,</span>
+            <span class="n">hidden_channels</span><span class="o">=</span><span class="n">hidden_channels</span><span class="p">,</span>
+            <span class="n">num_layers</span><span class="o">=</span><span class="n">num_layers</span><span class="p">,</span>
+            <span class="n">heads</span><span class="o">=</span><span class="n">heads</span><span class="p">,</span>
+            <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Unsupported `encoder_type`: </span><span class="si">{</span><span class="n">encoder_type</span><span class="si">!r}</span><span class="s2">. &quot;</span> <span class="s2">&quot;Expected one of (&#39;gat&#39;, &#39;res_gat&#39;).&quot;</span>
+    <span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">PositionalEncoding</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Sinusoidal positional encoding for sequence-style inputs.</span>
+
+<span class="sd">    This module is independent from graph topology and is intended for</span>
+<span class="sd">    sequence/temporal models that consume tensors of shape</span>
+<span class="sd">    [batch_size, seq_len, d_model].</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        d_model:</span>
+<span class="sd">            Feature dimension of the sequence embeddings.</span>
+<span class="sd">        dropout:</span>
+<span class="sd">           out probability applied after adding positional encodings.</span>
+<span class="sd">        max_len:</span>
+<span class="sd">            Maximum supported sequence length.</span>
+
+<span class="sd">    Input:</span>
+<span class="sd">        - x: [batch_size, seq_len, d_model]</span>
+
+<span class="sd">    Output:</span>
+<span class="sd">        - same shape as input</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d_model</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dropout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="n">max_len</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5000</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">d_model</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`d_model` must be &gt; 0, got </span><span class="si">{</span><span class="n">d_model</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">max_len</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`max_len` must be &gt; 0, got </span><span class="si">{</span><span class="n">max_len</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">dropout</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`dropout` must be in [0, 1), got </span><span class="si">{</span><span class="n">dropout</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">d_model</span> <span class="o">=</span> <span class="n">d_model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_len</span> <span class="o">=</span> <span class="n">max_len</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="n">dropout</span><span class="p">)</span>
+
+        <span class="n">position</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">max_len</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="n">div_term</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="o">*</span> <span class="p">(</span><span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">10000.0</span><span class="p">))</span> <span class="o">/</span> <span class="n">d_model</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">pe</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">max_len</span><span class="p">,</span> <span class="n">d_model</span><span class="p">)</span>
+        <span class="n">pe</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">position</span> <span class="o">*</span> <span class="n">div_term</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">d_model</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">pe</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">position</span> <span class="o">*</span> <span class="n">div_term</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">pe</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">position</span> <span class="o">*</span> <span class="n">div_term</span><span class="p">)</span>
+
+        <span class="n">pe</span> <span class="o">=</span> <span class="n">pe</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;pe&quot;</span><span class="p">,</span> <span class="n">pe</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add positional information to sequence embeddings.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x:</span>
+<span class="sd">                Input tensor [batch_size, seq_len, d_model].</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tensor of same shape as input.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError:</span>
+<span class="sd">                If input sequence length exceeds `max_len` or shape is invalid.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`x` must be 3D [batch_size, seq_len, d_model], got shape </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_len</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Input sequence length </span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="si">}</span><span class="s2"> exceeds max_len=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_len</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">d_model</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Input feature dim must equal d_model=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">d_model</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">pe</span><span class="p">[:,</span> <span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="TemporalBiLSTMEncoder">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.TemporalBiLSTMEncoder">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TemporalBiLSTMEncoder</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reusable bidirectional LSTM encoder for prepared temporal sequences.</span>
+
+<span class="sd">    This layer is independent from PyG graph metadata. Graph-specific pooling</span>
+<span class="sd">    into time bins must happen before calling this encoder.</span>
+
+<span class="sd">    Processing order:</span>
+<span class="sd">        LayerNorm(input) -&gt; BiLSTM -&gt; LayerNorm(output) -&gt; Dropout -&gt; aggregation</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        input_dim:</span>
+<span class="sd">            Feature dimension of each sequence step.</span>
+<span class="sd">        hidden_dim:</span>
+<span class="sd">            Hidden dimension for one LSTM direction.</span>
+<span class="sd">        num_layers:</span>
+<span class="sd">            Number of stacked recurrent layers.</span>
+<span class="sd">        dropout_prob:</span>
+<span class="sd">            Dropout probability applied to recurrent outputs. The LSTM-internal</span>
+<span class="sd">            dropout follows PyTorch semantics and is active only when</span>
+<span class="sd">            `num_layers &gt; 1`.</span>
+<span class="sd">        aggregation:</span>
+<span class="sd">            Temporal aggregation rule:</span>
+<span class="sd">                - &quot;mean&quot;: average recurrent outputs across sequence steps</span>
+<span class="sd">                - &quot;last&quot;: select the final recurrent output</span>
+<span class="sd">                - &quot;max&quot;: take the maximum across sequence steps</span>
+
+<span class="sd">    Input:</span>
+<span class="sd">        - sequence: [batch_size, seq_len, input_dim]</span>
+
+<span class="sd">    Output:</span>
+<span class="sd">        - [batch_size, hidden_dim * 2]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">hidden_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">dropout_prob</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="n">aggregation</span><span class="p">:</span> <span class="n">TemporalAggregation</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">input_dim</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`input_dim` must be &gt; 0, got </span><span class="si">{</span><span class="n">input_dim</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">hidden_dim</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`hidden_dim` must be &gt; 0, got </span><span class="si">{</span><span class="n">hidden_dim</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_layers</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`num_layers` must be &gt; 0, got </span><span class="si">{</span><span class="n">num_layers</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">dropout_prob</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`dropout_prob` must be in [0, 1), got </span><span class="si">{</span><span class="n">dropout_prob</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">aggregation</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;last&quot;</span><span class="p">,</span> <span class="s2">&quot;max&quot;</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`aggregation` must be one of (&#39;mean&#39;, &#39;last&#39;, &#39;max&#39;), got </span><span class="si">{</span><span class="n">aggregation</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_dim</span> <span class="o">=</span> <span class="n">input_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span> <span class="o">=</span> <span class="n">hidden_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_layers</span> <span class="o">=</span> <span class="n">num_layers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout_prob</span> <span class="o">=</span> <span class="n">dropout_prob</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">aggregation</span> <span class="o">=</span> <span class="n">aggregation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">=</span> <span class="n">hidden_dim</span> <span class="o">*</span> <span class="mi">2</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_norm</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="n">input_dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lstm</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LSTM</span><span class="p">(</span>
+            <span class="n">input_size</span><span class="o">=</span><span class="n">input_dim</span><span class="p">,</span>
+            <span class="n">hidden_size</span><span class="o">=</span><span class="n">hidden_dim</span><span class="p">,</span>
+            <span class="n">num_layers</span><span class="o">=</span><span class="n">num_layers</span><span class="p">,</span>
+            <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">dropout</span><span class="o">=</span><span class="n">dropout_prob</span> <span class="k">if</span> <span class="n">num_layers</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">0.0</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_norm</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout_prob</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TemporalBiLSTMEncoder.reset_parameters">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.TemporalBiLSTMEncoder.reset_parameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reset all learnable parameters in the encoder.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_norm</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lstm</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_norm</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="TemporalBiLSTMEncoder.forward">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.TemporalBiLSTMEncoder.forward">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sequence</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Encode a prepared temporal sequence.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            sequence:</span>
+<span class="sd">                Tensor of shape [batch_size, seq_len, input_dim].</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Tensor of shape [batch_size, hidden_dim * 2].</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            TypeError:</span>
+<span class="sd">                If `sequence` is not a torch tensor.</span>
+<span class="sd">            ValueError:</span>
+<span class="sd">                If rank, sequence length, or feature dimension is invalid.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">is_tensor</span><span class="p">(</span><span class="n">sequence</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;`sequence` must be a torch.Tensor.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sequence</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`sequence` must be 3D [batch_size, seq_len, input_dim], &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got shape </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">sequence</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`sequence` length must be &gt; 0.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sequence</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_dim</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`sequence` feature dim must equal input_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">input_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">sequence</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">sequence</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_norm</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
+        <span class="n">recurrent_output</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lstm</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
+        <span class="n">recurrent_output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_norm</span><span class="p">(</span><span class="n">recurrent_output</span><span class="p">)</span>
+        <span class="n">recurrent_output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">recurrent_output</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_aggregate</span><span class="p">(</span><span class="n">recurrent_output</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_aggregate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">recurrent_output</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aggregation</span> <span class="o">==</span> <span class="s2">&quot;mean&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">recurrent_output</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aggregation</span> <span class="o">==</span> <span class="s2">&quot;last&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">recurrent_output</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aggregation</span> <span class="o">==</span> <span class="s2">&quot;max&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">recurrent_output</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported aggregation=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">aggregation</span><span class="si">!r}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TemporalBiLSTMEncoder.extra_repr">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.TemporalBiLSTMEncoder.extra_repr">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;input_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">input_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;hidden_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;num_layers=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_layers</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;dropout_prob=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dropout_prob</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;aggregation=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">aggregation</span><span class="si">!r}</span><span class="s2">&quot;</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MLPHead</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Flexible MLP prediction head.</span>
+
+<span class="sd">    Architecture:</span>
+<span class="sd">        [Linear -&gt; ReLU -&gt; BatchNorm1d -&gt; Dropout] * num_hidden_layers</span>
+<span class="sd">        -&gt; Linear(output)</span>
+
+<span class="sd">    Optional output activation can be applied at the final layer.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        input_dim:</span>
+<span class="sd">            Input feature dimension.</span>
+<span class="sd">        hidden_dim:</span>
+<span class="sd">            Hidden layer dimension. Required if `num_hidden_layers &gt; 0`.</span>
+<span class="sd">        output_dim:</span>
+<span class="sd">            Output feature dimension.</span>
+<span class="sd">        num_hidden_layers:</span>
+<span class="sd">            Number of hidden layers before the output layer.</span>
+<span class="sd">        dropout_prob:</span>
+<span class="sd">            Dropout probability in hidden layers.</span>
+<span class="sd">        output_activation:</span>
+<span class="sd">            Optional output activation:</span>
+<span class="sd">                - &quot;relu&quot;</span>
+<span class="sd">                - &quot;sigmoid&quot;</span>
+<span class="sd">                - &quot;tanh&quot;</span>
+<span class="sd">                - None</span>
+
+<span class="sd">    Input:</span>
+<span class="sd">        - x: [batch_size, input_dim]</span>
+
+<span class="sd">    Output:</span>
+<span class="sd">        - [batch_size, output_dim]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">hidden_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">output_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">num_hidden_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">dropout_prob</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="n">output_activation</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">input_dim</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`input_dim` must be &gt; 0, got </span><span class="si">{</span><span class="n">input_dim</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">output_dim</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`output_dim` must be &gt; 0, got </span><span class="si">{</span><span class="n">output_dim</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_hidden_layers</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`num_hidden_layers` must be &gt;= 0, got </span><span class="si">{</span><span class="n">num_hidden_layers</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">dropout_prob</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`dropout_prob` must be in [0, 1), got </span><span class="si">{</span><span class="n">dropout_prob</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_hidden_layers</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">hidden_dim</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">hidden_dim</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;`hidden_dim` must be provided and &gt; 0 when &quot;</span> <span class="s2">&quot;`num_hidden_layers &gt; 0`.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="n">valid_activations</span> <span class="o">=</span> <span class="p">{</span><span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;relu&quot;</span><span class="p">,</span> <span class="s2">&quot;sigmoid&quot;</span><span class="p">,</span> <span class="s2">&quot;tanh&quot;</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">output_activation</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">valid_activations</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`output_activation` must be one of </span><span class="si">{</span><span class="n">valid_activations</span><span class="si">}</span><span class="s2">, &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">output_activation</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_dim</span> <span class="o">=</span> <span class="n">input_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span> <span class="o">=</span> <span class="n">hidden_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">=</span> <span class="n">output_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_hidden_layers</span> <span class="o">=</span> <span class="n">num_hidden_layers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout_prob</span> <span class="o">=</span> <span class="n">dropout_prob</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_activation</span> <span class="o">=</span> <span class="n">output_activation</span>
+
+        <span class="n">layers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">current_dim</span> <span class="o">=</span> <span class="n">input_dim</span>
+
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_hidden_layers</span><span class="p">):</span>
+            <span class="n">layers</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">current_dim</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">),</span>
+                    <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+                    <span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm1d</span><span class="p">(</span><span class="n">hidden_dim</span><span class="p">),</span>
+                    <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout_prob</span><span class="p">),</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">current_dim</span> <span class="o">=</span> <span class="n">hidden_dim</span>
+
+        <span class="n">layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">current_dim</span><span class="p">,</span> <span class="n">output_dim</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">output_activation</span> <span class="o">==</span> <span class="s2">&quot;relu&quot;</span><span class="p">:</span>
+            <span class="n">layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">())</span>
+        <span class="k">elif</span> <span class="n">output_activation</span> <span class="o">==</span> <span class="s2">&quot;sigmoid&quot;</span><span class="p">:</span>
+            <span class="n">layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Sigmoid</span><span class="p">())</span>
+        <span class="k">elif</span> <span class="n">output_activation</span> <span class="o">==</span> <span class="s2">&quot;tanh&quot;</span><span class="p">:</span>
+            <span class="n">layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Tanh</span><span class="p">())</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="o">*</span><span class="n">layers</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reset all resettable submodules in the MLP head.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s2">&quot;reset_parameters&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">callable</span><span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">):</span>
+                <span class="n">module</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply the MLP head.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x:</span>
+<span class="sd">                Input tensor [batch_size, input_dim].</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Output tensor [batch_size, output_dim].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mlp</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;input_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">input_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;hidden_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">hidden_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;output_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;num_hidden_layers=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_hidden_layers</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;dropout_prob=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dropout_prob</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;output_activation=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">output_activation</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">PhyloGNN</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/index.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Minghao Du.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

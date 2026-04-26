@@ -46,7 +46,7 @@
   tests required for this change. If any non-trivial change lacks tests,
   justify why.
 - `Pragmatism`: Record what is intentionally deferred so the implementation
-  stays minimal, local, and compatible with the existing `pytorch` environment.
+  stays minimal, local, and compatible with the existing `phylognn` environment.
 
 ## Project Structure
 

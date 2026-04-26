@@ -1,0 +1,1616 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>phylognn.training.dataset &#8212; PhyloGNN 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for phylognn.training.dataset</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Split-aware dataset utilities for phylogenetic graph data.</span>
+
+<span class="sd">This module provides industrialized dataset implementations for PyTorch Geometric</span>
+<span class="sd">with explicit support for dataset splits such as train / val / test.</span>
+
+<span class="sd">Overview</span>
+<span class="sd">--------</span>
+<span class="sd">The module contains two primary dataset classes:</span>
+
+<span class="sd">1. SplitPhyloDataset</span>
+<span class="sd">   - In-memory dataset</span>
+<span class="sd">   - Use when all graphs are already loaded as `torch_geometric.data.Data`</span>
+
+<span class="sd">2. SplitPhyloDiskDataset</span>
+<span class="sd">   - Disk-backed dataset</span>
+<span class="sd">   - Use when graphs (`x`) and labels (`y`) are stored as `.pt` files on disk</span>
+
+<span class="sd">In addition, this module provides:</span>
+<span class="sd">- split generation utilities</span>
+<span class="sd">- deterministic random splitting</span>
+<span class="sd">- split loading from explicit sample IDs or manifest files</span>
+<span class="sd">- subset/view creation for split-specific datasets</span>
+<span class="sd">- strong validation and consistent target attachment</span>
+
+<span class="sd">Core design principles</span>
+<span class="sd">----------------------</span>
+<span class="sd">- Deterministic indexing and splitting</span>
+<span class="sd">- Clear and stable matching rules</span>
+<span class="sd">- Strong input validation</span>
+<span class="sd">- Separation of concerns:</span>
+<span class="sd">    * indexing</span>
+<span class="sd">    * split construction</span>
+<span class="sd">    * graph loading</span>
+<span class="sd">    * label loading</span>
+<span class="sd">    * target attachment</span>
+<span class="sd">- Production-friendly APIs</span>
+<span class="sd">- Safe cloning before mutation</span>
+<span class="sd">- PyTorch Geometric compatibility</span>
+
+<span class="sd">Recommended on-disk layout</span>
+<span class="sd">--------------------------</span>
+<span class="sd">Use mirrored graph/label filenames:</span>
+
+<span class="sd">    dataset/</span>
+<span class="sd">        graphs/</span>
+<span class="sd">            sample_0001.pt</span>
+<span class="sd">            sample_0002.pt</span>
+<span class="sd">            ...</span>
+<span class="sd">        labels/</span>
+<span class="sd">            sample_0001.pt</span>
+<span class="sd">            sample_0002.pt</span>
+<span class="sd">            ...</span>
+
+<span class="sd">Optional split manifests:</span>
+
+<span class="sd">    dataset/</span>
+<span class="sd">        splits/</span>
+<span class="sd">            train.txt</span>
+<span class="sd">            val.txt</span>
+<span class="sd">            test.txt</span>
+
+<span class="sd">Where each split file contains one sample ID per line, for example:</span>
+<span class="sd">    sample_0001</span>
+<span class="sd">    sample_0002</span>
+<span class="sd">    sample_0042</span>
+
+<span class="sd">Definition of sample ID</span>
+<span class="sd">-----------------------</span>
+<span class="sd">By default, the sample ID of a graph file is its relative path to `graph_dir`</span>
+<span class="sd">without the `.pt` suffix.</span>
+
+<span class="sd">Examples:</span>
+<span class="sd">- graph path: `graphs/a.pt`                -&gt; sample_id = &quot;a&quot;</span>
+<span class="sd">- graph path: `graphs/fold1/a.pt`          -&gt; sample_id = &quot;fold1/a&quot;</span>
+
+<span class="sd">This convention enables:</span>
+<span class="sd">- deterministic matching</span>
+<span class="sd">- mirrored label lookup</span>
+<span class="sd">- split manifests independent of absolute paths</span>
+
+<span class="sd">Label attachment contract</span>
+<span class="sd">-------------------------</span>
+<span class="sd">Labels are attached as `data.y`.</span>
+
+<span class="sd">Accepted label formats</span>
+<span class="sd">----------------------</span>
+<span class="sd">Each label object may be:</span>
+<span class="sd">- `torch.Tensor`</span>
+<span class="sd">- numeric scalar (`int`, `float`, `bool`)</span>
+
+<span class="sd">Split strategies</span>
+<span class="sd">----------------</span>
+<span class="sd">This module supports two split strategies:</span>
+
+<span class="sd">1. Ratio-based random split</span>
+<span class="sd">   Example:</span>
+<span class="sd">       split = DatasetSplit.from_ratios(</span>
+<span class="sd">           sample_ids=dataset.sample_ids,</span>
+<span class="sd">           train_ratio=0.8,</span>
+<span class="sd">           val_ratio=0.1,</span>
+<span class="sd">           test_ratio=0.1,</span>
+<span class="sd">           seed=42,</span>
+<span class="sd">       )</span>
+
+<span class="sd">2. Explicit split definition</span>
+<span class="sd">   Example:</span>
+<span class="sd">       split = DatasetSplit.from_dict({</span>
+<span class="sd">           &quot;train&quot;: [&quot;sample_0001&quot;, &quot;sample_0002&quot;],</span>
+<span class="sd">           &quot;val&quot;:   [&quot;sample_0003&quot;],</span>
+<span class="sd">           &quot;test&quot;:  [&quot;sample_0004&quot;],</span>
+<span class="sd">       })</span>
+
+<span class="sd">Manifest file format</span>
+<span class="sd">--------------------</span>
+<span class="sd">A split manifest directory may contain:</span>
+<span class="sd">- train.txt</span>
+<span class="sd">- val.txt</span>
+<span class="sd">- test.txt</span>
+
+<span class="sd">Each file contains one sample ID per line.</span>
+<span class="sd">Blank lines and lines starting with &quot;#&quot; are ignored.</span>
+
+<span class="sd">Usage examples</span>
+<span class="sd">--------------</span>
+<span class="sd">In-memory dataset:</span>
+
+<span class="sd">    base_dataset = SplitPhyloDataset(data_list=graphs, labels=labels)</span>
+<span class="sd">    split = DatasetSplit.from_ratios(</span>
+<span class="sd">        sample_ids=base_dataset.sample_ids,</span>
+<span class="sd">        train_ratio=0.8,</span>
+<span class="sd">        val_ratio=0.1,</span>
+<span class="sd">        test_ratio=0.1,</span>
+<span class="sd">        seed=42,</span>
+<span class="sd">    )</span>
+
+<span class="sd">    train_dataset = base_dataset.subset(&quot;train&quot;, split)</span>
+<span class="sd">    val_dataset = base_dataset.subset(&quot;val&quot;, split)</span>
+<span class="sd">    test_dataset = base_dataset.subset(&quot;test&quot;, split)</span>
+
+<span class="sd">Disk-backed dataset:</span>
+
+<span class="sd">    dataset = SplitPhyloDiskDataset(</span>
+<span class="sd">        graph_dir=&quot;dataset/graphs&quot;,</span>
+<span class="sd">        label_dir=&quot;dataset/labels&quot;,</span>
+<span class="sd">    )</span>
+
+<span class="sd">    split = DatasetSplit.from_manifest_dir(&quot;dataset/splits&quot;)</span>
+<span class="sd">    train_dataset = dataset.subset(&quot;train&quot;, split)</span>
+<span class="sd">    val_dataset = dataset.subset(&quot;val&quot;, split)</span>
+<span class="sd">    test_dataset = dataset.subset(&quot;test&quot;, split)</span>
+
+<span class="sd">Engineering notes</span>
+<span class="sd">-----------------</span>
+<span class="sd">- All indexing is deterministic</span>
+<span class="sd">- Subsets are lightweight views over a base dataset</span>
+<span class="sd">- Graphs are cloned before labels/transforms are attached</span>
+<span class="sd">- Optional caching is supported for disk-backed loading</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">Mapping</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Sequence</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Union</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numbers</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tensor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch_geometric.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">Data</span><span class="p">,</span> <span class="n">Dataset</span>
+
+<span class="c1"># ---------------------------------------------------------------------</span>
+<span class="c1"># Type aliases</span>
+<span class="c1"># ---------------------------------------------------------------------</span>
+<span class="n">PathLike</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span>
+<span class="n">LabelValue</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Real</span><span class="p">]</span>
+<span class="n">LoadedLabelObject</span> <span class="o">=</span> <span class="n">Tensor</span>
+<span class="n">InMemoryLabels</span> <span class="o">=</span> <span class="n">Tensor</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------</span>
+<span class="c1"># Low-level helper functions</span>
+<span class="c1"># ---------------------------------------------------------------------</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_ensure_data_instance</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Validate that an object is a PyG `Data` instance.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    obj : object</span>
+<span class="sd">        Loaded object to validate.</span>
+
+<span class="sd">    source : str</span>
+<span class="sd">        Description used in error messages.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Data</span>
+<span class="sd">        Validated `Data` instance.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    TypeError</span>
+<span class="sd">        If `obj` is not a `torch_geometric.data.Data` object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Data</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Expected a torch_geometric.data.Data object from </span><span class="si">{</span><span class="n">source</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">obj</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_clone_data</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Clone a graph object before mutation.</span>
+
+<span class="sd">    This prevents side effects when attaching labels or applying transforms.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_to_tensor</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">LabelValue</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">scalar_dtype</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Normalize a scalar or tensor into a tensor.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    value : Tensor or numeric scalar</span>
+<span class="sd">        Input value.</span>
+
+<span class="sd">    scalar_dtype : torch.dtype, default=torch.float32</span>
+<span class="sd">        Dtype used when converting scalar numerics.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Tensor</span>
+<span class="sd">        Tensor value.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    TypeError</span>
+<span class="sd">        If `value` is neither a tensor nor a numeric scalar.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">value</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Real</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">scalar_dtype</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Expected a torch.Tensor or numeric scalar, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_normalize_label_object</span><span class="p">(</span><span class="n">label_obj</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LoadedLabelObject</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Normalize a loaded label object.</span>
+
+<span class="sd">    Accepted label formats</span>
+<span class="sd">    ----------------------</span>
+<span class="sd">    - Tensor</span>
+<span class="sd">    - numeric scalar</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    LoadedLabelObject</span>
+<span class="sd">        Normalized label object.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    TypeError</span>
+<span class="sd">        If the label format is unsupported.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">label_obj</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">label_obj</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">label_obj</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Real</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">label_obj</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Unsupported label format. Expected torch.Tensor or numeric scalar.&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_attach_label_to_data</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span> <span class="n">label_obj</span><span class="p">:</span> <span class="n">LoadedLabelObject</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Attach a normalized label object to a graph.</span>
+
+<span class="sd">    Specification</span>
+<span class="sd">    -------------</span>
+<span class="sd">    - `data.y = tensor`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">label_obj</span>
+    <span class="k">return</span> <span class="n">data</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sorted_pt_files</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">recursive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Collect `.pt` files in deterministic sorted order.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    root : Path</span>
+<span class="sd">        Root directory to scan.</span>
+
+<span class="sd">    recursive : bool, default=False</span>
+<span class="sd">        Whether to scan recursively.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    List[Path]</span>
+<span class="sd">        Sorted list of `.pt` file paths.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">pattern</span> <span class="o">=</span> <span class="s2">&quot;**/*.pt&quot;</span> <span class="k">if</span> <span class="n">recursive</span> <span class="k">else</span> <span class="s2">&quot;*.pt&quot;</span>
+    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">root</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">pattern</span><span class="p">)</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">is_file</span><span class="p">())</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_read_sample_id_file</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Read a text file containing one sample ID per line.</span>
+
+<span class="sd">    Parsing rules</span>
+<span class="sd">    -------------</span>
+<span class="sd">    - blank lines are ignored</span>
+<span class="sd">    - lines beginning with &#39;#&#39; are ignored</span>
+<span class="sd">    - surrounding whitespace is stripped</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sample_ids</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">with</span> <span class="n">path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;r&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">item</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">item</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="n">sample_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">sample_ids</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------</span>
+<span class="c1"># Split container</span>
+<span class="c1"># ---------------------------------------------------------------------</span>
+<div class="viewcode-block" id="DatasetSplit">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.DatasetSplit">[docs]</a>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DatasetSplit</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Immutable split definition for sample IDs.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    splits : Dict[str, List[str]]</span>
+<span class="sd">        Mapping from split name to ordered list of sample IDs.</span>
+
+<span class="sd">    Specification</span>
+<span class="sd">    -------------</span>
+<span class="sd">    - sample IDs must be unique across all splits</span>
+<span class="sd">    - order inside each split is preserved</span>
+<span class="sd">    - split names are arbitrary strings, but common names are:</span>
+<span class="sd">        * train</span>
+<span class="sd">        * val</span>
+<span class="sd">        * test</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    &gt;&gt;&gt; split = DatasetSplit.from_dict({</span>
+<span class="sd">    ...     &quot;train&quot;: [&quot;a&quot;, &quot;b&quot;, &quot;c&quot;],</span>
+<span class="sd">    ...     &quot;val&quot;: [&quot;d&quot;],</span>
+<span class="sd">    ...     &quot;test&quot;: [&quot;e&quot;, &quot;f&quot;],</span>
+<span class="sd">    ... })</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">splits</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate structural correctness and uniqueness across splits.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">splits</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;DatasetSplit must contain at least one split.&quot;</span><span class="p">)</span>
+
+        <span class="n">seen</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">split_name</span><span class="p">,</span> <span class="n">sample_ids</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">splits</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">split_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Split name must be str, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">split_name</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sample_ids</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Split &#39;</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">&#39; must be a list of sample IDs.&quot;</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">sample_id</span> <span class="ow">in</span> <span class="n">sample_ids</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sample_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Sample ID in split &#39;</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">&#39; must be str, &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">sample_id</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="p">)</span>
+                <span class="k">if</span> <span class="n">sample_id</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Sample ID &#39;</span><span class="si">{</span><span class="n">sample_id</span><span class="si">}</span><span class="s2">&#39; appears in multiple splits: &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">seen</span><span class="p">[</span><span class="n">sample_id</span><span class="p">]</span><span class="si">}</span><span class="s2">&#39; and &#39;</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+                    <span class="p">)</span>
+                <span class="n">seen</span><span class="p">[</span><span class="n">sample_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">split_name</span>
+
+<div class="viewcode-block" id="DatasetSplit.from_dict">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.DatasetSplit.from_dict">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">split_dict</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="s2">&quot;DatasetSplit&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Build a split from an explicit mapping.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        split_dict : Mapping[str, Sequence[str]]</span>
+<span class="sd">            Explicit mapping from split name to sample IDs.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        DatasetSplit</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">normalized</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">split_dict</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">splits</span><span class="o">=</span><span class="n">normalized</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="DatasetSplit.from_ratios">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.DatasetSplit.from_ratios">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_ratios</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">sample_ids</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">train_ratio</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">val_ratio</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">test_ratio</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
+        <span class="n">shuffle</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">split_names</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="s2">&quot;val&quot;</span><span class="p">,</span> <span class="s2">&quot;test&quot;</span><span class="p">),</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;DatasetSplit&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a deterministic random split from sample IDs.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        sample_ids : Sequence[str]</span>
+<span class="sd">            Ordered sample IDs to split.</span>
+
+<span class="sd">        train_ratio : float</span>
+<span class="sd">            Fraction assigned to the training split.</span>
+
+<span class="sd">        val_ratio : float</span>
+<span class="sd">            Fraction assigned to the validation split.</span>
+
+<span class="sd">        test_ratio : float</span>
+<span class="sd">            Fraction assigned to the test split.</span>
+
+<span class="sd">        seed : int, default=42</span>
+<span class="sd">            Random seed used when `shuffle=True`.</span>
+
+<span class="sd">        shuffle : bool, default=True</span>
+<span class="sd">            Whether to shuffle sample IDs before splitting.</span>
+
+<span class="sd">        split_names : Tuple[str, str, str], default=(&quot;train&quot;, &quot;val&quot;, &quot;test&quot;)</span>
+<span class="sd">            Names to use for the three resulting splits.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        DatasetSplit</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Ratios must sum to 1.0 within a small numerical tolerance.</span>
+<span class="sd">        The implementation uses floor-based allocation for the first two splits,</span>
+<span class="sd">        and assigns the remainder to the last split.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">split_names</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;split_names must contain exactly three names.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">sample_ids</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;sample_ids must not be empty.&quot;</span><span class="p">)</span>
+
+        <span class="n">total</span> <span class="o">=</span> <span class="n">train_ratio</span> <span class="o">+</span> <span class="n">val_ratio</span> <span class="o">+</span> <span class="n">test_ratio</span>
+        <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">total</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">1e-8</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Split ratios must sum to 1.0, got </span><span class="si">{</span><span class="n">total</span><span class="si">:</span><span class="s2">.12f</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">ratio</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">split_names</span><span class="p">,</span> <span class="p">(</span><span class="n">train_ratio</span><span class="p">,</span> <span class="n">val_ratio</span><span class="p">,</span> <span class="n">test_ratio</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">ratio</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Split ratio for &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be non-negative.&quot;</span><span class="p">)</span>
+
+        <span class="n">ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">sample_ids</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">ids</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;sample_ids must be unique.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">shuffle</span><span class="p">:</span>
+            <span class="n">rng</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">Random</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+            <span class="n">rng</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span>
+
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span>
+        <span class="n">n_train</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">train_ratio</span><span class="p">)</span>
+        <span class="n">n_val</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">val_ratio</span><span class="p">)</span>
+        <span class="n">n_test</span> <span class="o">=</span> <span class="n">n</span> <span class="o">-</span> <span class="n">n_train</span> <span class="o">-</span> <span class="n">n_val</span>
+
+        <span class="n">train_name</span><span class="p">,</span> <span class="n">val_name</span><span class="p">,</span> <span class="n">test_name</span> <span class="o">=</span> <span class="n">split_names</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="n">train_name</span><span class="p">:</span> <span class="n">ids</span><span class="p">[:</span><span class="n">n_train</span><span class="p">],</span>
+                <span class="n">val_name</span><span class="p">:</span> <span class="n">ids</span><span class="p">[</span><span class="n">n_train</span> <span class="p">:</span> <span class="n">n_train</span> <span class="o">+</span> <span class="n">n_val</span><span class="p">],</span>
+                <span class="n">test_name</span><span class="p">:</span> <span class="n">ids</span><span class="p">[</span><span class="n">n_train</span> <span class="o">+</span> <span class="n">n_val</span> <span class="p">:</span> <span class="n">n_train</span> <span class="o">+</span> <span class="n">n_val</span> <span class="o">+</span> <span class="n">n_test</span><span class="p">],</span>
+            <span class="p">}</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="DatasetSplit.from_manifest_dir">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.DatasetSplit.from_manifest_dir">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_manifest_dir</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">manifest_dir</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
+        <span class="n">split_files</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;DatasetSplit&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load split definitions from a directory of text manifests.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        manifest_dir : str or Path</span>
+<span class="sd">            Directory containing text files for split definitions.</span>
+
+<span class="sd">        split_files : Optional[Mapping[str, str]]</span>
+<span class="sd">            Mapping from split name to filename.</span>
+<span class="sd">            Default:</span>
+<span class="sd">                {</span>
+<span class="sd">                    &quot;train&quot;: &quot;train.txt&quot;,</span>
+<span class="sd">                    &quot;val&quot;: &quot;val.txt&quot;,</span>
+<span class="sd">                    &quot;test&quot;: &quot;test.txt&quot;,</span>
+<span class="sd">                }</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        DatasetSplit</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">manifest_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">manifest_dir</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">split_files</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">split_files</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;train&quot;</span><span class="p">:</span> <span class="s2">&quot;train.txt&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="s2">&quot;val.txt&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;test&quot;</span><span class="p">:</span> <span class="s2">&quot;test.txt&quot;</span><span class="p">,</span>
+            <span class="p">}</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">manifest_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Manifest directory does not exist: </span><span class="si">{</span><span class="n">manifest_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">manifest_dir</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">NotADirectoryError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Manifest directory is not a directory: </span><span class="si">{</span><span class="n">manifest_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">split_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">split_name</span><span class="p">,</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">split_files</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="n">manifest_dir</span> <span class="o">/</span> <span class="n">filename</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Split manifest for &#39;</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">&#39; does not exist: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">split_dict</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_read_sample_id_file</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">split_dict</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="DatasetSplit.split_names">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.DatasetSplit.split_names">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">split_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the available split names in insertion order.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">splits</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="DatasetSplit.sample_ids">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.DatasetSplit.sample_ids">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sample_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">split_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the ordered sample IDs for one split.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">split_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">splits</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown split &#39;</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">splits</span><span class="p">[</span><span class="n">split_name</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="DatasetSplit.contains">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.DatasetSplit.contains">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">contains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sample_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return whether a sample ID is contained in any split.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">sample_id</span> <span class="ow">in</span> <span class="n">ids</span> <span class="k">for</span> <span class="n">ids</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">splits</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the total number of assigned sample IDs across all splits.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">splits</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------</span>
+<span class="c1"># Base split-aware dataset subset view</span>
+<span class="c1"># ---------------------------------------------------------------------</span>
+<div class="viewcode-block" id="SplitDatasetView">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.SplitDatasetView">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SplitDatasetView</span><span class="p">(</span><span class="n">Dataset</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Lightweight split-specific dataset view over a base dataset.</span>
+
+<span class="sd">    This class does not own graph storage. It only stores:</span>
+<span class="sd">    1. a reference to the base dataset</span>
+<span class="sd">    2. a fixed mapping from split-local indices to base-dataset indices</span>
+
+<span class="sd">    Typical examples of such views are:</span>
+<span class="sd">    - train subset</span>
+<span class="sd">    - validation subset</span>
+<span class="sd">    - test subset</span>
+
+<span class="sd">    Design principles</span>
+<span class="sd">    -----------------</span>
+<span class="sd">    1. Lightweight</span>
+<span class="sd">       No graph duplication is performed here.</span>
+
+<span class="sd">    2. Stable</span>
+<span class="sd">       The order of samples in the view is exactly the order given by the</span>
+<span class="sd">       provided index list.</span>
+
+<span class="sd">    3. Safe</span>
+<span class="sd">       We intentionally avoid attribute names such as `indices` or `_indices`,</span>
+<span class="sd">       because PyG `Dataset` may internally use names with those semantics.</span>
+<span class="sd">       To avoid collisions, this class uses `_view_indices`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    base_dataset : _BaseSplitAwareDataset</span>
+<span class="sd">        The underlying dataset that actually stores / loads samples.</span>
+
+<span class="sd">    split_name : str</span>
+<span class="sd">        Name of the split, e.g. &quot;train&quot;, &quot;val&quot;, or &quot;test&quot;.</span>
+
+<span class="sd">    indices : Sequence[int]</span>
+<span class="sd">        Base-dataset indices belonging to this split.</span>
+
+<span class="sd">    transform : Optional[Callable], default=None</span>
+<span class="sd">        Optional transform applied after retrieving a sample from the base</span>
+<span class="sd">        dataset.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">base_dataset</span><span class="p">:</span> <span class="s2">&quot;_BaseSplitAwareDataset&quot;</span><span class="p">,</span>
+        <span class="n">split_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">indices</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">transform</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize the split view.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        We call `super().__init__()` first, and only then assign view-specific</span>
+<span class="sd">        attributes. This prevents parent-class initialization from overwriting</span>
+<span class="sd">        our internal fields.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">split_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">split_name</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;split_name must be a non-empty string.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">indices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;indices must not be None.&quot;</span><span class="p">)</span>
+
+        <span class="n">materialized_indices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">materialized_indices</span><span class="p">):</span>
+            <span class="n">bad_type</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+                <span class="nb">type</span><span class="p">(</span><span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">materialized_indices</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;indices must contain only integers, got element of type &#39;</span><span class="si">{</span><span class="n">bad_type</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Initialize PyG Dataset first to avoid accidental overwriting of our</span>
+        <span class="c1"># own attributes by the parent class.</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">,</span> <span class="n">pre_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">base_dataset</span> <span class="o">=</span> <span class="n">base_dataset</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">split_name</span> <span class="o">=</span> <span class="n">split_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_view_indices</span> <span class="o">=</span> <span class="n">materialized_indices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_override_transform</span> <span class="o">=</span> <span class="n">transform</span>
+
+<div class="viewcode-block" id="SplitDatasetView.len">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.SplitDatasetView.len">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the number of samples in this split view.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        int</span>
+<span class="sd">            Number of samples contained in this view.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_view_indices</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SplitDatasetView.get">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.SplitDatasetView.get">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieve one sample from the split view.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        idx : int</span>
+<span class="sd">            Index within this split view.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Data</span>
+<span class="sd">            The sample returned by the base dataset, optionally followed by</span>
+<span class="sd">            a view-specific transform.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        The retrieval flow is:</span>
+
+<span class="sd">        split-local index -&gt; base dataset index -&gt; base dataset sample</span>
+
+<span class="sd">        If `transform` was given when constructing the view, it is applied after</span>
+<span class="sd">        the base dataset retrieval.</span>
+
+<span class="sd">        Engineering note</span>
+<span class="sd">        ----------------</span>
+<span class="sd">        If the base dataset itself already has a transform, and this view also</span>
+<span class="sd">        has a transform, then both may be applied in sequence.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">base_idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_view_indices</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_dataset</span><span class="p">[</span><span class="n">base_idx</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_override_transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_override_transform</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sample_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the ordered sample IDs contained in this split.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        List[str]</span>
+<span class="sd">            Sample IDs in the same order as the split view.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">base_dataset</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_view_indices</span><span class="p">]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">split_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a copy of the underlying base-dataset indices.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        List[int]</span>
+<span class="sd">            Copy of the base-dataset index mapping for this split.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        A copy is returned to protect internal state from accidental mutation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_view_indices</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a concise string representation for debugging.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;split_name=&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">split_name</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;num_samples=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">len</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;)&quot;</span>
+        <span class="p">)</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------</span>
+<span class="c1"># Base mixin for split-aware datasets</span>
+<span class="c1"># ---------------------------------------------------------------------</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_BaseSplitAwareDataset</span><span class="p">(</span><span class="n">Dataset</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Internal base class for split-aware datasets.</span>
+
+<span class="sd">    This class defines the common subset construction logic shared by in-memory</span>
+<span class="sd">    and disk-backed implementations.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">sample_ids</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">subset</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">split_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">split</span><span class="p">:</span> <span class="n">DatasetSplit</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">transform</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SplitDatasetView</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create a split-specific dataset view.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        split_name : str</span>
+<span class="sd">            Name of the split to select.</span>
+
+<span class="sd">        split : DatasetSplit</span>
+<span class="sd">            Split definition object.</span>
+
+<span class="sd">        strict : bool, default=True</span>
+<span class="sd">            If True, raise an error when the split references sample IDs that do</span>
+<span class="sd">            not exist in the dataset.</span>
+<span class="sd">            If False, silently ignore missing sample IDs.</span>
+
+<span class="sd">        transform : Optional[Callable], default=None</span>
+<span class="sd">            Optional transform applied by the view after retrieving samples from</span>
+<span class="sd">            the base dataset.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        SplitDatasetView</span>
+<span class="sd">            Split-specific dataset view.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">split_ids</span> <span class="o">=</span> <span class="n">split</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">(</span><span class="n">split_name</span><span class="p">)</span>
+        <span class="n">id_to_index</span> <span class="o">=</span> <span class="p">{</span><span class="n">sample_id</span><span class="p">:</span> <span class="n">idx</span> <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">sample_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">)}</span>
+
+        <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">sample_id</span> <span class="k">for</span> <span class="n">sample_id</span> <span class="ow">in</span> <span class="n">split_ids</span> <span class="k">if</span> <span class="n">sample_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">id_to_index</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">missing</span> <span class="ow">and</span> <span class="n">strict</span><span class="p">:</span>
+            <span class="n">preview</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">[:</span><span class="mi">10</span><span class="p">])</span>
+            <span class="n">extra</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">10</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">... and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">10</span><span class="si">}</span><span class="s2"> more&quot;</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Split &#39;</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">&#39; contains sample IDs not present in the dataset:</span><span class="se">\n</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">preview</span><span class="si">}{</span><span class="n">extra</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">id_to_index</span><span class="p">[</span><span class="n">sample_id</span><span class="p">]</span> <span class="k">for</span> <span class="n">sample_id</span> <span class="ow">in</span> <span class="n">split_ids</span> <span class="k">if</span> <span class="n">sample_id</span> <span class="ow">in</span> <span class="n">id_to_index</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">SplitDatasetView</span><span class="p">(</span>
+            <span class="n">base_dataset</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span>
+            <span class="n">split_name</span><span class="o">=</span><span class="n">split_name</span><span class="p">,</span>
+            <span class="n">indices</span><span class="o">=</span><span class="n">indices</span><span class="p">,</span>
+            <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">build_subsets</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">split</span><span class="p">:</span> <span class="n">DatasetSplit</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">transform_map</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">SplitDatasetView</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Build split views for all splits contained in a `DatasetSplit`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        split : DatasetSplit</span>
+<span class="sd">            Split definition.</span>
+
+<span class="sd">        strict : bool, default=True</span>
+<span class="sd">            Whether missing sample IDs should raise an error.</span>
+
+<span class="sd">        transform_map : Optional[Mapping[str, Callable]], default=None</span>
+<span class="sd">            Optional mapping from split name to a transform used only for that</span>
+<span class="sd">            split view.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Dict[str, SplitDatasetView]</span>
+<span class="sd">            Mapping from split name to split dataset view.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">subsets</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">SplitDatasetView</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">split_name</span> <span class="ow">in</span> <span class="n">split</span><span class="o">.</span><span class="n">split_names</span><span class="p">():</span>
+            <span class="n">split_transform</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">transform_map</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">transform_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">split_name</span><span class="p">)</span>
+            <span class="n">subsets</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subset</span><span class="p">(</span>
+                <span class="n">split_name</span><span class="o">=</span><span class="n">split_name</span><span class="p">,</span>
+                <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">,</span>
+                <span class="n">strict</span><span class="o">=</span><span class="n">strict</span><span class="p">,</span>
+                <span class="n">transform</span><span class="o">=</span><span class="n">split_transform</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">subsets</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------</span>
+<span class="c1"># In-memory split-aware dataset</span>
+<span class="c1"># ---------------------------------------------------------------------</span>
+<div class="viewcode-block" id="SplitPhyloDataset">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.SplitPhyloDataset">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SplitPhyloDataset</span><span class="p">(</span><span class="n">_BaseSplitAwareDataset</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    In-memory split-aware dataset for phylogenetic graph data.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    data_list : Sequence[Data]</span>
+<span class="sd">        Graphs already loaded in memory.</span>
+
+<span class="sd">    labels : Optional[Tensor], default=None</span>
+<span class="sd">        Per-sample targets.</span>
+
+<span class="sd">        Supported form:</span>
+<span class="sd">        - Tensor of shape [num_samples, ...]</span>
+
+<span class="sd">    sample_ids : Optional[Sequence[str]], default=None</span>
+<span class="sd">        Stable sample identifiers.</span>
+
+<span class="sd">        If None, default sample IDs are generated as:</span>
+<span class="sd">            [&quot;0&quot;, &quot;1&quot;, ..., &quot;N-1&quot;]</span>
+
+<span class="sd">    transform : Optional[Callable], default=None</span>
+<span class="sd">        Transform applied during sample retrieval.</span>
+
+<span class="sd">    pre_transform : Optional[Callable], default=None</span>
+<span class="sd">        One-time transform applied during initialization.</span>
+
+<span class="sd">    Specification</span>
+<span class="sd">    -------------</span>
+<span class="sd">    - `len(dataset) == len(data_list)`</span>
+<span class="sd">    - `dataset.get(i)` returns a cloned graph</span>
+<span class="sd">    - labels are attached to the cloned graph only</span>
+<span class="sd">    - original stored graphs are not mutated by retrieval</span>
+<span class="sd">    - sample IDs are unique and stable</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_list</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Data</span><span class="p">],</span>
+        <span class="n">labels</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">InMemoryLabels</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sample_ids</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">transform</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">pre_transform</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_data_list</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Data</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validate_graph</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">idx</span><span class="p">)</span> <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">data_list</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_labels</span> <span class="o">=</span> <span class="n">labels</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_list</span><span class="p">))]</span>
+            <span class="k">if</span> <span class="n">sample_ids</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">sample_ids</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_sample_ids</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_labels</span><span class="p">()</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">,</span> <span class="n">pre_transform</span><span class="o">=</span><span class="n">pre_transform</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_data_list</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">pre_transform</span><span class="p">(</span><span class="n">_clone_data</span><span class="p">(</span><span class="n">data</span><span class="p">))</span> <span class="k">for</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_list</span><span class="p">]</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_graph</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">object</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_ensure_data_instance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;data_list[</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_sample_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate sample ID length, type, and uniqueness.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Number of sample_ids (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">)</span><span class="si">}</span><span class="s2">) must match &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;number of graphs (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_list</span><span class="p">)</span><span class="si">}</span><span class="s2">).&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sample_id</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">sample_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">):</span>
+            <span class="n">bad_type</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span> <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;All sample_ids must be strings, found </span><span class="si">{</span><span class="n">bad_type</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;sample_ids must be unique.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_labels</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate label structure against dataset size.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labels</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_list</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_labels</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_labels</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Single-task labels contain </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_labels</span><span class="p">)</span><span class="si">}</span><span class="s2"> samples, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;but dataset contains </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> graphs.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;labels must be None or a torch.Tensor.&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SplitPhyloDataset.len">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.SplitPhyloDataset.len">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return number of graphs.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_list</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SplitPhyloDataset.get">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.SplitPhyloDataset.get">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieve one sample by index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">_clone_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data_list</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labels</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_labels</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+        <span class="n">data</span><span class="o">.</span><span class="n">sample_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;num_graphs=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;has_labels=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_labels</span><span class="w"> </span><span class="ow">is</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="kc">None</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;)&quot;</span>
+        <span class="p">)</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------</span>
+<span class="c1"># Disk-backed split-aware dataset</span>
+<span class="c1"># ---------------------------------------------------------------------</span>
+<div class="viewcode-block" id="SplitPhyloDiskDataset">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.SplitPhyloDiskDataset">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SplitPhyloDiskDataset</span><span class="p">(</span><span class="n">_BaseSplitAwareDataset</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Disk-backed split-aware dataset for phylogenetic graph data.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    graph_dir : str or Path</span>
+<span class="sd">        Directory containing graph `.pt` files.</span>
+
+<span class="sd">    label_dir : Optional[str or Path], default=None</span>
+<span class="sd">        Directory containing label `.pt` files.</span>
+<span class="sd">        Labels are matched to graphs using mirrored relative paths.</span>
+
+<span class="sd">    transform : Optional[Callable], default=None</span>
+<span class="sd">        Transform applied during retrieval.</span>
+
+<span class="sd">    pre_filter : Optional[Callable[[Path], bool]], default=None</span>
+<span class="sd">        Optional file-level filter applied to graph paths before indexing.</span>
+
+<span class="sd">    recursive : bool, default=False</span>
+<span class="sd">        Whether to scan `graph_dir` recursively.</span>
+
+<span class="sd">    load_on_cpu : bool, default=True</span>
+<span class="sd">        If True, use `map_location=&quot;cpu&quot;` when calling `torch.load`.</span>
+
+<span class="sd">    cache_graphs : bool, default=False</span>
+<span class="sd">        If True, cache loaded graph objects after first access.</span>
+
+<span class="sd">    cache_labels : bool, default=False</span>
+<span class="sd">        If True, cache loaded labels after first access.</span>
+
+<span class="sd">    strict_label_check : bool, default=True</span>
+<span class="sd">        If True and `label_dir` is set, initialization fails when any graph is</span>
+<span class="sd">        missing a mirrored label file.</span>
+
+<span class="sd">    sample_id_from_relative_path : bool, default=True</span>
+<span class="sd">        If True, sample IDs are generated from graph relative paths without the</span>
+<span class="sd">        `.pt` suffix. This is the recommended production behavior.</span>
+
+<span class="sd">    Specification</span>
+<span class="sd">    -------------</span>
+<span class="sd">    - Graph files are indexed in deterministic sorted order</span>
+<span class="sd">    - Each graph file must contain a `torch_geometric.data.Data`</span>
+<span class="sd">    - Label files may contain:</span>
+<span class="sd">        * Tensor</span>
+<span class="sd">        * numeric scalar</span>
+<span class="sd">    - Retrieved graphs are cloned before mutation</span>
+<span class="sd">    - `sample_id` is attached to each returned graph</span>
+
+<span class="sd">    Sample ID examples</span>
+<span class="sd">    ------------------</span>
+<span class="sd">    graph_dir/file.pt            -&gt; &quot;file&quot;</span>
+<span class="sd">    graph_dir/sub/file.pt        -&gt; &quot;sub/file&quot;</span>
+
+<span class="sd">    Typical usage</span>
+<span class="sd">    -------------</span>
+<span class="sd">    &gt;&gt;&gt; dataset = SplitPhyloDiskDataset(</span>
+<span class="sd">    ...     graph_dir=&quot;dataset/graphs&quot;,</span>
+<span class="sd">    ...     label_dir=&quot;dataset/labels&quot;,</span>
+<span class="sd">    ...     recursive=True,</span>
+<span class="sd">    ... )</span>
+<span class="sd">    &gt;&gt;&gt; split = DatasetSplit.from_manifest_dir(&quot;dataset/splits&quot;)</span>
+<span class="sd">    &gt;&gt;&gt; train_dataset = dataset.subset(&quot;train&quot;, split)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">graph_dir</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
+        <span class="n">label_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PathLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">transform</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">pre_filter</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Path</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">recursive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">load_on_cpu</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">cache_graphs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">cache_labels</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">strict_label_check</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">sample_id_from_relative_path</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">graph_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">graph_dir</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">label_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">label_dir</span><span class="p">)</span> <span class="k">if</span> <span class="n">label_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pre_filter</span> <span class="o">=</span> <span class="n">pre_filter</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">recursive</span> <span class="o">=</span> <span class="n">recursive</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">load_on_cpu</span> <span class="o">=</span> <span class="n">load_on_cpu</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cache_graphs</span> <span class="o">=</span> <span class="n">cache_graphs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cache_labels</span> <span class="o">=</span> <span class="n">cache_labels</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">strict_label_check</span> <span class="o">=</span> <span class="n">strict_label_check</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sample_id_from_relative_path</span> <span class="o">=</span> <span class="n">sample_id_from_relative_path</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_graph_paths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_label_paths</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_graph_cache</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Data</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_label_cache</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">LoadedLabelObject</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_build_index</span><span class="p">()</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">root</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">,</span> <span class="n">pre_transform</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="c1"># ---------------------------------------------------------</span>
+    <span class="c1"># Indexing</span>
+    <span class="c1"># ---------------------------------------------------------</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Build the deterministic file index for the dataset.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_directories</span><span class="p">()</span>
+
+        <span class="n">graph_paths</span> <span class="o">=</span> <span class="n">_sorted_pt_files</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_dir</span><span class="p">,</span> <span class="n">recursive</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">recursive</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_filter</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">graph_paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">graph_paths</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_filter</span><span class="p">(</span><span class="n">p</span><span class="p">)]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">graph_paths</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No .pt graph files found under: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_graph_paths</span> <span class="o">=</span> <span class="n">graph_paths</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_make_sample_id</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_graph_paths</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Generated sample IDs are not unique. &quot;</span>
+                <span class="s2">&quot;Check your file structure or sample ID generation logic.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_label_paths</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_resolve_label_path</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_graph_paths</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strict_label_check</span><span class="p">:</span>
+                <span class="n">missing_pairs</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="nb">str</span><span class="p">(</span><span class="n">graph_path</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">graph_path</span><span class="p">,</span> <span class="n">label_path</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_graph_paths</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_paths</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">label_path</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="p">]</span>
+                <span class="k">if</span> <span class="n">missing_pairs</span><span class="p">:</span>
+                    <span class="n">preview</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing_pairs</span><span class="p">[:</span><span class="mi">10</span><span class="p">])</span>
+                    <span class="n">extra</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="s2">&quot;&quot;</span>
+                        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing_pairs</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">10</span>
+                        <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">... and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">missing_pairs</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">10</span><span class="si">}</span><span class="s2"> more&quot;</span>
+                    <span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+                        <span class="s2">&quot;Missing label files for the following graph files:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">preview</span><span class="si">}{</span><span class="n">extra</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_directories</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate graph/label directories.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;graph_dir does not exist: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_dir</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">NotADirectoryError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;graph_dir is not a directory: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;label_dir does not exist: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_dir</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">NotADirectoryError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;label_dir is not a directory: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_make_sample_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">graph_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create the stable sample ID for a graph path.</span>
+
+<span class="sd">        Default behavior:</span>
+<span class="sd">        - relative path to `graph_dir`</span>
+<span class="sd">        - remove `.pt` suffix</span>
+<span class="sd">        - use POSIX-style separators for cross-platform stability</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_id_from_relative_path</span><span class="p">:</span>
+            <span class="n">relative</span> <span class="o">=</span> <span class="n">graph_path</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_dir</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">relative</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">as_posix</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">graph_path</span><span class="o">.</span><span class="n">stem</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_label_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">graph_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Resolve the expected label file path for one graph.</span>
+
+<span class="sd">        Matching rule</span>
+<span class="sd">        -------------</span>
+<span class="sd">        Mirrored relative path:</span>
+<span class="sd">        - graph_dir/sub/a.pt -&gt; label_dir/sub/a.pt</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="n">relative</span> <span class="o">=</span> <span class="n">graph_path</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_dir</span><span class="p">)</span>
+        <span class="n">candidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">label_dir</span> <span class="o">/</span> <span class="n">relative</span>
+        <span class="k">return</span> <span class="n">candidate</span> <span class="k">if</span> <span class="n">candidate</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="n">candidate</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="c1"># ---------------------------------------------------------</span>
+    <span class="c1"># Loading helpers</span>
+    <span class="c1"># ---------------------------------------------------------</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_map_location</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s2">&quot;cpu&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_on_cpu</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_graph_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load and validate a graph file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">obj</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_map_location</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_ensure_data_instance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_label_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">LoadedLabelObject</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load and normalize a label file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">obj</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_map_location</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_normalize_label_object</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load a graph, optionally using cache.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_graphs</span> <span class="ow">and</span> <span class="n">idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_graph_cache</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_graph_cache</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+        <span class="n">graph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_graph_file</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_graph_paths</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_graphs</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_graph_cache</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">graph</span>
+        <span class="k">return</span> <span class="n">graph</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_label</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LoadedLabelObject</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load a label, optionally using cache.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_paths</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">label_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_paths</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">label_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_labels</span> <span class="ow">and</span> <span class="n">idx</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_cache</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_cache</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+        <span class="n">label_obj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_label_file</span><span class="p">(</span><span class="n">label_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache_labels</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_label_cache</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">label_obj</span>
+        <span class="k">return</span> <span class="n">label_obj</span>
+
+    <span class="c1"># ---------------------------------------------------------</span>
+    <span class="c1"># PyG Dataset API</span>
+    <span class="c1"># ---------------------------------------------------------</span>
+<div class="viewcode-block" id="SplitPhyloDiskDataset.len">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.SplitPhyloDiskDataset.len">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of indexed samples.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_graph_paths</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SplitPhyloDiskDataset.get">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.SplitPhyloDiskDataset.get">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieve one dataset sample.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Data</span>
+<span class="sd">            Graph with attached labels if available and `sample_id` metadata.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">_clone_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_graph</span><span class="p">(</span><span class="n">idx</span><span class="p">))</span>
+
+        <span class="n">label_obj</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_label</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">label_obj</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">_attach_label_to_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">label_obj</span><span class="p">)</span>
+
+        <span class="n">data</span><span class="o">.</span><span class="n">sample_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+    <span class="c1"># ---------------------------------------------------------</span>
+    <span class="c1"># Convenience methods</span>
+    <span class="c1"># ---------------------------------------------------------</span>
+<div class="viewcode-block" id="SplitPhyloDiskDataset.get_graph_path">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.SplitPhyloDiskDataset.get_graph_path">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_graph_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the source graph file path for a sample index.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_graph_paths</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="SplitPhyloDiskDataset.get_label_path">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.SplitPhyloDiskDataset.get_label_path">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_label_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the source label file path for a sample index, if available.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_paths</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_label_paths</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="SplitPhyloDiskDataset.export_split_manifests">
+<a class="viewcode-back" href="../../../reference/training.html#phylognn.training.SplitPhyloDiskDataset.export_split_manifests">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">export_split_manifests</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">split</span><span class="p">:</span> <span class="n">DatasetSplit</span><span class="p">,</span>
+        <span class="n">output_dir</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
+        <span class="n">filenames</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Export split definitions to text manifest files.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        split : DatasetSplit</span>
+<span class="sd">            Split definition to export.</span>
+
+<span class="sd">        output_dir : str or Path</span>
+<span class="sd">            Target directory.</span>
+
+<span class="sd">        filenames : Optional[Mapping[str, str]]</span>
+<span class="sd">            Optional mapping from split name to output filename.</span>
+<span class="sd">            If not provided, defaults to `&lt;split_name&gt;.txt`.</span>
+
+<span class="sd">        strict : bool, default=True</span>
+<span class="sd">            If True, raise an error when a split references sample IDs that do</span>
+<span class="sd">            not exist in the current dataset.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
+        <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">known_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">split_name</span> <span class="ow">in</span> <span class="n">split</span><span class="o">.</span><span class="n">split_names</span><span class="p">():</span>
+            <span class="n">sample_ids</span> <span class="o">=</span> <span class="n">split</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">(</span><span class="n">split_name</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">strict</span><span class="p">:</span>
+                <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">sid</span> <span class="k">for</span> <span class="n">sid</span> <span class="ow">in</span> <span class="n">sample_ids</span> <span class="k">if</span> <span class="n">sid</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">known_ids</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+                    <span class="n">preview</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">[:</span><span class="mi">10</span><span class="p">])</span>
+                    <span class="n">extra</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">10</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">... and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">10</span><span class="si">}</span><span class="s2"> more&quot;</span>
+                    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Split &#39;</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">&#39; contains unknown sample IDs:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">preview</span><span class="si">}{</span><span class="n">extra</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+
+            <span class="n">filename</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">filenames</span><span class="p">[</span><span class="n">split_name</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">filenames</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">split_name</span> <span class="ow">in</span> <span class="n">filenames</span>
+                <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">split_name</span><span class="si">}</span><span class="s2">.txt&quot;</span>
+            <span class="p">)</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="n">filename</span>
+
+            <span class="k">with</span> <span class="n">path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">sample_id</span> <span class="ow">in</span> <span class="n">sample_ids</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">strict</span> <span class="ow">and</span> <span class="n">sample_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">known_ids</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sample_id</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;num_graphs=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;graph_dir=&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_dir</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;label_dir=&#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label_dir</span><span class="si">}</span><span class="s2">&#39;, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;recursive=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">recursive</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;)&quot;</span>
+        <span class="p">)</span></div>
+
+
+
+<span class="c1"># ---------------------------------------------------------------------</span>
+<span class="c1"># Optional high-level utility functions</span>
+<span class="c1"># ---------------------------------------------------------------------</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_ratio_subsets</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="p">:</span> <span class="n">_BaseSplitAwareDataset</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">train_ratio</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">val_ratio</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">test_ratio</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">42</span><span class="p">,</span>
+    <span class="n">shuffle</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">transform_map</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">DatasetSplit</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">SplitDatasetView</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convenience helper to build a ratio-based split and immediately create</span>
+<span class="sd">    dataset subset views.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dataset : _BaseSplitAwareDataset</span>
+<span class="sd">        Base dataset.</span>
+
+<span class="sd">    train_ratio : float</span>
+<span class="sd">        Train split ratio.</span>
+
+<span class="sd">    val_ratio : float</span>
+<span class="sd">        Validation split ratio.</span>
+
+<span class="sd">    test_ratio : float</span>
+<span class="sd">        Test split ratio.</span>
+
+<span class="sd">    seed : int, default=42</span>
+<span class="sd">        Random seed for deterministic shuffling.</span>
+
+<span class="sd">    shuffle : bool, default=True</span>
+<span class="sd">        Whether to shuffle sample IDs before splitting.</span>
+
+<span class="sd">    transform_map : Optional[Mapping[str, Callable]], default=None</span>
+<span class="sd">        Optional per-split transform mapping.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Tuple[DatasetSplit, Dict[str, SplitDatasetView]]</span>
+<span class="sd">        The split definition and the constructed subset views.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">split</span> <span class="o">=</span> <span class="n">DatasetSplit</span><span class="o">.</span><span class="n">from_ratios</span><span class="p">(</span>
+        <span class="n">sample_ids</span><span class="o">=</span><span class="n">dataset</span><span class="o">.</span><span class="n">sample_ids</span><span class="p">,</span>
+        <span class="n">train_ratio</span><span class="o">=</span><span class="n">train_ratio</span><span class="p">,</span>
+        <span class="n">val_ratio</span><span class="o">=</span><span class="n">val_ratio</span><span class="p">,</span>
+        <span class="n">test_ratio</span><span class="o">=</span><span class="n">test_ratio</span><span class="p">,</span>
+        <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">,</span>
+        <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">subsets</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">build_subsets</span><span class="p">(</span><span class="n">split</span><span class="p">,</span> <span class="n">transform_map</span><span class="o">=</span><span class="n">transform_map</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">split</span><span class="p">,</span> <span class="n">subsets</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">build_manifest_subsets</span><span class="p">(</span>
+    <span class="n">dataset</span><span class="p">:</span> <span class="n">_BaseSplitAwareDataset</span><span class="p">,</span>
+    <span class="n">manifest_dir</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">split_files</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">transform_map</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">DatasetSplit</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">SplitDatasetView</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Convenience helper to load split manifests and create subset views.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    dataset : _BaseSplitAwareDataset</span>
+<span class="sd">        Base dataset.</span>
+
+<span class="sd">    manifest_dir : str or Path</span>
+<span class="sd">        Directory containing split manifest files.</span>
+
+<span class="sd">    split_files : Optional[Mapping[str, str]], default=None</span>
+<span class="sd">        Optional mapping from split name to filename.</span>
+
+<span class="sd">    strict : bool, default=True</span>
+<span class="sd">        Whether missing sample IDs should raise an error.</span>
+
+<span class="sd">    transform_map : Optional[Mapping[str, Callable]], default=None</span>
+<span class="sd">        Optional per-split transform mapping.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Tuple[DatasetSplit, Dict[str, SplitDatasetView]]</span>
+<span class="sd">        The split definition and the constructed subset views.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">split</span> <span class="o">=</span> <span class="n">DatasetSplit</span><span class="o">.</span><span class="n">from_manifest_dir</span><span class="p">(</span>
+        <span class="n">manifest_dir</span><span class="o">=</span><span class="n">manifest_dir</span><span class="p">,</span>
+        <span class="n">split_files</span><span class="o">=</span><span class="n">split_files</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">subsets</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">build_subsets</span><span class="p">(</span>
+        <span class="n">split</span><span class="o">=</span><span class="n">split</span><span class="p">,</span>
+        <span class="n">strict</span><span class="o">=</span><span class="n">strict</span><span class="p">,</span>
+        <span class="n">transform_map</span><span class="o">=</span><span class="n">transform_map</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">split</span><span class="p">,</span> <span class="n">subsets</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">PhyloGNN</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/index.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Minghao Du.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

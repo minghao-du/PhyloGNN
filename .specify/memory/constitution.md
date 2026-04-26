@@ -1,22 +1,18 @@
 <!--
 Sync Impact Report
-Version change: 1.0.0 -> 2.0.0
+Version change: 2.0.0 -> 2.0.1
 Modified principles:
-- I. User-Oriented Simulation-Based Inference -> I. Package Truth Over Examples
-- II. Explicit Scientific and Data Contracts -> II. Explicit Graph and Tensor Contracts
-- III. Test-Backed Scientific Correctness -> III. Deterministic Phylogenetic Semantics
-- IV. Reproducible Workflow Integration -> IV. Test-Backed Public Surface
-- V. Pragmatic Simplicity Over Perfection -> V. Environment-Constrained Minimal Delivery
+- V. Environment-Constrained Minimal Delivery: required Conda environment corrected from `pytorch` to `phylognn`
 Added sections:
 - None
 Removed sections:
 - None
 Templates requiring updates:
 - ✅ updated .specify/templates/plan-template.md
-- ✅ updated .specify/templates/spec-template.md
-- ✅ updated .specify/templates/tasks-template.md
+- ✅ checked .specify/templates/spec-template.md
+- ✅ checked .specify/templates/tasks-template.md
 - ⚠ pending .specify/templates/commands/*.md (directory not present in this repository)
-- ⚠ pending runtime guidance docs such as README.md or docs/quickstart.md (not present in this repository)
+- ✅ checked AGENTS.md
 Follow-up TODOs:
 - None
 -->
@@ -62,7 +58,7 @@ behavior and what the package chooses to expose.
 
 ### V. Environment-Constrained Minimal Delivery
 Changes MUST fit the repository's current abstractions and execution
-environment. Work MUST use the existing `pytorch` Conda environment on this
+environment. Work MUST use the existing `phylognn` Conda environment on this
 machine, MUST avoid unrelated refactors, and MUST prefer minimal local changes
 over speculative architecture. New helpers, validators, and type aliases MUST
 only be introduced after checking whether an equivalent already exists nearby.
@@ -110,4 +106,4 @@ that preserve the same required behavior. Compliance review is mandatory during
 planning, implementation, and review; if a change cannot satisfy a principle,
 the exception and rationale MUST be documented before implementation proceeds.
 
-**Version**: 2.0.0 | **Ratified**: 2026-04-16 | **Last Amended**: 2026-04-18
+**Version**: 2.0.1 | **Ratified**: 2026-04-16 | **Last Amended**: 2026-04-26

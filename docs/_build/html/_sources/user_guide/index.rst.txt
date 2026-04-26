@@ -1,0 +1,22 @@
+User Guide
+==========
+
+Use these pages when you know the basic quickstart and want workflow-level
+guidance for real data preparation, training, and optional integrations.
+
+.. toctree::
+   :maxdepth: 1
+
+   tree_input
+   graph_conversion
+   feature_engineering
+   training
+   metrics_tracking
+
+Workflow map
+------------
+
+Start with tree input, attach features, convert graphs, prepare datasets, and
+train with local checkpoints. Optional pages explain tracking and file formats
+that require extras. API details live in :doc:`../reference/index`, while
+shared graph and configuration concepts live in :doc:`../concepts/index`.

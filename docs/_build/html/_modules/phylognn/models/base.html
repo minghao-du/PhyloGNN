@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>phylognn.models.base &#8212; PhyloGNN 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for phylognn.models.base</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Base model abstractions for phylogenetic GNN architectures.</span>
+
+<span class="sd">This module defines abstract base classes and shared utilities for building</span>
+<span class="sd">phylogenetic tree analysis models with PyTorch and PyTorch Geometric.</span>
+
+<span class="sd">Design goals:</span>
+<span class="sd">    1. Provide a consistent interface for all phylogenetic GNN models.</span>
+<span class="sd">    2. Centralize common logic such as parameter counting, freezing, resetting,</span>
+<span class="sd">       and graph input validation.</span>
+<span class="sd">    3. Make encoder reuse easy for transfer learning and downstream tasks.</span>
+
+<span class="sd">Conventions:</span>
+<span class="sd">    - All graph inputs are expected to be `torch_geometric.data.Data`.</span>
+<span class="sd">    - Node-level encoders should expose `encode(...)` and `get_embedding_dim()`.</span>
+<span class="sd">    - Graph-level or task-specific prediction is implemented in subclasses.</span>
+
+<span class="sd">Notes:</span>
+<span class="sd">    - Freezing behavior is based on explicit encoder/head module boundaries,</span>
+<span class="sd">      not fragile parameter-name heuristics.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch_geometric.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">Data</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.layers</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_gat_encoder</span>
+
+<span class="n">GATEncoderType</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;gat&quot;</span><span class="p">,</span> <span class="s2">&quot;res_gat&quot;</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_reset_module_parameters</span><span class="p">(</span><span class="n">module</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reset parameters of a module if it exposes `reset_parameters()`.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        module:</span>
+<span class="sd">            A PyTorch module instance.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - This function is safe for modules that do not implement</span>
+<span class="sd">          `reset_parameters()`: in that case it is a no-op.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s2">&quot;reset_parameters&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">callable</span><span class="p">(</span><span class="n">module</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">):</span>
+        <span class="n">module</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="BasePhyloGNN">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BasePhyloGNN">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BasePhyloGNN</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Abstract base class for phylogenetic GNN models.</span>
+
+<span class="sd">    Subclasses must implement:</span>
+<span class="sd">        - forward(data): task-specific forward pass</span>
+<span class="sd">        - get_embedding_dim(): encoder output dimension</span>
+
+<span class="sd">    Common utilities provided:</span>
+<span class="sd">        - graph input validation</span>
+<span class="sd">        - parameter counting</span>
+<span class="sd">        - encoder freezing / full unfreezing</span>
+<span class="sd">        - module parameter resetting</span>
+
+<span class="sd">    Engineering notes:</span>
+<span class="sd">        - This base class does not rely on parameter-name heuristics to</span>
+<span class="sd">          separate encoder and head modules.</span>
+<span class="sd">        - Subclasses should override `get_encoder_modules()` and</span>
+<span class="sd">          `get_head_modules()` when they contain task-specific heads.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+<div class="viewcode-block" id="BasePhyloGNN.forward">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BasePhyloGNN.forward">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Run the model forward pass.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            data:</span>
+<span class="sd">                PyTorch Geometric Data object.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Model predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="BasePhyloGNN.get_embedding_dim">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BasePhyloGNN.get_embedding_dim">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_embedding_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the output dimension of learned node embeddings.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Encoder output dimension.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="BasePhyloGNN.validate_data">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BasePhyloGNN.validate_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">,</span> <span class="n">require_batch</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate a PyG Data object for graph neural network processing.</span>
+
+<span class="sd">        Requirements:</span>
+<span class="sd">            - `data` is an instance of `torch_geometric.data.Data`</span>
+<span class="sd">            - `data.x` exists and is a 2D tensor: [num_nodes, num_features]</span>
+<span class="sd">            - `data.edge_index` exists and is a LongTensor: [2, num_edges]</span>
+<span class="sd">            - if `require_batch=True`, `data.batch` exists and is a LongTensor</span>
+<span class="sd">              of shape [num_nodes]</span>
+
+<span class="sd">        Additional consistency checks:</span>
+<span class="sd">            - number of nodes must be positive</span>
+<span class="sd">            - edge indices must be within [0, num_nodes - 1]</span>
+<span class="sd">            - if batch is required, `len(batch)` must equal number of nodes</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            data:</span>
+<span class="sd">                Input graph object.</span>
+<span class="sd">            require_batch:</span>
+<span class="sd">                Whether graph batch assignment is required.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            TypeError:</span>
+<span class="sd">                If object types or tensor dtypes are invalid.</span>
+<span class="sd">            ValueError:</span>
+<span class="sd">                If required fields are missing, malformed, or inconsistent.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">Data</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;Expected `data` to be an instance of &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;`torch_geometric.data.Data`, got `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">`.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">data</span><span class="o">.</span><span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Input `data` must contain node features `x`.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">is_tensor</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;`data.x` must be a torch.Tensor.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`data.x` must be a 2D tensor of shape &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;[num_nodes, num_features], got shape </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">is_floating_point</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;`data.x` must use a floating-point dtype.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`data.x` must contain at least one node.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&quot;edge_index&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">data</span><span class="o">.</span><span class="n">edge_index</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Input `data` must contain graph connectivity `edge_index`.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">is_tensor</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;`data.edge_index` must be a torch.Tensor.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`data.edge_index` must have dtype torch.long, got </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`data.edge_index` must have shape [2, num_edges], &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got shape </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_edge_index_bounds</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="p">,</span> <span class="n">num_nodes</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">require_batch</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&quot;batch&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">data</span><span class="o">.</span><span class="n">batch</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Input `data` must contain `batch` for batched graph operations.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">is_tensor</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">batch</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;`data.batch` must be a torch.Tensor.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">batch</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`data.batch` must have dtype torch.long, got </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">batch</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">batch</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;`data.batch` must be 1D of shape [num_nodes], got </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">batch</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">batch</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">!=</span> <span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;`data.batch` length must match number of nodes. &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Got len(batch)=</span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">batch</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2"> and num_nodes=</span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span></div>
+
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_edge_index_bounds</span><span class="p">(</span><span class="n">edge_index</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate that `edge_index` references only valid node ids.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            edge_index:</span>
+<span class="sd">                Edge index tensor of shape [2, num_edges].</span>
+<span class="sd">            num_nodes:</span>
+<span class="sd">                Number of nodes in the graph.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError:</span>
+<span class="sd">                If edge indices contain negative or out-of-range node ids.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">edge_index</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">min_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">edge_index</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">max_idx</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">edge_index</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+
+        <span class="k">if</span> <span class="n">min_idx</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">max_idx</span> <span class="o">&gt;=</span> <span class="n">num_nodes</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`data.edge_index` contains node ids outside valid range &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;[0, </span><span class="si">{</span><span class="n">num_nodes</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">]. Found min=</span><span class="si">{</span><span class="n">min_idx</span><span class="si">}</span><span class="s2">, max=</span><span class="si">{</span><span class="n">max_idx</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="BasePhyloGNN.get_num_parameters">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BasePhyloGNN.get_num_parameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_num_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">trainable_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Count model parameters.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            trainable_only:</span>
+<span class="sd">                If True, count only parameters with `requires_grad=True`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Parameter count.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">trainable_only</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">()</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="BasePhyloGNN.get_encoder_modules">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BasePhyloGNN.get_encoder_modules">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_encoder_modules</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return modules that belong to the transferable encoder.</span>
+
+<span class="sd">        Subclasses should override this method if they expose encoder modules.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Iterable of encoder modules.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+
+
+<div class="viewcode-block" id="BasePhyloGNN.get_head_modules">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BasePhyloGNN.get_head_modules">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_head_modules</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return modules that belong to the task-specific prediction head.</span>
+
+<span class="sd">        Subclasses should override this method if they expose prediction heads.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Iterable of head modules.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[]</span></div>
+
+
+<div class="viewcode-block" id="BasePhyloGNN.freeze_encoder">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BasePhyloGNN.freeze_encoder">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">freeze_encoder</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Freeze encoder parameters while keeping head parameters trainable.</span>
+
+<span class="sd">        Behavior:</span>
+<span class="sd">            - All parameters in `get_encoder_modules()` are frozen.</span>
+<span class="sd">            - All parameters in `get_head_modules()` remain trainable.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - Any parameters not included in either collection are left unchanged.</span>
+<span class="sd">            - Subclasses should avoid returning overlapping modules.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_encoder_modules</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+                <span class="n">param</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_head_modules</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">module</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+                <span class="n">param</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="BasePhyloGNN.unfreeze_all">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BasePhyloGNN.unfreeze_all">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">unfreeze_all</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Make all model parameters trainable.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+            <span class="n">param</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="BasePhyloGNN.reset_parameters">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BasePhyloGNN.reset_parameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reset parameters of immediate child modules that expose `reset_parameters()`.</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - This method only resets direct child modules.</span>
+<span class="sd">            - Nested reset behavior should be handled by each child module&#39;s own</span>
+<span class="sd">              `reset_parameters()` implementation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">children</span><span class="p">():</span>
+            <span class="n">_reset_module_parameters</span><span class="p">(</span><span class="n">module</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="BaseGATNet">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BaseGATNet">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BaseGATNet</span><span class="p">(</span><span class="n">BasePhyloGNN</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base GAT encoder with optional feature preprocessing and pluggable GAT backbone.</span>
+
+<span class="sd">    Architecture:</span>
+<span class="sd">        input node features</span>
+<span class="sd">            -&gt; optional preprocessing projection</span>
+<span class="sd">            -&gt; dropout</span>
+<span class="sd">            -&gt; GAT encoder stack (plain or residual)</span>
+<span class="sd">            -&gt; dropout</span>
+<span class="sd">            -&gt; node embeddings</span>
+
+<span class="sd">    This class provides reusable node-level encoding only. Subclasses are</span>
+<span class="sd">    responsible for graph-level pooling and task-specific prediction heads.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        input_dim:</span>
+<span class="sd">            Input node feature dimension.</span>
+<span class="sd">        preprocess_dim:</span>
+<span class="sd">            Output dimension of the optional preprocessing layer.</span>
+<span class="sd">            Required if `use_preprocessing=True`.</span>
+<span class="sd">        gat_hidden_dim:</span>
+<span class="sd">            Hidden dimension per attention head in each GAT layer.</span>
+<span class="sd">        gat_heads:</span>
+<span class="sd">            Number of attention heads.</span>
+<span class="sd">        num_gat_layers:</span>
+<span class="sd">            Number of GAT blocks in the encoder stack.</span>
+<span class="sd">        dropout_prob:</span>
+<span class="sd">            Dropout probability used in the encoder pipeline.</span>
+<span class="sd">        use_preprocessing:</span>
+<span class="sd">            Whether to apply a learnable preprocessing projection.</span>
+<span class="sd">        encoder_type:</span>
+<span class="sd">            Type of GAT encoder backbone:</span>
+<span class="sd">                - &quot;gat&quot;: plain stacked GAT</span>
+<span class="sd">                - &quot;res_gat&quot;: residual stacked GAT</span>
+
+<span class="sd">    Output embedding dimension:</span>
+<span class="sd">        `gat_hidden_dim * gat_heads`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">preprocess_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">gat_hidden_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">gat_heads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">num_gat_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="n">dropout_prob</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="n">use_preprocessing</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">encoder_type</span><span class="p">:</span> <span class="n">GATEncoderType</span> <span class="o">=</span> <span class="s2">&quot;res_gat&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_init_args</span><span class="p">(</span>
+            <span class="n">input_dim</span><span class="o">=</span><span class="n">input_dim</span><span class="p">,</span>
+            <span class="n">preprocess_dim</span><span class="o">=</span><span class="n">preprocess_dim</span><span class="p">,</span>
+            <span class="n">gat_hidden_dim</span><span class="o">=</span><span class="n">gat_hidden_dim</span><span class="p">,</span>
+            <span class="n">gat_heads</span><span class="o">=</span><span class="n">gat_heads</span><span class="p">,</span>
+            <span class="n">num_gat_layers</span><span class="o">=</span><span class="n">num_gat_layers</span><span class="p">,</span>
+            <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+            <span class="n">use_preprocessing</span><span class="o">=</span><span class="n">use_preprocessing</span><span class="p">,</span>
+            <span class="n">encoder_type</span><span class="o">=</span><span class="n">encoder_type</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_dim</span> <span class="o">=</span> <span class="n">input_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">preprocess_dim</span> <span class="o">=</span> <span class="n">preprocess_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gat_hidden_dim</span> <span class="o">=</span> <span class="n">gat_hidden_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gat_heads</span> <span class="o">=</span> <span class="n">gat_heads</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_gat_layers</span> <span class="o">=</span> <span class="n">num_gat_layers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout_prob</span> <span class="o">=</span> <span class="n">dropout_prob</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_preprocessing</span> <span class="o">=</span> <span class="n">use_preprocessing</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">encoder_type</span> <span class="o">=</span> <span class="n">encoder_type</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_preprocessing</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">preprocess</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+                <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">input_dim</span><span class="p">,</span> <span class="n">preprocess_dim</span><span class="p">),</span>
+                <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+            <span class="p">)</span>
+            <span class="n">gat_input_dim</span> <span class="o">=</span> <span class="n">preprocess_dim</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">preprocess</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Identity</span><span class="p">()</span>
+            <span class="n">gat_input_dim</span> <span class="o">=</span> <span class="n">input_dim</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">gat_encoder</span> <span class="o">=</span> <span class="n">build_gat_encoder</span><span class="p">(</span>
+            <span class="n">encoder_type</span><span class="o">=</span><span class="n">encoder_type</span><span class="p">,</span>
+            <span class="n">in_channels</span><span class="o">=</span><span class="n">gat_input_dim</span><span class="p">,</span>
+            <span class="n">hidden_channels</span><span class="o">=</span><span class="n">gat_hidden_dim</span><span class="p">,</span>
+            <span class="n">num_layers</span><span class="o">=</span><span class="n">num_gat_layers</span><span class="p">,</span>
+            <span class="n">heads</span><span class="o">=</span><span class="n">gat_heads</span><span class="p">,</span>
+            <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout_prob</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_init_args</span><span class="p">(</span>
+        <span class="n">input_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">preprocess_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">gat_hidden_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">gat_heads</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">num_gat_layers</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">dropout_prob</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">use_preprocessing</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="n">encoder_type</span><span class="p">:</span> <span class="n">GATEncoderType</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate encoder constructor arguments.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError:</span>
+<span class="sd">                If any argument is invalid.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">input_dim</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`input_dim` must be &gt; 0, got </span><span class="si">{</span><span class="n">input_dim</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">gat_hidden_dim</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`gat_hidden_dim` must be &gt; 0, got </span><span class="si">{</span><span class="n">gat_hidden_dim</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">gat_heads</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`gat_heads` must be &gt; 0, got </span><span class="si">{</span><span class="n">gat_heads</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">num_gat_layers</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`num_gat_layers` must be &gt; 0, got </span><span class="si">{</span><span class="n">num_gat_layers</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">dropout_prob</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`dropout_prob` must be in [0, 1), got </span><span class="si">{</span><span class="n">dropout_prob</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">use_preprocessing</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">preprocess_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`preprocess_dim` must be provided when `use_preprocessing=True`.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">preprocess_dim</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`preprocess_dim` must be &gt; 0 when used, got </span><span class="si">{</span><span class="n">preprocess_dim</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">encoder_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;gat&quot;</span><span class="p">,</span> <span class="s2">&quot;res_gat&quot;</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`encoder_type` must be one of (&#39;gat&#39;, &#39;res_gat&#39;), got </span><span class="si">{</span><span class="n">encoder_type</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="BaseGATNet.get_encoder_modules">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BaseGATNet.get_encoder_modules">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_encoder_modules</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return transferable encoder modules.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Encoder module collection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">preprocess</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">gat_encoder</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="BaseGATNet.reset_parameters">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BaseGATNet.reset_parameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reset preprocessing and GAT encoder parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_reset_module_parameters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">preprocess</span><span class="p">)</span>
+        <span class="n">_reset_module_parameters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gat_encoder</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BaseGATNet.encode">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BaseGATNet.encode">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">encode</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Encode node features into node-level embeddings.</span>
+
+<span class="sd">        Contract:</span>
+<span class="sd">            - `x`: [num_nodes, input_dim]</span>
+<span class="sd">            - `edge_index`: [2, num_edges]</span>
+<span class="sd">            - output: [num_nodes, gat_hidden_dim * gat_heads]</span>
+
+<span class="sd">        Notes:</span>
+<span class="sd">            - This method performs node-level encoding only.</span>
+<span class="sd">            - No graph-level pooling or prediction head is applied here.</span>
+<span class="sd">            - Dropout behavior follows standard PyTorch train/eval semantics.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x:</span>
+<span class="sd">                Node feature matrix.</span>
+<span class="sd">            edge_index:</span>
+<span class="sd">                Graph connectivity in COO format.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Encoded node embeddings.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">preprocess</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gat_encoder</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span></div>
+
+
+<div class="viewcode-block" id="BaseGATNet.encode_data">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BaseGATNet.encode_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">encode_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Convenience wrapper that encodes directly from a PyG Data object.</span>
+
+<span class="sd">        Required fields:</span>
+<span class="sd">            - `data.x`</span>
+<span class="sd">            - `data.edge_index`</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            data:</span>
+<span class="sd">                Input graph data.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Node embeddings of shape [num_nodes, embedding_dim].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">validate_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">require_batch</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BaseGATNet.get_embedding_dim">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BaseGATNet.get_embedding_dim">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_embedding_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return encoder output embedding dimension.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `gat_hidden_dim * gat_heads`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">gat_hidden_dim</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">gat_heads</span></div>
+
+
+<div class="viewcode-block" id="BaseGATNet.extra_repr">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BaseGATNet.extra_repr">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extra representation shown in `print(model)`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;input_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">input_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;preprocess_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">preprocess_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;gat_hidden_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gat_hidden_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;gat_heads=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">gat_heads</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;num_gat_layers=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_gat_layers</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;dropout_prob=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dropout_prob</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;use_preprocessing=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">use_preprocessing</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;encoder_type=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">encoder_type</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="BaseGATNet.forward">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.BaseGATNet.forward">[docs]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Subclass-defined task-specific forward pass.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            data:</span>
+<span class="sd">                PyG Data object.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Task-specific output tensor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+</div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">PhyloGNN</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/index.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Minghao Du.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

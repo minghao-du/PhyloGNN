@@ -1,0 +1,61 @@
+Troubleshooting
+===============
+
+Malformed or unsupported tree input
+-----------------------------------
+
+If ETE cannot parse a Newick string or DendroPy cannot parse a file, first
+confirm the tree format and schema. Core workflows accept `ete3.Tree` objects.
+NEXUS or BEAST-style file reading through DendroPy requires the `beast` or
+`all` extra.
+
+Missing optional dependencies
+-----------------------------
+
+`ModuleNotFoundError` for DendroPy means optional tree I/O was used without the
+`beast` extra. `TrackingError` mentioning wandb means tracking was enabled
+without the `wandb` extra.
+
+Duplicate or unknown features
+-----------------------------
+
+`TreeFeatureEngineer.add_features()` rejects duplicate requested feature names
+and unknown features. Use `engineer.feature_names` or
+`engineer.get_available_features()` when you need the current supported order.
+
+Invalid graph data
+------------------
+
+Converters require every requested feature to exist on every node and to be
+numeric. Models require `data.x` as a floating-point matrix and `edge_index` as
+a long tensor of shape `[2, num_edges]`. Batched model training also needs
+`batch`, and temporal modes need `data.time_bin`.
+
+Invalid TOML training configuration
+-----------------------------------
+
+`TrainingConfigError` reports malformed TOML, missing sections, unknown keys,
+wrong types, unsupported loss or metric names, and invalid trainer values. See
+:doc:`concepts/training_config` for the accepted sections.
+
+Tracking setup failures
+-----------------------
+
+When tracking is enabled, `tracking.project` is required. Metadata keys that
+look secret, such as tokens or passwords, are rejected before external logging.
+Disable tracking to keep training fully local.
+
+Documentation build failures
+----------------------------
+
+Install the docs extra, then run the HTML and doctest builders from the
+repository root:
+
+.. code-block:: bash
+
+   python -m pip install -e ".[docs]"
+   python -m sphinx -b html -n -W --keep-going docs/source docs/_build/html
+   python -m sphinx -b doctest -W docs/source docs/_build/doctest
+
+Warnings are treated as failures so missing pages, broken references, and stale
+quickstart snippets are visible before release.

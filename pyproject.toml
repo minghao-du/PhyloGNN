@@ -24,6 +24,9 @@ dev = [
 "black>=23.0.0",
 "ruff>=0.1.0",
 ]
+docs = [
+"sphinx>=7.0.0",
+]
 beast = [
 "dendropy>=4.6.0",
 ]

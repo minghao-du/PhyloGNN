@@ -1,0 +1,70 @@
+Installation
+============
+
+PhyloGNN is a Python package requiring Python 3.12 or newer. Install from a
+local checkout with the smallest extra set that matches your task.
+
+Core package
+------------
+
+Use the core install when you need ETE trees, feature engineering, graph
+conversion, models, and local training.
+
+.. code-block:: bash
+
+   python -m pip install -e .
+
+Development tools
+-----------------
+
+Use the development extra for tests, linting, and formatting.
+
+.. code-block:: bash
+
+   python -m pip install -e ".[dev]"
+
+Documentation tools
+-------------------
+
+Use the documentation extra to build this local Sphinx site. It adds Sphinx but
+does not make Sphinx a runtime dependency.
+
+.. code-block:: bash
+
+   python -m pip install -e ".[docs]"
+   python -m sphinx -b html -n -W --keep-going docs/source docs/_build/html
+
+Optional tree I/O
+-----------------
+
+The core tree workflow works with `ete3.Tree` objects. File workflows that read
+NEXUS or BEAST-style trees through DendroPy require the `beast` extra.
+
+.. code-block:: bash
+
+   python -m pip install -e ".[beast]"
+
+Optional experiment tracking
+----------------------------
+
+Weights & Biases tracking is isolated behind the `wandb` extra and is only
+needed when tracking is enabled.
+
+.. code-block:: bash
+
+   python -m pip install -e ".[wandb]"
+
+Everything optional
+-------------------
+
+Use the `all` extra for optional tree I/O, workflow helpers, and tracking.
+
+.. code-block:: bash
+
+   python -m pip install -e ".[all]"
+
+Next steps
+----------
+
+Continue with the :doc:`quickstart`, then read :doc:`concepts/graph_data` for
+the graph fields produced by conversion.

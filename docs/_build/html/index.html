@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>PhyloGNN Documentation &#8212; PhyloGNN 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=01f34227"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="installation.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="phylognn-documentation">
+<h1>PhyloGNN Documentation<a class="headerlink" href="#phylognn-documentation" title="Link to this heading">¶</a></h1>
+<p>PhyloGNN is a Python package for turning phylogenetic trees into PyTorch
+Geometric graph data and training graph neural network models on those graphs.
+It is intended for users who already have tree data and want a practical path
+from tree input to graph conversion, feature engineering, training, metrics,
+and reference lookup.</p>
+<section id="fastest-path">
+<h2>Fastest path<a class="headerlink" href="#fastest-path" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>Install the core package or the optional extra needed by your workflow.</p></li>
+<li><p>Follow the quickstart to create a graph from a small Newick tree.</p></li>
+<li><p>Use the graph data concept page to interpret <cite>x</cite>, <cite>edge_index</cite>, and
+metadata fields.</p></li>
+<li><p>Move to the workflow guides for feature engineering, training, and optional
+tracking or tree file support.</p></li>
+</ol>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#core-package">Core package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#development-tools">Development tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#documentation-tools">Documentation tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#optional-tree-i-o">Optional tree I/O</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#optional-experiment-tracking">Optional experiment tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#everything-optional">Everything optional</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#next-steps">Next steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#create-a-small-tree">Create a small tree</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#attach-node-features">Attach node features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#convert-the-tree-to-graph-data">Convert the tree to graph data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#interpret-the-output">Interpret the output</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="concepts/index.html">Concepts</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="concepts/graph_data.html">Graph Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="concepts/training_config.html">Training Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/index.html">User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/tree_input.html">Tree Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/graph_conversion.html">Graph Conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/feature_engineering.html">Feature Engineering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/training.html">Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/metrics_tracking.html">Metrics And Tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="user_guide/index.html#workflow-map">Workflow map</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reference/index.html">Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="reference/index.html#fast-import-paths">Fast import paths</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/index.html#subpackage-surfaces">Subpackage surfaces</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/index.html#public-coverage">Public coverage</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#malformed-or-unsupported-tree-input">Malformed or unsupported tree input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#missing-optional-dependencies">Missing optional dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#duplicate-or-unknown-features">Duplicate or unknown features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#invalid-graph-data">Invalid graph data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#invalid-toml-training-configuration">Invalid TOML training configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#tracking-setup-failures">Tracking setup failures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="troubleshooting.html#documentation-build-failures">Documentation build failures</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">PhyloGNN</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts/index.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/index.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+      <li>Next: <a href="installation.html" title="next chapter">Installation</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Minghao Du.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

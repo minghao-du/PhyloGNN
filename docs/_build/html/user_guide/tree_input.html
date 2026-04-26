@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Tree Input &#8212; PhyloGNN 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Graph Conversion" href="graph_conversion.html" />
+    <link rel="prev" title="User Guide" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="tree-input">
+<h1>Tree Input<a class="headerlink" href="#tree-input" title="Link to this heading">¶</a></h1>
+<p>Core PhyloGNN workflows operate on <cite>ete3.Tree</cite> objects. This keeps the
+feature-engineering and conversion pipeline independent of optional file
+readers.</p>
+<section id="in-memory-ete-trees">
+<h2>In-memory ETE trees<a class="headerlink" href="#in-memory-ete-trees" title="Link to this heading">¶</a></h2>
+<p>For small examples and tests, create an ETE tree directly from Newick.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">ete3</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tree</span>
+
+<span class="n">tree</span> <span class="o">=</span> <span class="n">Tree</span><span class="p">(</span><span class="s2">&quot;((A:1,B:1)C:1,D:2)Root:0;&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The resulting tree can be passed to <cite>TreeFeatureEngineer.add_features()</cite>.</p>
+</section>
+<section id="optional-file-reading">
+<h2>Optional file reading<a class="headerlink" href="#optional-file-reading" title="Link to this heading">¶</a></h2>
+<p>File workflows that use DendroPy are exposed from <cite>phylognn.io</cite>, not from the
+root package. Install the <cite>beast</cite> or <cite>all</cite> extra before using them.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">phylognn.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_tree_as_ete3</span>
+
+<span class="n">tree</span> <span class="o">=</span> <span class="n">read_tree_as_ete3</span><span class="p">(</span><span class="s2">&quot;trees/example.trees&quot;</span><span class="p">,</span> <span class="n">schema</span><span class="o">=</span><span class="s2">&quot;nexus&quot;</span><span class="p">,</span> <span class="n">tree_index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><cite>TreeReadConfig</cite> controls schema, tree index, underscore handling, rooting,
+comment metadata extraction, and whether annotations are copied to ETE nodes.</p>
+</section>
+<section id="common-failures">
+<h2>Common failures<a class="headerlink" href="#common-failures" title="Link to this heading">¶</a></h2>
+<p>Use the correct schema for the file. <cite>tree_index</cite> is zero-based and must refer
+to an existing tree in a multi-tree file. Missing DendroPy means the optional
+extra is not installed. Parse failures are wrapped with the file path and
+schema so the next action is visible.</p>
+</section>
+<section id="related-pages">
+<h2>Related pages<a class="headerlink" href="#related-pages" title="Link to this heading">¶</a></h2>
+<p>See <a class="reference internal" href="feature_engineering.html"><span class="doc">Feature Engineering</span></a> for node features,
+<a class="reference internal" href="../reference/io.html"><span class="doc">Tree I/O Reference</span></a> for optional I/O APIs, and <a class="reference internal" href="../troubleshooting.html"><span class="doc">Troubleshooting</span></a> for
+recovery steps.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">PhyloGNN</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Tree Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graph_conversion.html">Graph Conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature_engineering.html">Feature Engineering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training.html">Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="metrics_tracking.html">Metrics And Tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#workflow-map">Workflow map</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">User Guide</a></li>
+      <li>Next: <a href="graph_conversion.html" title="next chapter">Graph Conversion</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Minghao Du.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/user_guide/tree_input.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

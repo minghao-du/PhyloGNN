@@ -1,0 +1,41 @@
+Metrics And Tracking
+====================
+
+PhyloGNN provides built-in metrics and optional Weights & Biases tracking for
+training runs.
+
+Metrics
+-------
+
+Metric helpers accept `(pred, target)` tensors and return scalar tensors.
+Available helpers are `mse_metric`, `mae_metric`, `rmse_metric`, `r2_metric`,
+and `relative_error_metric`. TOML configuration can select these by name in
+the `[metrics]` section.
+
+Tracking configuration
+----------------------
+
+`TrackingConfig(enabled=False)` keeps training local and does not import
+wandb. When tracking is enabled, the backend must be `wandb`, `project` is
+required, and the `wandb` extra must be installed.
+
+External run metadata
+---------------------
+
+The trainer logs sanitized configuration metadata, epoch metrics, final
+metrics, and terminal status. Metadata keys that look like secrets are
+rejected. Path-like metadata values are reduced to their final file or
+directory names before logging.
+
+Common failures
+---------------
+
+`TrackingError` is raised for invalid tracking settings, missing wandb, unsafe
+metadata, invalid metric payloads, and backend logging failures. Disable
+tracking to keep the workflow local while debugging model or data issues.
+
+Related pages
+-------------
+
+See :doc:`training`, :doc:`../concepts/training_config`,
+:doc:`../reference/training`, and :doc:`../troubleshooting`.

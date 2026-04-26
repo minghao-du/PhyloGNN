@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Feature Engineering &#8212; PhyloGNN 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Training" href="training.html" />
+    <link rel="prev" title="Graph Conversion" href="graph_conversion.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="feature-engineering">
+<h1>Feature Engineering<a class="headerlink" href="#feature-engineering" title="Link to this heading">¶</a></h1>
+<p><cite>TreeFeatureEngineer</cite> computes numeric node attributes on an ETE tree. The
+converter later reads those attributes into graph feature columns.</p>
+<section id="basic-workflow">
+<h2>Basic workflow<a class="headerlink" href="#basic-workflow" title="Link to this heading">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">phylognn</span><span class="w"> </span><span class="kn">import</span> <span class="n">TreeFeatureEngineer</span>
+
+<span class="n">engineer</span> <span class="o">=</span> <span class="n">TreeFeatureEngineer</span><span class="p">(</span><span class="n">num_time_bins</span><span class="o">=</span><span class="mi">101</span><span class="p">)</span>
+<span class="n">tree</span> <span class="o">=</span> <span class="n">engineer</span><span class="o">.</span><span class="n">add_features</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">origin_time</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">rescale</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">feature_order</span> <span class="o">=</span> <span class="n">engineer</span><span class="o">.</span><span class="n">feature_names</span>
+</pre></div>
+</div>
+<p>Built-in features include <cite>node_time</cite>, <cite>time_bin</cite>, tip/internal indicators,
+fossil/extant indicators, sampled-ancestor indicators, <cite>branch_length</cite>,
+<cite>rescale_factor</cite>, and <cite>extant_sampling_probability</cite>.</p>
+</section>
+<section id="feature-order-and-determinism">
+<h2>Feature order and determinism<a class="headerlink" href="#feature-order-and-determinism" title="Link to this heading">¶</a></h2>
+<p><cite>feature_names</cite> is an immutable ordered tuple. Use it when constructing a
+converter so <cite>data.x</cite> columns stay stable across runs. Custom features are
+appended after built-in features in registration order.</p>
+</section>
+<section id="validation">
+<h2>Validation<a class="headerlink" href="#validation" title="Link to this heading">¶</a></h2>
+<p><cite>origin_time</cite> must be positive. Requested feature names must be unique and
+must exist in <cite>available_features</cite>. <cite>num_time_bins</cite> must be at least two,
+<cite>extant_sampling_probability</cite> must be in <cite>[0, 1]</cite>, and traversal strategy must
+be one of <cite>preorder</cite>, <cite>postorder</cite>, or <cite>levelorder</cite>.</p>
+</section>
+<section id="rescaling">
+<h2>Rescaling<a class="headerlink" href="#rescaling" title="Link to this heading">¶</a></h2>
+<p>When <cite>rescale=True</cite>, non-zero branch lengths are scaled so their mean becomes
+one. The same factor is used for feature computation and is attached as
+<cite>rescale_factor</cite>. Trees with no non-zero branch lengths cannot be rescaled.</p>
+</section>
+<section id="related-pages">
+<h2>Related pages<a class="headerlink" href="#related-pages" title="Link to this heading">¶</a></h2>
+<p>See <a class="reference internal" href="graph_conversion.html"><span class="doc">Graph Conversion</span></a> for converting features to graph tensors,
+<a class="reference internal" href="../concepts/graph_data.html"><span class="doc">Graph Data</span></a> for graph fields, and <a class="reference internal" href="../reference/data.html"><span class="doc">Data Reference</span></a>
+for API details.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">PhyloGNN</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="tree_input.html">Tree Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graph_conversion.html">Graph Conversion</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Feature Engineering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training.html">Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="metrics_tracking.html">Metrics And Tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#workflow-map">Workflow map</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="graph_conversion.html" title="previous chapter">Graph Conversion</a></li>
+      <li>Next: <a href="training.html" title="next chapter">Training</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Minghao Du.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/user_guide/feature_engineering.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Graph Data &#8212; PhyloGNN 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Training Configuration" href="training_config.html" />
+    <link rel="prev" title="Concepts" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="graph-data">
+<h1>Graph Data<a class="headerlink" href="#graph-data" title="Link to this heading">¶</a></h1>
+<p>PhyloGNN represents converted trees as <cite>torch_geometric.data.Data</cite> objects.
+The converter treats package source and tests as the contract; examples are
+illustrations of that contract.</p>
+<section id="core-fields">
+<h2>Core fields<a class="headerlink" href="#core-fields" title="Link to this heading">¶</a></h2>
+<dl class="simple">
+<dt><cite>x</cite></dt><dd><p>Floating-point node feature matrix with shape <cite>[num_nodes, num_features]</cite>.
+Column order is defined by the converter <cite>feature_names</cite>, commonly
+<cite>TreeFeatureEngineer.feature_names</cite>.</p>
+</dd>
+<dt><cite>edge_index</cite></dt><dd><p>Long tensor with shape <cite>[2, num_edges]</cite>. Tree parent-child relations are
+included, and bidirectional conversion adds the reverse edge too.</p>
+</dd>
+<dt><cite>edge_type</cite></dt><dd><p>Long tensor aligned with <cite>edge_index</cite>. Values are <cite>0</cite> for tree edges, <cite>1</cite>
+for virtual-to-real edges, and <cite>2</cite> for virtual-chain edges.</p>
+</dd>
+<dt><cite>node_names</cite></dt><dd><p>Optional list aligned with graph node order. Original nodes use ETE node
+names, unnamed nodes use an empty string, and virtual nodes are named like
+<cite>__virtual_time_bin_i__</cite>.</p>
+</dd>
+<dt><cite>original_num_nodes</cite></dt><dd><p>Integer count of nodes from the original tree before virtual nodes are
+appended.</p>
+</dd>
+</dl>
+</section>
+<section id="virtual-node-fields">
+<h2>Virtual-node fields<a class="headerlink" href="#virtual-node-fields" title="Link to this heading">¶</a></h2>
+<p>When virtual nodes are enabled, the converter also attaches
+<cite>virtual_node_mask</cite>, <cite>node_type</cite>, and <cite>num_time_bins</cite>. Original nodes use node
+type <cite>0</cite>; virtual nodes use node type <cite>1</cite>. If <cite>append_is_virtual_feature=True</cite>,
+the final <cite>x</cite> column is <cite>is_virtual_node</cite>.</p>
+</section>
+<section id="deterministic-ordering">
+<h2>Deterministic ordering<a class="headerlink" href="#deterministic-ordering" title="Link to this heading">¶</a></h2>
+<p>Feature order is deterministic when callers pass an ordered sequence such as
+<cite>TreeFeatureEngineer.feature_names</cite>. Node order follows the converter traversal
+strategy, with <cite>preorder</cite> as the default. Metadata aligned to nodes, including
+<cite>node_names</cite>, follows that same order.</p>
+</section>
+<section id="compatibility-notes">
+<h2>Compatibility notes<a class="headerlink" href="#compatibility-notes" title="Link to this heading">¶</a></h2>
+<p>Model inputs must include <cite>x</cite> and <cite>edge_index</cite>. Batched graph-level training
+also requires <cite>batch</cite>. Temporal model modes require a separate <cite>data.time_bin</cite>
+tensor aligned with nodes; do not assume that a feature column alone satisfies
+that model field.</p>
+<p>See <a class="reference internal" href="../user_guide/graph_conversion.html"><span class="doc">Graph Conversion</span></a> for the conversion workflow and
+<a class="reference internal" href="../reference/data.html"><span class="doc">Data Reference</span></a> for the data API reference.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">PhyloGNN</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Concepts</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Graph Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training_config.html">Training Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../user_guide/index.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Concepts</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Concepts</a></li>
+      <li>Next: <a href="training_config.html" title="next chapter">Training Configuration</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Minghao Du.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/concepts/graph_data.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

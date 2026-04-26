@@ -163,6 +163,8 @@ python -m build
 - Local TOML files as user input; existing trainer checkpoint/history files remain unchanged (001-toml-training-config)
 - Python >=3.12 + PyTorch, PyTorch Geometric, stdlib `tomllib`, pytest; new optional extra `wandb` required only when tracking is enabled (001-wandb-training-logging)
 - Existing local checkpoint/history files remain unchanged; external wandb run stores configuration, metrics, and status only (001-wandb-training-logging)
+- Python >=3.12 + Existing runtime dependencies PyTorch, PyTorch Geometric, ete3, numpy; documentation dependency Sphinx with built-in `autodoc`, `autosummary`, `napoleon`, `viewcode`, and `doctest` extensions (001-sphinx-docs)
+- Repository files only: Sphinx sources in `docs/source`, generated HTML in `docs/_build/html`, doctest output in `docs/_build/doctest`, existing non-user notes preserved under `docs/issues` and `docs/myprompt` (001-sphinx-docs)
 
 ## Recent Changes
 - 001-toml-training-config: Added Python >=3.12 + PyTorch, PyTorch Geometric, stdlib `tomllib`, pytest; no new TOML parser dependency

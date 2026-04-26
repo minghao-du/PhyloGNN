@@ -1,0 +1,35 @@
+PhyloGNN Documentation
+======================
+
+PhyloGNN is a Python package for turning phylogenetic trees into PyTorch
+Geometric graph data and training graph neural network models on those graphs.
+It is intended for users who already have tree data and want a practical path
+from tree input to graph conversion, feature engineering, training, metrics,
+and reference lookup.
+
+Fastest path
+------------
+
+1. Install the core package or the optional extra needed by your workflow.
+2. Follow the quickstart to create a graph from a small Newick tree.
+3. Use the graph data concept page to interpret `x`, `edge_index`, and
+   metadata fields.
+4. Move to the workflow guides for feature engineering, training, and optional
+   tracking or tree file support.
+
+.. Maintainers: add new user-facing task pages under user_guide/ and link them
+   from user_guide/index.rst. Add shared concepts under concepts/, lookup pages
+   under reference/, and recovery advice in troubleshooting.rst. Keep legacy
+   docs/issues, docs/myprompt, and specs out of official toctrees unless the
+   content is rewritten for ordinary users.
+
+.. toctree::
+   :maxdepth: 2
+   :caption: User Documentation
+
+   installation
+   quickstart
+   concepts/index
+   user_guide/index
+   reference/index
+   troubleshooting

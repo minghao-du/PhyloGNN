@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Metrics And Tracking &#8212; PhyloGNN 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Reference" href="../reference/index.html" />
+    <link rel="prev" title="Training" href="training.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="metrics-and-tracking">
+<h1>Metrics And Tracking<a class="headerlink" href="#metrics-and-tracking" title="Link to this heading">¶</a></h1>
+<p>PhyloGNN provides built-in metrics and optional Weights &amp; Biases tracking for
+training runs.</p>
+<section id="metrics">
+<h2>Metrics<a class="headerlink" href="#metrics" title="Link to this heading">¶</a></h2>
+<p>Metric helpers accept <cite>(pred, target)</cite> tensors and return scalar tensors.
+Available helpers are <cite>mse_metric</cite>, <cite>mae_metric</cite>, <cite>rmse_metric</cite>, <cite>r2_metric</cite>,
+and <cite>relative_error_metric</cite>. TOML configuration can select these by name in
+the <cite>[metrics]</cite> section.</p>
+</section>
+<section id="tracking-configuration">
+<h2>Tracking configuration<a class="headerlink" href="#tracking-configuration" title="Link to this heading">¶</a></h2>
+<p><cite>TrackingConfig(enabled=False)</cite> keeps training local and does not import
+wandb. When tracking is enabled, the backend must be <cite>wandb</cite>, <cite>project</cite> is
+required, and the <cite>wandb</cite> extra must be installed.</p>
+</section>
+<section id="external-run-metadata">
+<h2>External run metadata<a class="headerlink" href="#external-run-metadata" title="Link to this heading">¶</a></h2>
+<p>The trainer logs sanitized configuration metadata, epoch metrics, final
+metrics, and terminal status. Metadata keys that look like secrets are
+rejected. Path-like metadata values are reduced to their final file or
+directory names before logging.</p>
+</section>
+<section id="common-failures">
+<h2>Common failures<a class="headerlink" href="#common-failures" title="Link to this heading">¶</a></h2>
+<p><cite>TrackingError</cite> is raised for invalid tracking settings, missing wandb, unsafe
+metadata, invalid metric payloads, and backend logging failures. Disable
+tracking to keep the workflow local while debugging model or data issues.</p>
+</section>
+<section id="related-pages">
+<h2>Related pages<a class="headerlink" href="#related-pages" title="Link to this heading">¶</a></h2>
+<p>See <a class="reference internal" href="training.html"><span class="doc">Training</span></a>, <a class="reference internal" href="../concepts/training_config.html"><span class="doc">Training Configuration</span></a>,
+<a class="reference internal" href="../reference/training.html"><span class="doc">Training Reference</span></a>, and <a class="reference internal" href="../troubleshooting.html"><span class="doc">Troubleshooting</span></a>.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">PhyloGNN</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="tree_input.html">Tree Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="graph_conversion.html">Graph Conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature_engineering.html">Feature Engineering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training.html">Training</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Metrics And Tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#workflow-map">Workflow map</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="training.html" title="previous chapter">Training</a></li>
+      <li>Next: <a href="../reference/index.html" title="next chapter">Reference</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Minghao Du.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/user_guide/metrics_tracking.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

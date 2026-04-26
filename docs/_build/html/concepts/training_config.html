@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Training Configuration &#8212; PhyloGNN 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="User Guide" href="../user_guide/index.html" />
+    <link rel="prev" title="Graph Data" href="graph_data.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="training-configuration">
+<h1>Training Configuration<a class="headerlink" href="#training-configuration" title="Link to this heading">¶</a></h1>
+<p>Training configuration files are local TOML documents loaded with Python
+stdlib <cite>tomllib</cite>. They configure model construction, trainer settings, loss,
+metrics, and optional tracking. They do not construct datasets or data loaders.</p>
+<section id="required-sections">
+<h2>Required sections<a class="headerlink" href="#required-sections" title="Link to this heading">¶</a></h2>
+<dl class="simple">
+<dt><cite>[model]</cite></dt><dd><p>Contains <cite>type</cite>, currently <cite>GATBiLSTMNet</cite>, and the nested
+<cite>[model.params]</cite> table.</p>
+</dd>
+<dt><cite>[model.params]</cite></dt><dd><p>Contains model constructor values. <cite>input_dim</cite> and <cite>output_dim</cite> are
+required. Other accepted keys include GAT dimensions, temporal mode,
+number of time bins, pooling, and output-head settings.</p>
+</dd>
+<dt><cite>[training]</cite></dt><dd><p>Contains <cite>TrainingConfig</cite> values such as <cite>epochs</cite>, <cite>batch_size</cite>,
+<cite>learning_rate</cite>, <cite>optimizer</cite>, <cite>scheduler</cite>, <cite>device</cite>, and checkpoint
+settings.</p>
+</dd>
+</dl>
+</section>
+<section id="optional-sections">
+<h2>Optional sections<a class="headerlink" href="#optional-sections" title="Link to this heading">¶</a></h2>
+<dl class="simple">
+<dt><cite>[loss]</cite></dt><dd><p>Selects a built-in loss by <cite>name</cite>. Supported names are <cite>mse</cite> and <cite>mae</cite>.</p>
+</dd>
+<dt><cite>[metrics]</cite></dt><dd><p>Selects built-in metrics by <cite>names</cite>, including <cite>mse</cite>, <cite>mae</cite>, <cite>rmse</cite>, <cite>r2</cite>,
+and <cite>relative_error</cite>.</p>
+</dd>
+<dt><cite>[tracking]</cite></dt><dd><p>Enables optional experiment tracking. When <cite>enabled=true</cite>, <cite>project</cite> is
+required and the <cite>wandb</cite> extra must be installed.</p>
+</dd>
+</dl>
+</section>
+<section id="validation-expectations">
+<h2>Validation expectations<a class="headerlink" href="#validation-expectations" title="Link to this heading">¶</a></h2>
+<p>Unknown top-level keys, unknown section keys, missing required fields, invalid
+types, unsupported model types, and invalid trainer values raise
+<cite>TrainingConfigError</cite>. Tracking validation raises <cite>TrackingError</cite> when enabled
+tracking lacks required settings or dependencies.</p>
+</section>
+<section id="training-outputs">
+<h2>Training outputs<a class="headerlink" href="#training-outputs" title="Link to this heading">¶</a></h2>
+<p>The trainer writes checkpoints and <cite>history.json</cite> under <cite>TrainingConfig.save_dir</cite>.
+External tracking stores sanitized configuration, epoch metrics, final metrics,
+and terminal status only when enabled.</p>
+<p>See <a class="reference internal" href="../user_guide/training.html"><span class="doc">Training</span></a>, <a class="reference internal" href="../user_guide/metrics_tracking.html"><span class="doc">Metrics And Tracking</span></a>, and
+<a class="reference internal" href="../reference/training.html"><span class="doc">Training Reference</span></a> for workflow and API details.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">PhyloGNN</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="graph_data.html">Graph Data</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Training Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../user_guide/index.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Concepts</a><ul>
+      <li>Previous: <a href="graph_data.html" title="previous chapter">Graph Data</a></li>
+      <li>Next: <a href="../user_guide/index.html" title="next chapter">User Guide</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Minghao Du.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/concepts/training_config.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

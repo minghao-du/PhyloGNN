@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Quickstart &#8212; PhyloGNN 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=01f34227"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Concepts" href="concepts/index.html" />
+    <link rel="prev" title="Installation" href="installation.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="quickstart">
+<h1>Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading">¶</a></h1>
+<p>This quickstart creates an <cite>ete3.Tree</cite>, attaches node features, converts it to
+a PyTorch Geometric <cite>Data</cite> object, and inspects the main graph fields.</p>
+<section id="create-a-small-tree">
+<h2>Create a small tree<a class="headerlink" href="#create-a-small-tree" title="Link to this heading">¶</a></h2>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">ete3</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tree</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tree</span> <span class="o">=</span> <span class="n">Tree</span><span class="p">(</span><span class="s2">&quot;((A:1,B:1)C:1,D:2)Root:0;&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">traverse</span><span class="p">(</span><span class="s2">&quot;preorder&quot;</span><span class="p">)))</span>
+<span class="go">5</span>
+</pre></div>
+</div>
+</section>
+<section id="attach-node-features">
+<h2>Attach node features<a class="headerlink" href="#attach-node-features" title="Link to this heading">¶</a></h2>
+<p><cite>TreeFeatureEngineer</cite> writes numeric attributes to each tree node. Use
+<cite>feature_names</cite> as the stable column order for graph conversion.</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">phylognn</span><span class="w"> </span><span class="kn">import</span> <span class="n">TreeFeatureEngineer</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">engineer</span> <span class="o">=</span> <span class="n">TreeFeatureEngineer</span><span class="p">(</span><span class="n">num_time_bins</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">feature_names</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;node_time&quot;</span><span class="p">,</span> <span class="s2">&quot;time_bin&quot;</span><span class="p">,</span> <span class="s2">&quot;is_tip&quot;</span><span class="p">,</span> <span class="s2">&quot;branch_length&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">featured_tree</span> <span class="o">=</span> <span class="n">engineer</span><span class="o">.</span><span class="n">add_features</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">tree</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">origin_time</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">feature_names</span><span class="o">=</span><span class="n">feature_names</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">rescale</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">all</span><span class="p">(</span><span class="nb">hasattr</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s2">&quot;time_bin&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">featured_tree</span><span class="o">.</span><span class="n">traverse</span><span class="p">())</span>
+<span class="go">True</span>
+</pre></div>
+</div>
+</section>
+<section id="convert-the-tree-to-graph-data">
+<h2>Convert the tree to graph data<a class="headerlink" href="#convert-the-tree-to-graph-data" title="Link to this heading">¶</a></h2>
+<p><cite>TreeToGraphConverter</cite> reads the node attributes into <cite>data.x</cite> and builds
+tree edges in <cite>data.edge_index</cite>.</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">phylognn</span><span class="w"> </span><span class="kn">import</span> <span class="n">TreeToGraphConverter</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">converter</span> <span class="o">=</span> <span class="n">TreeToGraphConverter</span><span class="p">(</span>
+<span class="gp">... </span>    <span class="n">feature_names</span><span class="o">=</span><span class="n">feature_names</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">add_virtual_nodes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="gp">... </span>    <span class="n">append_is_virtual_feature</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span> <span class="o">=</span> <span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="n">featured_tree</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">tuple</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="go">(5, 4)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">tuple</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="go">(2, 8)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span><span class="o">.</span><span class="n">edge_type</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<span class="go">[0, 0, 0, 0, 0, 0, 0, 0]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span><span class="o">.</span><span class="n">node_names</span>
+<span class="go">[&#39;Root&#39;, &#39;C&#39;, &#39;A&#39;, &#39;B&#39;, &#39;D&#39;]</span>
+</pre></div>
+</div>
+</section>
+<section id="interpret-the-output">
+<h2>Interpret the output<a class="headerlink" href="#interpret-the-output" title="Link to this heading">¶</a></h2>
+<p><cite>data.x</cite> is a floating-point matrix with one row per graph node and one column
+per requested feature. <cite>data.edge_index</cite> is a <cite>LongTensor</cite> with shape
+<cite>[2, num_edges]</cite>; by default tree edges are bidirectional. <cite>data.edge_type</cite>
+uses <cite>0</cite> for tree edges. <cite>data.node_names</cite> follows the converter traversal
+order, and <cite>data.original_num_nodes</cite> records how many nodes came from the
+input tree before any virtual nodes are added.</p>
+<p>For virtual-node graphs, include <cite>time_bin</cite> in the feature order and enable
+<cite>add_virtual_nodes=True</cite>. See <a class="reference internal" href="concepts/graph_data.html"><span class="doc">Graph Data</span></a> and
+<a class="reference internal" href="user_guide/graph_conversion.html"><span class="doc">Graph Conversion</span></a> for the complete field contract.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">PhyloGNN</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#create-a-small-tree">Create a small tree</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#attach-node-features">Attach node features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#convert-the-tree-to-graph-data">Convert the tree to graph data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#interpret-the-output">Interpret the output</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="concepts/index.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="user_guide/index.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="installation.html" title="previous chapter">Installation</a></li>
+      <li>Next: <a href="concepts/index.html" title="next chapter">Concepts</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Minghao Du.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="_sources/quickstart.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

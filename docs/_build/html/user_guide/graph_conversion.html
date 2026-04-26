@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Graph Conversion &#8212; PhyloGNN 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Feature Engineering" href="feature_engineering.html" />
+    <link rel="prev" title="Tree Input" href="tree_input.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="graph-conversion">
+<h1>Graph Conversion<a class="headerlink" href="#graph-conversion" title="Link to this heading">¶</a></h1>
+<p><cite>TreeToGraphConverter</cite> converts an ETE tree with numeric node attributes into a
+PyTorch Geometric <cite>Data</cite> object.</p>
+<section id="basic-workflow">
+<h2>Basic workflow<a class="headerlink" href="#basic-workflow" title="Link to this heading">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">phylognn</span><span class="w"> </span><span class="kn">import</span> <span class="n">TreeToGraphConverter</span>
+
+<span class="n">converter</span> <span class="o">=</span> <span class="n">TreeToGraphConverter</span><span class="p">(</span><span class="n">feature_names</span><span class="o">=</span><span class="n">engineer</span><span class="o">.</span><span class="n">feature_names</span><span class="p">)</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">graph_attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;tree_id&quot;</span><span class="p">:</span> <span class="s2">&quot;example&quot;</span><span class="p">})</span>
+</pre></div>
+</div>
+<p>The converter expects every node to have every requested feature and every
+feature value to be numeric.</p>
+</section>
+<section id="output-fields">
+<h2>Output fields<a class="headerlink" href="#output-fields" title="Link to this heading">¶</a></h2>
+<p>Converted data always includes <cite>x</cite>, <cite>edge_index</cite>, <cite>edge_type</cite>,
+<cite>original_num_nodes</cite>, <cite>virtual_node_mask</cite>, and <cite>node_type</cite>. When
+<cite>preserve_node_names=True</cite>, it also includes <cite>node_names</cite>. User-provided
+<cite>graph_attrs</cite> are attached as graph-level attributes.</p>
+</section>
+<section id="virtual-nodes">
+<h2>Virtual nodes<a class="headerlink" href="#virtual-nodes" title="Link to this heading">¶</a></h2>
+<p>Set <cite>add_virtual_nodes=True</cite> to add one virtual node per time bin. In this
+mode, <cite>feature_names</cite> must include <cite>time_bin</cite>. Virtual-to-real edges have
+<cite>edge_type=1</cite>; virtual-chain edges have <cite>edge_type=2</cite>. If
+<cite>append_is_virtual_feature=True</cite>, the final feature column identifies virtual
+nodes.</p>
+</section>
+<section id="saving-and-loading">
+<h2>Saving and loading<a class="headerlink" href="#saving-and-loading" title="Link to this heading">¶</a></h2>
+<p>Use <cite>convert_and_save()</cite> for preprocessing pipelines, <cite>save_data()</cite> to store a
+<cite>Data</cite> object, and <cite>load_data()</cite> to restore it with <cite>torch.load</cite>.</p>
+</section>
+<section id="related-pages">
+<h2>Related pages<a class="headerlink" href="#related-pages" title="Link to this heading">¶</a></h2>
+<p>See <a class="reference internal" href="../concepts/graph_data.html"><span class="doc">Graph Data</span></a> for field semantics,
+<a class="reference internal" href="feature_engineering.html"><span class="doc">Feature Engineering</span></a> for node features, <a class="reference internal" href="training.html"><span class="doc">Training</span></a> for model input
+expectations, and <a class="reference internal" href="../reference/data.html"><span class="doc">Data Reference</span></a> for the public API.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">PhyloGNN</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="tree_input.html">Tree Input</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Graph Conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="feature_engineering.html">Feature Engineering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="training.html">Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="metrics_tracking.html">Metrics And Tracking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="index.html#workflow-map">Workflow map</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">User Guide</a><ul>
+      <li>Previous: <a href="tree_input.html" title="previous chapter">Tree Input</a></li>
+      <li>Next: <a href="feature_engineering.html" title="next chapter">Feature Engineering</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Minghao Du.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+      |
+      <a href="../_sources/user_guide/graph_conversion.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

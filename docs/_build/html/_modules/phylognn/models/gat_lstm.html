@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>phylognn.models.gat_lstm &#8212; PhyloGNN 0.1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=01f34227"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for phylognn.models.gat_lstm</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">GAT-temporal hybrid models for phylogenetic tree analysis.</span>
+
+<span class="sd">This module implements models that combine:</span>
+<span class="sd">    - Graph Attention Networks (GAT) for node-level representation learning</span>
+<span class="sd">    - Optional temporal aggregation over time bins</span>
+<span class="sd">    - Optional FC or BiLSTM temporal encoders</span>
+<span class="sd">    - A final MLP prediction head</span>
+
+<span class="sd">Compared to earlier research-style implementations, this version makes the</span>
+<span class="sd">data contract explicit:</span>
+<span class="sd">    - time-bin labels are provided as `data.time_bin`</span>
+<span class="sd">    - the number of time bins is configured explicitly</span>
+<span class="sd">    - temporal behavior is controlled by a clear `temporal_mode`</span>
+
+<span class="sd">Supported temporal modes:</span>
+<span class="sd">    - &quot;none&quot;: graph-level pooling directly from GAT node embeddings</span>
+<span class="sd">    - &quot;fc&quot;: time-bin pooling followed by flattening and FC temporal encoder</span>
+<span class="sd">    - &quot;lstm&quot;: time-bin pooling followed by a reusable bidirectional LSTM encoder</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">torch.nn</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch_geometric.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">Data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch_geometric.nn</span><span class="w"> </span><span class="kn">import</span> <span class="n">global_add_pool</span><span class="p">,</span> <span class="n">global_max_pool</span><span class="p">,</span> <span class="n">global_mean_pool</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">torch_scatter</span><span class="w"> </span><span class="kn">import</span> <span class="n">scatter</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseGATNet</span><span class="p">,</span> <span class="n">GATEncoderType</span><span class="p">,</span> <span class="n">_reset_module_parameters</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.layers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MLPHead</span><span class="p">,</span> <span class="n">TemporalAggregation</span><span class="p">,</span> <span class="n">TemporalBiLSTMEncoder</span>
+
+<span class="n">TemporalMode</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="s2">&quot;fc&quot;</span><span class="p">,</span> <span class="s2">&quot;lstm&quot;</span><span class="p">]</span>
+<span class="n">GraphPooling</span> <span class="o">=</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;max&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="GATBiLSTMNet">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.GATBiLSTMNet">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GATBiLSTMNet</span><span class="p">(</span><span class="n">BaseGATNet</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    GAT-based graph model with optional temporal encoding over time bins.</span>
+
+<span class="sd">    High-level architecture:</span>
+<span class="sd">        1. Optional feature preprocessing</span>
+<span class="sd">        2. GAT encoder backbone (plain or residual)</span>
+<span class="sd">        3. One of:</span>
+<span class="sd">            - direct graph pooling                     (temporal_mode=&quot;none&quot;)</span>
+<span class="sd">            - time-bin pooling -&gt; FC temporal encoder (temporal_mode=&quot;fc&quot;)</span>
+<span class="sd">            - time-bin pooling -&gt; BiLSTM encoder      (temporal_mode=&quot;lstm&quot;)</span>
+<span class="sd">        4. MLP prediction head</span>
+
+<span class="sd">    Required input fields:</span>
+<span class="sd">        - data.x: FloatTensor [num_nodes, input_dim]</span>
+<span class="sd">        - data.edge_index: LongTensor [2, num_edges]</span>
+<span class="sd">        - data.batch: LongTensor [num_nodes]</span>
+
+<span class="sd">    Additional required field when temporal_mode != &quot;none&quot;:</span>
+<span class="sd">        - data.time_bin: LongTensor [num_nodes], values in [0, num_time_bins - 1]</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        input_dim:</span>
+<span class="sd">            Input node feature dimension.</span>
+<span class="sd">        output_dim:</span>
+<span class="sd">            Prediction dimension.</span>
+<span class="sd">        preprocess_dim:</span>
+<span class="sd">            Optional preprocessing projection dimension. Ignored if</span>
+<span class="sd">            `use_preprocessing=False`.</span>
+<span class="sd">        gat_hidden_dim:</span>
+<span class="sd">            GAT hidden dimension per attention head.</span>
+<span class="sd">        gat_heads:</span>
+<span class="sd">            Number of attention heads.</span>
+<span class="sd">        num_gat_layers:</span>
+<span class="sd">            Number of GAT blocks in the encoder.</span>
+<span class="sd">        dropout_prob:</span>
+<span class="sd">            Dropout probability used across encoder and temporal modules.</span>
+<span class="sd">        use_preprocessing:</span>
+<span class="sd">            Whether to apply a learnable preprocessing layer before GAT.</span>
+<span class="sd">        encoder_type:</span>
+<span class="sd">            Type of GAT encoder backbone:</span>
+<span class="sd">                - &quot;gat&quot;</span>
+<span class="sd">                - &quot;res_gat&quot;</span>
+<span class="sd">        temporal_mode:</span>
+<span class="sd">            Temporal aggregation strategy: &quot;none&quot;, &quot;fc&quot;, or &quot;lstm&quot;.</span>
+<span class="sd">        num_time_bins:</span>
+<span class="sd">            Total number of time bins. Required if temporal_mode != &quot;none&quot;.</span>
+<span class="sd">        temporal_hidden_dim:</span>
+<span class="sd">            Hidden dimension used by the FC or LSTM temporal encoder.</span>
+<span class="sd">        temporal_fc_hidden_dims:</span>
+<span class="sd">            Optional FC temporal encoder layer widths. If None, defaults to</span>
+<span class="sd">            widths derived from `temporal_hidden_dim` and</span>
+<span class="sd">            `DEFAULT_TEMPORAL_FC_WIDTH_MULTIPLIERS` to preserve previous</span>
+<span class="sd">            behavior. If provided, must be a non-empty sequence of positive</span>
+<span class="sd">            integers; each item creates one FC temporal layer.</span>
+<span class="sd">        num_lstm_layers:</span>
+<span class="sd">            Number of stacked recurrent layers in the BiLSTM encoder.</span>
+<span class="sd">            Used only when `temporal_mode=&quot;lstm&quot;`.</span>
+<span class="sd">        temporal_aggregation:</span>
+<span class="sd">            Recurrent sequence aggregation used by `temporal_mode=&quot;lstm&quot;`:</span>
+<span class="sd">            &quot;mean&quot;, &quot;last&quot;, or &quot;max&quot;. Defaults to &quot;mean&quot; to preserve the</span>
+<span class="sd">            previous graph-temporal behavior.</span>
+<span class="sd">        graph_pool:</span>
+<span class="sd">            Graph pooling mode used when `temporal_mode=&quot;none&quot;`.</span>
+<span class="sd">        head_hidden_dim:</span>
+<span class="sd">            Hidden dimension of the final MLP prediction head.</span>
+<span class="sd">        output_positive:</span>
+<span class="sd">            If True, applies ReLU activation on the final output.</span>
+
+<span class="sd">    Output:</span>
+<span class="sd">        Tensor of shape [batch_size, output_dim].</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">TIME_BIN_SCALAR_FEATURE_DIM</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">DEFAULT_TEMPORAL_FC_WIDTH_MULTIPLIERS</span> <span class="o">=</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">output_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">preprocess_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">32</span><span class="p">,</span>
+        <span class="n">gat_hidden_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+        <span class="n">gat_heads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+        <span class="n">num_gat_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="n">dropout_prob</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+        <span class="n">use_preprocessing</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">encoder_type</span><span class="p">:</span> <span class="n">GATEncoderType</span> <span class="o">=</span> <span class="s2">&quot;res_gat&quot;</span><span class="p">,</span>
+        <span class="n">temporal_mode</span><span class="p">:</span> <span class="n">TemporalMode</span> <span class="o">=</span> <span class="s2">&quot;lstm&quot;</span><span class="p">,</span>
+        <span class="n">num_time_bins</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">temporal_hidden_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
+        <span class="n">temporal_fc_hidden_dims</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">num_lstm_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">temporal_aggregation</span><span class="p">:</span> <span class="n">TemporalAggregation</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+        <span class="n">graph_pool</span><span class="p">:</span> <span class="n">GraphPooling</span> <span class="o">=</span> <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+        <span class="n">head_hidden_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span>
+        <span class="n">output_positive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_model_args</span><span class="p">(</span>
+            <span class="n">output_dim</span><span class="o">=</span><span class="n">output_dim</span><span class="p">,</span>
+            <span class="n">temporal_mode</span><span class="o">=</span><span class="n">temporal_mode</span><span class="p">,</span>
+            <span class="n">num_time_bins</span><span class="o">=</span><span class="n">num_time_bins</span><span class="p">,</span>
+            <span class="n">temporal_hidden_dim</span><span class="o">=</span><span class="n">temporal_hidden_dim</span><span class="p">,</span>
+            <span class="n">temporal_fc_hidden_dims</span><span class="o">=</span><span class="n">temporal_fc_hidden_dims</span><span class="p">,</span>
+            <span class="n">num_lstm_layers</span><span class="o">=</span><span class="n">num_lstm_layers</span><span class="p">,</span>
+            <span class="n">temporal_aggregation</span><span class="o">=</span><span class="n">temporal_aggregation</span><span class="p">,</span>
+            <span class="n">graph_pool</span><span class="o">=</span><span class="n">graph_pool</span><span class="p">,</span>
+            <span class="n">head_hidden_dim</span><span class="o">=</span><span class="n">head_hidden_dim</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">input_dim</span><span class="o">=</span><span class="n">input_dim</span><span class="p">,</span>
+            <span class="n">preprocess_dim</span><span class="o">=</span><span class="n">preprocess_dim</span><span class="p">,</span>
+            <span class="n">gat_hidden_dim</span><span class="o">=</span><span class="n">gat_hidden_dim</span><span class="p">,</span>
+            <span class="n">gat_heads</span><span class="o">=</span><span class="n">gat_heads</span><span class="p">,</span>
+            <span class="n">num_gat_layers</span><span class="o">=</span><span class="n">num_gat_layers</span><span class="p">,</span>
+            <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+            <span class="n">use_preprocessing</span><span class="o">=</span><span class="n">use_preprocessing</span><span class="p">,</span>
+            <span class="n">encoder_type</span><span class="o">=</span><span class="n">encoder_type</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">=</span> <span class="n">output_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temporal_mode</span> <span class="o">=</span> <span class="n">temporal_mode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_time_bins</span> <span class="o">=</span> <span class="n">num_time_bins</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temporal_hidden_dim</span> <span class="o">=</span> <span class="n">temporal_hidden_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resolved_temporal_fc_hidden_dims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_temporal_fc_hidden_dims</span><span class="p">(</span>
+            <span class="n">temporal_hidden_dim</span><span class="o">=</span><span class="n">temporal_hidden_dim</span><span class="p">,</span>
+            <span class="n">temporal_fc_hidden_dims</span><span class="o">=</span><span class="n">temporal_fc_hidden_dims</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_lstm_layers</span> <span class="o">=</span> <span class="n">num_lstm_layers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temporal_aggregation</span> <span class="o">=</span> <span class="n">temporal_aggregation</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">graph_pool</span> <span class="o">=</span> <span class="n">graph_pool</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">head_hidden_dim</span> <span class="o">=</span> <span class="n">head_hidden_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_positive</span> <span class="o">=</span> <span class="n">output_positive</span>
+
+        <span class="n">encoder_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_embedding_dim</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time_bin_scalar_feature_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">TIME_BIN_SCALAR_FEATURE_DIM</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">temporal_input_dim</span> <span class="o">=</span> <span class="n">encoder_dim</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">time_bin_scalar_feature_dim</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_mode</span> <span class="o">==</span> <span class="s2">&quot;none&quot;</span><span class="p">:</span>
+            <span class="n">head_input_dim</span> <span class="o">=</span> <span class="n">encoder_dim</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">temporal_output_dim</span> <span class="o">=</span> <span class="n">encoder_dim</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_mode</span> <span class="o">==</span> <span class="s2">&quot;fc&quot;</span><span class="p">:</span>
+            <span class="n">temporal_input_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_time_bins</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_input_dim</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">temporal_mlp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_temporal_mlp</span><span class="p">(</span>
+                <span class="n">input_dim</span><span class="o">=</span><span class="n">temporal_input_dim</span><span class="p">,</span>
+                <span class="n">hidden_dims</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">resolved_temporal_fc_hidden_dims</span><span class="p">,</span>
+                <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">temporal_output_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolved_temporal_fc_hidden_dims</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">head_input_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_output_dim</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_mode</span> <span class="o">==</span> <span class="s2">&quot;lstm&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">temporal_encoder</span> <span class="o">=</span> <span class="n">TemporalBiLSTMEncoder</span><span class="p">(</span>
+                <span class="n">input_dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">temporal_input_dim</span><span class="p">,</span>
+                <span class="n">hidden_dim</span><span class="o">=</span><span class="n">temporal_hidden_dim</span><span class="p">,</span>
+                <span class="n">num_layers</span><span class="o">=</span><span class="n">num_lstm_layers</span><span class="p">,</span>
+                <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+                <span class="n">aggregation</span><span class="o">=</span><span class="n">temporal_aggregation</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">temporal_output_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_encoder</span><span class="o">.</span><span class="n">output_dim</span>
+            <span class="n">head_input_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_output_dim</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">head</span> <span class="o">=</span> <span class="n">MLPHead</span><span class="p">(</span>
+            <span class="n">input_dim</span><span class="o">=</span><span class="n">head_input_dim</span><span class="p">,</span>
+            <span class="n">hidden_dim</span><span class="o">=</span><span class="n">head_hidden_dim</span><span class="p">,</span>
+            <span class="n">output_dim</span><span class="o">=</span><span class="n">output_dim</span><span class="p">,</span>
+            <span class="n">num_hidden_layers</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">dropout_prob</span><span class="o">=</span><span class="n">dropout_prob</span><span class="p">,</span>
+            <span class="n">output_activation</span><span class="o">=</span><span class="s2">&quot;relu&quot;</span> <span class="k">if</span> <span class="n">output_positive</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_model_args</span><span class="p">(</span>
+        <span class="n">output_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">temporal_mode</span><span class="p">:</span> <span class="n">TemporalMode</span><span class="p">,</span>
+        <span class="n">num_time_bins</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">temporal_hidden_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">temporal_fc_hidden_dims</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
+        <span class="n">num_lstm_layers</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">temporal_aggregation</span><span class="p">:</span> <span class="n">TemporalAggregation</span><span class="p">,</span>
+        <span class="n">graph_pool</span><span class="p">:</span> <span class="n">GraphPooling</span><span class="p">,</span>
+        <span class="n">head_hidden_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate model-specific constructor arguments.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError:</span>
+<span class="sd">                If any argument is invalid.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">output_dim</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`output_dim` must be &gt; 0, got </span><span class="si">{</span><span class="n">output_dim</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">temporal_mode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="s2">&quot;fc&quot;</span><span class="p">,</span> <span class="s2">&quot;lstm&quot;</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`temporal_mode` must be one of (&#39;none&#39;, &#39;fc&#39;, &#39;lstm&#39;), got </span><span class="si">{</span><span class="n">temporal_mode</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">temporal_mode</span> <span class="o">!=</span> <span class="s2">&quot;none&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">num_time_bins</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`num_time_bins` must be provided when `temporal_mode != &#39;none&#39;`.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">num_time_bins</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`num_time_bins` must be &gt; 0, got </span><span class="si">{</span><span class="n">num_time_bins</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">temporal_hidden_dim</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`temporal_hidden_dim` must be &gt; 0, got </span><span class="si">{</span><span class="n">temporal_hidden_dim</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="n">GATBiLSTMNet</span><span class="o">.</span><span class="n">_validate_temporal_fc_hidden_dims</span><span class="p">(</span><span class="n">temporal_fc_hidden_dims</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">num_lstm_layers</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`num_lstm_layers` must be &gt; 0, got </span><span class="si">{</span><span class="n">num_lstm_layers</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">temporal_aggregation</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;last&quot;</span><span class="p">,</span> <span class="s2">&quot;max&quot;</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`temporal_aggregation` must be one of (&#39;mean&#39;, &#39;last&#39;, &#39;max&#39;), &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">temporal_aggregation</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">graph_pool</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="s2">&quot;max&quot;</span><span class="p">}:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`graph_pool` must be one of (&#39;sum&#39;, &#39;mean&#39;, &#39;max&#39;), got </span><span class="si">{</span><span class="n">graph_pool</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">head_hidden_dim</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`head_hidden_dim` must be &gt; 0, got </span><span class="si">{</span><span class="n">head_hidden_dim</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_temporal_fc_hidden_dims</span><span class="p">(</span>
+        <span class="n">temporal_fc_hidden_dims</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate optional FC temporal layer widths.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            TypeError:</span>
+<span class="sd">        If an explicit width is not an integer.</span>
+<span class="sd">            ValueError:</span>
+<span class="sd">                If the explicit sequence is empty or contains non-positive widths.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">temporal_fc_hidden_dims</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">widths</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">temporal_fc_hidden_dims</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;`temporal_fc_hidden_dims` must be a non-empty sequence of positive integers.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">widths</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`temporal_fc_hidden_dims` must be non-empty when provided.&quot;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">width</span> <span class="ow">in</span> <span class="n">widths</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="s2">&quot;`temporal_fc_hidden_dims` must contain only positive integers, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">width</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">width</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;`temporal_fc_hidden_dims` must contain only positive integers, &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">width</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_temporal_fc_hidden_dims</span><span class="p">(</span>
+        <span class="n">temporal_hidden_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">temporal_fc_hidden_dims</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return the FC temporal widths used to build the temporal MLP.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">temporal_fc_hidden_dims</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span>
+                <span class="n">temporal_hidden_dim</span> <span class="o">*</span> <span class="n">multiplier</span>
+                <span class="k">for</span> <span class="n">multiplier</span> <span class="ow">in</span> <span class="n">GATBiLSTMNet</span><span class="o">.</span><span class="n">DEFAULT_TEMPORAL_FC_WIDTH_MULTIPLIERS</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">temporal_fc_hidden_dims</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_temporal_mlp</span><span class="p">(</span>
+        <span class="n">input_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">hidden_dims</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span>
+        <span class="n">dropout_prob</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Build an FC temporal encoder from explicit layer widths.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">layers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">current_dim</span> <span class="o">=</span> <span class="n">input_dim</span>
+
+        <span class="k">for</span> <span class="n">hidden_dim</span> <span class="ow">in</span> <span class="n">hidden_dims</span><span class="p">:</span>
+            <span class="n">layers</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">current_dim</span><span class="p">,</span> <span class="n">hidden_dim</span><span class="p">),</span>
+                    <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">(),</span>
+                    <span class="n">nn</span><span class="o">.</span><span class="n">BatchNorm1d</span><span class="p">(</span><span class="n">hidden_dim</span><span class="p">),</span>
+                    <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout_prob</span><span class="p">),</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">current_dim</span> <span class="o">=</span> <span class="n">hidden_dim</span>
+
+        <span class="k">return</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="o">*</span><span class="n">layers</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GATBiLSTMNet.get_encoder_modules">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.GATBiLSTMNet.get_encoder_modules">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_encoder_modules</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return encoder-side modules for transfer learning.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Iterable of modules considered part of the transferable encoder.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">modules</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">preprocess</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">gat_encoder</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_mode</span> <span class="o">==</span> <span class="s2">&quot;fc&quot;</span><span class="p">:</span>
+            <span class="n">modules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temporal_mlp</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_mode</span> <span class="o">==</span> <span class="s2">&quot;lstm&quot;</span><span class="p">:</span>
+            <span class="n">modules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temporal_encoder</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">modules</span></div>
+
+
+<div class="viewcode-block" id="GATBiLSTMNet.get_head_modules">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.GATBiLSTMNet.get_head_modules">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_head_modules</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return task-specific prediction head modules.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Iterable containing the prediction head.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">head</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="GATBiLSTMNet.reset_parameters">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.GATBiLSTMNet.reset_parameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reset all model parameters.</span>
+
+<span class="sd">        Reset order:</span>
+<span class="sd">            1. base GAT encoder</span>
+<span class="sd">            2. temporal encoder (if any)</span>
+<span class="sd">            3. prediction head</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_mode</span> <span class="o">==</span> <span class="s2">&quot;fc&quot;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_mlp</span><span class="p">:</span>
+                <span class="n">_reset_module_parameters</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_mode</span> <span class="o">==</span> <span class="s2">&quot;lstm&quot;</span><span class="p">:</span>
+            <span class="n">_reset_module_parameters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">temporal_encoder</span><span class="p">)</span>
+
+        <span class="n">_reset_module_parameters</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">head</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GATBiLSTMNet.forward">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.GATBiLSTMNet.forward">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Run the full forward pass.</span>
+
+<span class="sd">        Required fields:</span>
+<span class="sd">            Always required:</span>
+<span class="sd">                - data.x: [num_nodes, input_dim]</span>
+<span class="sd">                - data.edge_index: [2, num_edges]</span>
+<span class="sd">                - data.batch: [num_nodes]</span>
+
+<span class="sd">            Additionally required if `temporal_mode != &quot;none&quot;`:</span>
+<span class="sd">                - data.time_bin: [num_nodes], integer bin id for each node</span>
+
+<span class="sd">        Shape contract:</span>
+<span class="sd">            - node encoder output: [num_nodes, embedding_dim]</span>
+<span class="sd">            - final output: [batch_size, output_dim]</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            data:</span>
+<span class="sd">                Batched PyG Data object.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Prediction tensor of shape [batch_size, output_dim].</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError:</span>
+<span class="sd">                If required fields are missing or inconsistent.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">validate_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">require_batch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_mode</span> <span class="o">==</span> <span class="s2">&quot;none&quot;</span><span class="p">:</span>
+            <span class="n">graph_repr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_graph_pool</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">batch</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validate_temporal_data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">pooled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pool_by_time_bins</span><span class="p">(</span>
+                <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span>
+                <span class="n">time_bin</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">time_bin</span><span class="p">,</span>
+                <span class="n">batch</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">batch</span><span class="p">,</span>
+                <span class="n">num_time_bins</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">num_time_bins</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_mode</span> <span class="o">==</span> <span class="s2">&quot;fc&quot;</span><span class="p">:</span>
+                <span class="n">pooled_flat</span> <span class="o">=</span> <span class="n">pooled</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">pooled</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">graph_repr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_mlp</span><span class="p">(</span><span class="n">pooled_flat</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">graph_repr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_encode_temporal_sequence</span><span class="p">(</span><span class="n">pooled</span><span class="p">)</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="n">graph_repr</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_temporal_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate temporal metadata required for time-bin aggregation.</span>
+
+<span class="sd">        Required:</span>
+<span class="sd">            - `data.time_bin` exists</span>
+<span class="sd">            - `data.time_bin` is a 1D LongTensor of shape [num_nodes]</span>
+<span class="sd">            - values lie in [0, num_time_bins - 1]</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            data:</span>
+<span class="sd">                Input batched graph data.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError:</span>
+<span class="sd">                If time-bin metadata is missing or malformed.</span>
+<span class="sd">            TypeError:</span>
+<span class="sd">                If time-bin tensor type is invalid.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="s2">&quot;time_bin&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">data</span><span class="o">.</span><span class="n">time_bin</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`data.time_bin` is required when `temporal_mode != &#39;none&#39;`.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">torch</span><span class="o">.</span><span class="n">is_tensor</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">time_bin</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;`data.time_bin` must be a torch.Tensor.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">time_bin</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">torch</span><span class="o">.</span><span class="n">long</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`data.time_bin` must have dtype torch.long, got </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">time_bin</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">time_bin</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`data.time_bin` must be 1D [num_nodes], got shape </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">time_bin</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">time_bin</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">!=</span> <span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`data.time_bin` length must match number of nodes. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Got </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">time_bin</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">min_bin</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">time_bin</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+        <span class="n">max_bin</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">time_bin</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+
+        <span class="k">if</span> <span class="n">min_bin</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">max_bin</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_time_bins</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`data.time_bin` contains values outside configured range &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;[0, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_time_bins</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">]. Found min=</span><span class="si">{</span><span class="n">min_bin</span><span class="si">}</span><span class="s2">, max=</span><span class="si">{</span><span class="n">max_bin</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_graph_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Apply graph-level pooling to node embeddings.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x:</span>
+<span class="sd">                Node embeddings [num_nodes, embedding_dim].</span>
+<span class="sd">            batch:</span>
+<span class="sd">                Batch vector [num_nodes].</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Graph embeddings [batch_size, embedding_dim].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_pool</span> <span class="o">==</span> <span class="s2">&quot;sum&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">global_add_pool</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_pool</span> <span class="o">==</span> <span class="s2">&quot;mean&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">global_mean_pool</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph_pool</span> <span class="o">==</span> <span class="s2">&quot;max&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">global_max_pool</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported graph_pool=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_pool</span><span class="si">!r}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_pool_by_time_bins</span><span class="p">(</span>
+        <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">time_bin</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">batch</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+        <span class="n">num_time_bins</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Aggregate node embeddings by (graph_id, time_bin).</span>
+
+<span class="sd">        Aggregation rule:</span>
+<span class="sd">            For each graph in the batch and each time bin, node embeddings are</span>
+<span class="sd">            summed. Missing bins are filled with zeros.</span>
+
+<span class="sd">        Additional feature:</span>
+<span class="sd">            The scalar time-bin index is concatenated as the last feature</span>
+<span class="sd">            dimension for each bin.</span>
+
+<span class="sd">        Shape invariants:</span>
+<span class="sd">            - x.shape[0] == time_bin.shape[0] == batch.shape[0]</span>
+<span class="sd">            - output.shape == [</span>
+<span class="sd">              batch_size,</span>
+<span class="sd">              num_time_bins,</span>
+<span class="sd">              embedding_dim + TIME_BIN_SCALAR_FEATURE_DIM,</span>
+<span class="sd">              ]</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x:</span>
+<span class="sd">                Node embeddings [num_nodes, embedding_dim].</span>
+<span class="sd">            time_bin:</span>
+<span class="sd">                Time-bin labels [num_nodes].</span>
+<span class="sd">            batch:</span>
+<span class="sd">                Graph batch vector [num_nodes].</span>
+<span class="sd">            num_time_bins:</span>
+<span class="sd">                Total number of bins.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Time-binned graph representation</span>
+<span class="sd">            [batch_size, num_time_bins, embedding_dim + TIME_BIN_SCALAR_FEATURE_DIM].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">batch_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">embedding_dim</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">group_index</span> <span class="o">=</span> <span class="n">batch</span> <span class="o">*</span> <span class="n">num_time_bins</span> <span class="o">+</span> <span class="n">time_bin</span>
+        <span class="n">pooled</span> <span class="o">=</span> <span class="n">scatter</span><span class="p">(</span>
+            <span class="n">x</span><span class="p">,</span>
+            <span class="n">group_index</span><span class="p">,</span>
+            <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+            <span class="n">dim_size</span><span class="o">=</span><span class="n">batch_size</span> <span class="o">*</span> <span class="n">num_time_bins</span><span class="p">,</span>
+            <span class="n">reduce</span><span class="o">=</span><span class="s2">&quot;sum&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">pooled</span> <span class="o">=</span> <span class="n">pooled</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">num_time_bins</span><span class="p">,</span> <span class="n">embedding_dim</span><span class="p">)</span>
+
+        <span class="n">time_values</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_time_bins</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span>
+            <span class="mi">1</span><span class="p">,</span> <span class="n">num_time_bins</span><span class="p">,</span> <span class="n">GATBiLSTMNet</span><span class="o">.</span><span class="n">TIME_BIN_SCALAR_FEATURE_DIM</span>
+        <span class="p">)</span>
+        <span class="n">time_values</span> <span class="o">=</span> <span class="n">time_values</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span>
+            <span class="n">batch_size</span><span class="p">,</span> <span class="n">num_time_bins</span><span class="p">,</span> <span class="n">GATBiLSTMNet</span><span class="o">.</span><span class="n">TIME_BIN_SCALAR_FEATURE_DIM</span>
+        <span class="p">)</span>
+
+        <span class="n">pooled</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">pooled</span><span class="p">,</span> <span class="n">time_values</span><span class="p">],</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pooled</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_encode_temporal_sequence</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pooled</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Encode time-binned graph sequences with the reusable temporal encoder.</span>
+
+<span class="sd">        Graph-specific time-bin pooling is owned by `GATBiLSTMNet`; this method</span>
+<span class="sd">        delegates only the prepared sequence tensor to `TemporalBiLSTMEncoder`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            pooled:</span>
+<span class="sd">                Time-binned tensor</span>
+<span class="sd">                [batch_size, num_time_bins, embedding_dim + TIME_BIN_SCALAR_FEATURE_DIM].</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Graph representation [batch_size, temporal_output_dim].</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">temporal_encoder</span><span class="p">(</span><span class="n">pooled</span><span class="p">)</span>
+
+<div class="viewcode-block" id="GATBiLSTMNet.extra_repr">
+<a class="viewcode-back" href="../../../reference/models.html#phylognn.models.GATBiLSTMNet.extra_repr">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extra representation shown in `print(model)`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;output_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;temporal_mode=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">temporal_mode</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;num_time_bins=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_time_bins</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;temporal_hidden_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">temporal_hidden_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;temporal_fc_hidden_dims=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">resolved_temporal_fc_hidden_dims</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;num_lstm_layers=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_lstm_layers</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;temporal_aggregation=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">temporal_aggregation</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;graph_pool=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">graph_pool</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;head_hidden_dim=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">head_hidden_dim</span><span class="si">}</span><span class="s2">, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;output_positive=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">output_positive</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">PhyloGNN</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">User Documentation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../user_guide/index.html">User Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../troubleshooting.html">Troubleshooting</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2026, Minghao Du.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
