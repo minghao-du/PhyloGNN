@@ -8,7 +8,8 @@ Core package
 ------------
 
 Use the core install when you need ETE trees, feature engineering, graph
-conversion, models, and local training.
+conversion, models, and local training. This includes the public PyTorch,
+PyTorch Geometric, torch-scatter, ETE3, NumPy, and tqdm runtime dependencies.
 
 .. code-block:: bash
 
@@ -57,7 +58,8 @@ needed when tracking is enabled.
 Everything optional
 -------------------
 
-Use the `all` extra for optional tree I/O, workflow helpers, and tracking.
+Use the `all` extra for optional tree I/O, workflow helpers, and tracking. It
+does not include development or documentation tooling.
 
 .. code-block:: bash
 

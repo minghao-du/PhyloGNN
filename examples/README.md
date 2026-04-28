@@ -24,7 +24,8 @@ optional file-loading boundary and the lightweight training walkthrough.
 ## Requirements
 
 - Install the package and core runtime dependencies before running the
-  self-contained examples.
+  self-contained examples. The core install includes model and training runtime
+  packages such as torch-scatter and tqdm.
 - The examples are intended to be run from the repository root after an
   editable install such as `python -m pip install -e ".[dev]"`.
 - `feature_engineering.py` and `tree_to_graph.py` are self-contained and do not
@@ -36,11 +37,14 @@ optional file-loading boundary and the lightweight training walkthrough.
   `phylognn.io`.
 - The optional dependencies are isolated to file-loading workflows; the
   self-contained demos do not require them.
-- Install the optional dependency set with:
+- Install the tree I/O optional dependency set with:
 
 ```bash
 python -m pip install -e ".[beast]"
 ```
+
+- Install the aggregate user workflow extra with `python -m pip install -e ".[all]"`
+  when you also need tracking and workflow helper dependencies.
 
 ## Run Commands
 

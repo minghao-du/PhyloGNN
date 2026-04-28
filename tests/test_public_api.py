@@ -76,3 +76,11 @@ def test_root_package_rejects_hidden_optional_tree_io_names():
         pass
     else:
         raise AssertionError("Root package unexpectedly exposed optional tree I/O helper.")
+
+
+def test_public_runtime_facades_import_from_default_dependency_profile():
+    """Default dependency metadata should be sufficient for public runtime facades."""
+    for module_name in ("phylognn", "phylognn.data", "phylognn.models", "phylognn.training"):
+        module = importlib.import_module(module_name)
+
+        assert module.__all__

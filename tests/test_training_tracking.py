@@ -250,6 +250,21 @@ def test_disabled_tracking_does_not_import_wandb(monkeypatch, tmp_path: Path):
     assert history["train_loss"]
 
 
+def test_missing_wandb_guidance_mentions_wandb_extra(monkeypatch):
+    def fail_import(name):
+        raise ImportError("No module named 'wandb'")
+
+    monkeypatch.setattr("phylognn.training.tracking.import_module", fail_import)
+    tracker = WandbTracker(TrackingConfig(enabled=True, project="phylognn"))
+
+    with pytest.raises(TrackingError) as exc_info:
+        tracker.start({})
+
+    message = str(exc_info.value).lower()
+    assert "wandb" in message
+    assert "extra" in message
+
+
 def test_enabled_tracking_initialization_fails_before_first_epoch(tmp_path: Path):
     tracker = FakeTracker(start_error=TrackingError("missing project"))
     trainer = _trainer(

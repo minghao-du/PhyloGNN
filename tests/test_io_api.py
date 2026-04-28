@@ -1,5 +1,6 @@
 """Tests for the optional tree I/O facade contract."""
 
+import builtins
 import importlib
 
 import pytest
@@ -41,3 +42,23 @@ def test_tree_io_helpers_do_not_leak_into_default_surfaces():
 
     assert "read_tree_as_ete3" not in root.__all__
     assert "read_tree_as_ete3" not in data.__all__
+
+
+def test_missing_dendropy_guidance_mentions_dependency_or_beast_extra(monkeypatch):
+    """Optional tree I/O failures should point users to the correct extra."""
+    tree_io = importlib.import_module("phylognn.data.tree_io")
+    real_import = builtins.__import__
+
+    def fail_dendropy_import(name, *args, **kwargs):
+        if name == "dendropy":
+            raise ModuleNotFoundError("No module named 'dendropy'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fail_dendropy_import)
+
+    with pytest.raises(ModuleNotFoundError) as exc_info:
+        tree_io._import_dendropy()
+
+    message = str(exc_info.value).lower()
+    assert "dendropy" in message
+    assert "beast" in message

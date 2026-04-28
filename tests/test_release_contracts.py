@@ -1,8 +1,13 @@
 """Release-facing smoke tests for public contracts."""
 
 import importlib
+import re
+import tomllib
+from pathlib import Path
 
 import pytest
+
+PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
 
 
 @pytest.mark.parametrize(
@@ -49,3 +54,39 @@ def test_release_contracts_reject_hidden_names(module_name, hidden_name):
 
     with pytest.raises(AttributeError):
         getattr(module, hidden_name)
+
+
+def _distribution_name(requirement: str) -> str:
+    return re.split(r"[<>=!~;\[\] ]", requirement, maxsplit=1)[0].lower().replace("_", "-")
+
+
+def test_dependency_profiles_match_release_metadata_contract():
+    """Release metadata should keep runtime, workflow, docs, and dev profiles separate."""
+    with PYPROJECT.open("rb") as file:
+        project = tomllib.load(file)["project"]
+
+    dependencies = {_distribution_name(item) for item in project["dependencies"]}
+    optional = {
+        profile: {_distribution_name(item) for item in requirements}
+        for profile, requirements in project["optional-dependencies"].items()
+    }
+
+    assert dependencies == {"ete3", "numpy", "torch", "torch-geometric", "torch-scatter", "tqdm"}
+    assert optional["beast"] == {"dendropy"}
+    assert optional["wandb"] == {"wandb"}
+    assert optional["docs"] == {"sphinx"}
+    assert optional["dev"] == {"black", "pytest", "ruff"}
+    assert optional["all"] == {"dendropy", "pandas", "wandb"}
+
+
+def test_release_metadata_rejects_installer_specific_dependency_assumptions():
+    """Package metadata must stay portable across platforms and accelerators."""
+    metadata = PYPROJECT.read_text(encoding="utf-8").lower()
+
+    assert "--extra-index-url" not in metadata
+    assert "--find-links" not in metadata
+    assert "pip install" not in metadata
+    assert "python -m pip" not in metadata
+    assert ".whl" not in metadata
+    assert "cuda" not in metadata
+    assert not re.search(r"\bcu\d{3}\b", metadata)

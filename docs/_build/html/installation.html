@@ -40,7 +40,8 @@ local checkout with the smallest extra set that matches your task.</p>
 <section id="core-package">
 <h2>Core package<a class="headerlink" href="#core-package" title="Link to this heading">¶</a></h2>
 <p>Use the core install when you need ETE trees, feature engineering, graph
-conversion, models, and local training.</p>
+conversion, models, and local training. This includes the public PyTorch,
+PyTorch Geometric, torch-scatter, ETE3, NumPy, and tqdm runtime dependencies.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </pre></div>
 </div>
@@ -79,7 +80,8 @@ needed when tracking is enabled.</p>
 </section>
 <section id="everything-optional">
 <h2>Everything optional<a class="headerlink" href="#everything-optional" title="Link to this heading">¶</a></h2>
-<p>Use the <cite>all</cite> extra for optional tree I/O, workflow helpers, and tracking.</p>
+<p>Use the <cite>all</cite> extra for optional tree I/O, workflow helpers, and tracking. It
+does not include development or documentation tooling.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[all]&quot;</span>
 </pre></div>
 </div>

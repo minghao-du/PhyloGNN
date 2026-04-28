@@ -167,5 +167,7 @@ python -m build
 - Repository files only: Sphinx sources in `docs/source`, generated HTML in `docs/_build/html`, doctest output in `docs/_build/doctest`, existing non-user notes preserved under `docs/issues` and `docs/myprompt` (001-sphinx-docs)
 - Python >=3.12 + Existing runtime dependencies: PyTorch, PyTorch Geometric, ete3, numpy; stdlib `math`; no new dependency required (001-rescale-time-bins)
 - N/A; operates on in-memory ETE trees and PyTorch Geometric `Data` objects (001-rescale-time-bins)
+- Python >=3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy, `torch-scatter`, `tqdm`; optional DendroPy, Weights & Biases, Sphinx, pytest, Black, Ruff, and audited workflow helper packages such as pandas when retained (001-complete-pyproject-dependencies)
+- Local TOML package metadata in `/Users/Minghao/Research/PhyloGNN/pyproject.toml`; pytest audit classifications stored in repository tests; existing checkpoint/history files unchanged (001-complete-pyproject-dependencies)
 
 ## Recent Changes
