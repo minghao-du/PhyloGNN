@@ -4,7 +4,6 @@ import pytest
 
 from tests.support import require_modules
 
-
 torch = pytest.importorskip("torch")
 nn = torch.nn
 require_modules("torch_geometric", "torch_scatter")
@@ -60,6 +59,34 @@ def _tiny_temporal_graph():
         batch=torch.tensor([0, 0, 1, 1], dtype=torch.long),
         time_bin=torch.tensor([0, 1, 0, 1], dtype=torch.long),
     )
+
+
+def test_gat_bilstm_validate_temporal_data_accepts_converter_time_bin():
+    """Converter output should satisfy temporal validation without manual copying."""
+    pytest.importorskip("ete3")
+    from ete3 import Tree
+
+    from phylognn.data import TreeFeatureEngineer, TreeToGraphConverter
+
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = engineer.add_features(tree, origin_time=5.0, rescale=False)
+    converter = TreeToGraphConverter(
+        feature_names=engineer.feature_names,
+        add_virtual_nodes=False,
+    )
+    data = converter.convert(tree)
+    data.batch = torch.zeros(data.num_nodes, dtype=torch.long)
+    model = GATBiLSTMNet(
+        input_dim=data.x.size(1),
+        output_dim=1,
+        temporal_mode="fc",
+        num_time_bins=engineer.num_time_bins,
+    )
+
+    model._validate_temporal_data(data)
+
+    assert data.time_bin.dtype == torch.long
 
 
 def test_validate_data_rejects_non_floating_x():

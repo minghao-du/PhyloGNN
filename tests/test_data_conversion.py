@@ -3,12 +3,12 @@
 import pytest
 
 pytest.importorskip("ete3")
-pytest.importorskip("torch")
+torch = pytest.importorskip("torch")
 pytest.importorskip("torch_geometric")
 
-from ete3 import Tree
+from ete3 import Tree  # noqa: E402
 
-from phylognn.data import TreeFeatureEngineer, TreeToGraphConverter
+from phylognn.data import TreeFeatureEngineer, TreeToGraphConverter  # noqa: E402
 
 
 def _feature_index(converter, feature_name):
@@ -50,6 +50,57 @@ def test_converter_rejects_duplicate_feature_names():
         TreeToGraphConverter(feature_names=("time_bin", "time_bin"))
 
 
+def test_convert_generates_node_aligned_time_bin_field():
+    """Requested time-bin features should also be exposed as node labels."""
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = engineer.add_features(tree, origin_time=5.0, rescale=False)
+    converter = TreeToGraphConverter(
+        feature_names=engineer.feature_names,
+        add_virtual_nodes=False,
+    )
+
+    data = converter.convert(tree)
+
+    time_bin_idx = _feature_index(converter, "time_bin")
+    assert torch.is_tensor(data.time_bin)
+    assert data.time_bin.dtype == torch.long
+    assert data.time_bin.shape == (data.num_nodes,)
+    assert data.time_bin.tolist() == data.x[:, time_bin_idx].long().tolist()
+
+
+def test_convert_and_save_preserves_generated_time_bin(tmp_path):
+    """Generated node labels should survive the existing PyG Data persistence path."""
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = engineer.add_features(tree, origin_time=5.0, rescale=False)
+    converter = TreeToGraphConverter(
+        feature_names=engineer.feature_names,
+        add_virtual_nodes=False,
+    )
+    path = tmp_path / "graph.pt"
+
+    saved = converter.convert_and_save(tree, path)
+    loaded = TreeToGraphConverter.load_data(path)
+
+    assert torch.equal(loaded.time_bin, saved.time_bin)
+
+
+def test_convert_does_not_generate_time_bin_when_feature_is_absent():
+    """Converters should not infer temporal labels from unrelated features."""
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = engineer.add_features(tree, origin_time=5.0, rescale=False)
+    converter = TreeToGraphConverter(
+        feature_names=("node_time", "is_tip"),
+        add_virtual_nodes=False,
+    )
+
+    data = converter.convert(tree)
+
+    assert not hasattr(data, "time_bin")
+
+
 def test_convert_creates_configured_virtual_nodes_for_rescaled_empty_bins():
     """Configured bins should create virtual nodes even when no original node uses a bin."""
     tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
@@ -69,6 +120,7 @@ def test_convert_creates_configured_virtual_nodes_for_rescaled_empty_bins():
     data = converter.convert(tree)
 
     virtual_slice = slice(data.original_num_nodes, None)
+    time_bin_idx = _feature_index(converter, "time_bin")
     original_time_bins = data.x[: data.original_num_nodes, _feature_index(converter, "time_bin")]
     assert 3.0 not in original_time_bins.tolist()
     assert data.num_time_bins == engineer.num_time_bins
@@ -83,6 +135,13 @@ def test_convert_creates_configured_virtual_nodes_for_rescaled_empty_bins():
     assert data.x[virtual_slice, _feature_index(converter, "time_bin")].tolist() == pytest.approx(
         [0.0, 1.0, 2.0, 3.0, 4.0]
     )
+    assert data.time_bin.dtype == torch.long
+    assert data.time_bin.shape == (data.num_nodes,)
+    assert (
+        data.time_bin[: data.original_num_nodes].tolist()
+        == data.x[: data.original_num_nodes, time_bin_idx].long().tolist()
+    )
+    assert data.time_bin[virtual_slice].tolist() == [0, 1, 2, 3, 4]
     assert data.x[virtual_slice, _feature_index(converter, "node_time")].tolist() == pytest.approx(
         [0.0] * engineer.num_time_bins
     )

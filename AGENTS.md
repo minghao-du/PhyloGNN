@@ -169,5 +169,7 @@ python -m build
 - N/A; operates on in-memory ETE trees and PyTorch Geometric `Data` objects (001-rescale-time-bins)
 - Python >=3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy, `torch-scatter`, `tqdm`; optional DendroPy, Weights & Biases, Sphinx, pytest, Black, Ruff, and audited workflow helper packages such as pandas when retained (001-complete-pyproject-dependencies)
 - Local TOML package metadata in `/Users/Minghao/Research/PhyloGNN/pyproject.toml`; pytest audit classifications stored in repository tests; existing checkpoint/history files unchanged (001-complete-pyproject-dependencies)
+- Python >=3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy; no new dependency required (001-auto-time-bin)
+- In-memory `torch_geometric.data.Data` objects and existing `torch.save` persistence through `TreeToGraphConverter.save_data()` and `convert_and_save()` (001-auto-time-bin)
 
 ## Recent Changes

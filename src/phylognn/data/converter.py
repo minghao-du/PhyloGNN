@@ -46,7 +46,7 @@ Supported numeric types
 The converter accepts values that are instances of `numbers.Real`, such as:
 - int
 - float
-- bool
+- bool, except for `time_bin`, where boolean labels are rejected
 - numpy numeric scalar types compatible with numbers.Real
 
 Graph semantics
@@ -75,6 +75,7 @@ It may additionally contain:
 - node_type
 - node_names
 - num_time_bins
+- time_bin, if `"time_bin"` is present in `feature_names`
 - any user-supplied graph-level attributes
 
 Edge type semantics
@@ -331,6 +332,8 @@ class TreeToGraphConverter:
 
     VALID_TRAVERSALS = {"preorder", "postorder", "levelorder"}
     IS_VIRTUAL_FEATURE_NAME = "is_virtual_node"
+    TIME_BIN_FEATURE_NAME = "time_bin"
+    RESERVED_GRAPH_ATTRS = frozenset({TIME_BIN_FEATURE_NAME})
 
     def __init__(
         self,
@@ -433,8 +436,11 @@ class TreeToGraphConverter:
         It may additionally include:
         - node_names
         - num_time_bins
+        - time_bin, if `"time_bin"` is present in `feature_names`
         - user-provided graph_attrs
         """
+        self._validate_graph_attrs(graph_attrs)
+
         nodes = list(tree.traverse(self.traversal_strategy))
         if not nodes:
             raise ValueError("Cannot convert an empty tree")
@@ -462,6 +468,12 @@ class TreeToGraphConverter:
         if self.add_virtual_nodes:
             data = self._add_virtual_nodes(data)
 
+        if self.TIME_BIN_FEATURE_NAME in self.feature_names:
+            data.time_bin = self._validate_integer_like_time_bins(
+                data.x[:, self._time_bin_feature_index()],
+                context="Generated data.time_bin",
+            )
+
         # Mark virtual nodes explicitly for downstream convenience.
         data.virtual_node_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
         data.virtual_node_mask[data.original_num_nodes :] = True
@@ -477,6 +489,85 @@ class TreeToGraphConverter:
         data.node_type[data.original_num_nodes :] = self.NODE_TYPE_VIRTUAL
 
         return data
+
+    def _validate_graph_attrs(self, graph_attrs: Optional[Dict[str, object]]) -> None:
+        """Reject graph-level attributes reserved for generated converter fields."""
+        if not graph_attrs:
+            return
+
+        reserved_keys = self.RESERVED_GRAPH_ATTRS.intersection(graph_attrs)
+        if reserved_keys:
+            formatted_keys = ", ".join(f'graph_attrs["{key}"]' for key in sorted(reserved_keys))
+            raise ValueError(
+                f"{formatted_keys} is reserved for generated node-aligned converter fields "
+                "and cannot be set by caller metadata."
+            )
+
+    def _time_bin_feature_index(self) -> int:
+        """Return the `data.x` column index for the requested time-bin feature."""
+        try:
+            return self.output_feature_names.index(self.TIME_BIN_FEATURE_NAME)
+        except ValueError as exc:
+            raise ValueError(
+                "feature_names must include 'time_bin' before time-bin labels can be used"
+            ) from exc
+
+    @staticmethod
+    def _is_boolean_like(value: object) -> bool:
+        """Return True for Python and common scalar boolean values."""
+        return isinstance(value, bool) or type(value).__name__ in {"bool", "bool_"}
+
+    def _validate_integer_like_time_bins(
+        self,
+        time_bins: torch.Tensor,
+        *,
+        context: str,
+        raw_values: Optional[Sequence[object]] = None,
+    ) -> torch.Tensor:
+        """
+        Validate time-bin labels and return them as a 1D LongTensor.
+
+        Accepted labels must be finite numeric values with no fractional
+        component. Boolean labels are rejected even though Python treats bool as
+        an integer subtype.
+        """
+        if raw_values is not None and any(self._is_boolean_like(value) for value in raw_values):
+            raise ValueError(
+                f"{context} contains boolean time_bin labels; time_bin labels must be "
+                "finite integer-like numeric values."
+            )
+
+        if time_bins.dtype == torch.bool:
+            raise ValueError(
+                f"{context} contains boolean time_bin labels; time_bin labels must be "
+                "finite integer-like numeric values."
+            )
+
+        if time_bins.dim() != 1:
+            raise ValueError(
+                f"{context} must be 1D time_bin labels, got shape {tuple(time_bins.shape)}."
+            )
+
+        values = time_bins.to(dtype=torch.float64)
+        finite_mask = torch.isfinite(values)
+        if not torch.all(finite_mask):
+            invalid_values = values[~finite_mask].detach().cpu().tolist()
+            raise ValueError(f"{context} contains non-finite time_bin labels: {invalid_values}")
+
+        rounded_values = torch.round(values)
+        integer_like_mask = torch.isclose(
+            values,
+            rounded_values,
+            atol=1e-6,
+            rtol=0.0,
+        )
+        if not torch.all(integer_like_mask):
+            invalid_values = values[~integer_like_mask].detach().cpu().tolist()
+            raise ValueError(
+                f"{context} contains non-integer-like time_bin labels: {invalid_values}"
+            )
+
+        return rounded_values.to(dtype=torch.long)
 
     def convert_and_save(
         self,
@@ -657,6 +748,13 @@ class TreeToGraphConverter:
                         f"got {type(value).__name__}"
                     )
 
+                if feature_name == self.TIME_BIN_FEATURE_NAME:
+                    self._validate_integer_like_time_bins(
+                        torch.tensor([float(value)], dtype=torch.float64),
+                        context=f"time_bin feature on node '{node.name}'",
+                        raw_values=(value,),
+                    )
+
                 row.append(float(value))
 
             feature_matrix.append(row)
@@ -710,11 +808,15 @@ class TreeToGraphConverter:
         ValueError
             If the inferred result is less than 2.
         """
-        if "time_bin" not in self.feature_names:
+        if self.TIME_BIN_FEATURE_NAME not in self.feature_names:
             raise ValueError("Cannot infer num_time_bins without 'time_bin' in feature_names")
 
-        time_bin_idx = self.feature_names.index("time_bin")
+        time_bin_idx = self._time_bin_feature_index()
         original_time_bins = data.x[: data.original_num_nodes, time_bin_idx]
+        original_time_bins = self._validate_integer_like_time_bins(
+            original_time_bins,
+            context="Original-node time_bin values",
+        )
 
         if original_time_bins.numel() == 0:
             raise ValueError("Cannot infer num_time_bins from empty original node set")
@@ -786,11 +888,11 @@ class TreeToGraphConverter:
             If any original-node `time_bin` lies outside the configured range
             `[0, num_time_bins - 1]`.
 
-        AssertionError
+        ValueError
             If any original-node `time_bin` is not integer-like before
             conversion to `torch.long`.
         """
-        if "time_bin" not in self.feature_names:
+        if self.TIME_BIN_FEATURE_NAME not in self.feature_names:
             raise ValueError("feature_names must include 'time_bin' when add_virtual_nodes=True")
 
         num_time_bins = (
@@ -801,18 +903,13 @@ class TreeToGraphConverter:
 
         num_original_nodes = data.original_num_nodes
         total_num_features = data.x.size(1)
-        time_bin_idx = self.feature_names.index("time_bin")
+        time_bin_idx = self._time_bin_feature_index()
 
         original_time_bins = data.x[:num_original_nodes, time_bin_idx]
-        rounded_time_bins = torch.round(original_time_bins)
-        assert torch.allclose(
+        original_time_bins = self._validate_integer_like_time_bins(
             original_time_bins,
-            rounded_time_bins,
-            atol=1e-6,
-            rtol=0.0,
-        ), "Original-node time_bin values must be integer-like before conversion."
-
-        original_time_bins = rounded_time_bins.long()
+            context="Original-node time_bin values",
+        )
         invalid_mask = (original_time_bins < 0) | (original_time_bins >= num_time_bins)
         if torch.any(invalid_mask):
             invalid_bins = sorted(set(original_time_bins[invalid_mask].tolist()))
@@ -919,7 +1016,7 @@ class TreeToGraphConverter:
             )
 
         if self.add_virtual_nodes:
-            if "time_bin" not in self.feature_names:
+            if self.TIME_BIN_FEATURE_NAME not in self.feature_names:
                 raise ValueError(
                     "feature_names must include 'time_bin' when add_virtual_nodes=True"
                 )

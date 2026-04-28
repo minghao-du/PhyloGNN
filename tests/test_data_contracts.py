@@ -58,7 +58,7 @@ def test_converter_rejects_duplicate_feature_names():
 
 
 def test_converter_preserves_deterministic_node_names_with_virtual_nodes():
-    """Repeated conversions should preserve node-name ordering and virtual suffixes."""
+    """Repeated conversions should preserve virtual-node order and time labels."""
     tree = Tree("((A:1,B:1)C:1,D:1)E:0;", format=1)
     engineer = TreeFeatureEngineer(num_time_bins=4)
     tree = engineer.add_features(tree, origin_time=3.0, rescale=False)
@@ -75,6 +75,8 @@ def test_converter_preserves_deterministic_node_names_with_virtual_nodes():
 
     assert first.node_names == second.node_names
     assert first.node_names[-1] == "__virtual_time_bin_3__"
+    assert torch.equal(first.time_bin, second.time_bin)
+    assert first.time_bin[first.original_num_nodes :].tolist() == [0, 1, 2, 3]
 
 
 def test_converter_preserves_original_node_names():
@@ -107,7 +109,7 @@ def test_converter_rejects_out_of_range_time_bins_for_virtual_nodes():
         converter.convert(tree)
 
 
-def test_converter_asserts_integer_like_time_bins_for_virtual_nodes():
+def test_converter_rejects_integer_like_time_bins_for_virtual_nodes():
     """Virtual-node construction should reject silently truncated time bins."""
     converter = TreeToGraphConverter(
         feature_names=("time_bin",),
@@ -121,8 +123,68 @@ def test_converter_asserts_integer_like_time_bins_for_virtual_nodes():
         original_num_nodes=3,
     )
 
-    with pytest.raises(AssertionError, match="integer-like"):
+    with pytest.raises(ValueError, match="integer-like"):
         converter._add_virtual_nodes(data)
+
+
+@pytest.mark.parametrize(
+    ("bad_value", "match"),
+    [
+        (1.5, "integer-like"),
+        (float("nan"), "non-finite"),
+        (float("inf"), "non-finite"),
+        (True, "boolean"),
+    ],
+)
+def test_converter_rejects_invalid_requested_time_bin_labels(bad_value, match):
+    """Requested time-bin labels must be finite non-boolean integer labels."""
+    tree = Tree("(A:1,B:1)Root:0;", format=1)
+    nodes = list(tree.traverse("preorder"))
+    for node in nodes:
+        node.time_bin = 0
+    nodes[-1].time_bin = bad_value
+    converter = TreeToGraphConverter(
+        feature_names=("time_bin",),
+        add_virtual_nodes=False,
+        append_is_virtual_feature=False,
+    )
+
+    with pytest.raises(ValueError, match=match):
+        converter.convert(tree)
+
+
+@pytest.mark.parametrize("feature_names", [("time_bin",), ("node_time",)])
+def test_converter_rejects_reserved_time_bin_graph_attrs(feature_names):
+    """The generated time-bin field name should not be caller metadata."""
+    tree = Tree("(A:1,B:1)Root:0;", format=1)
+    for node in tree.traverse("preorder"):
+        node.time_bin = 0
+        node.node_time = 0.0
+    converter = TreeToGraphConverter(feature_names=feature_names)
+
+    with pytest.raises(ValueError, match=r'graph_attrs\["time_bin"\].*reserved'):
+        converter.convert(tree, graph_attrs={"time_bin": "manual"})
+
+
+def test_converter_missing_requested_time_bin_uses_required_feature_error():
+    """Missing requested time-bin attributes should keep the required-feature path."""
+    tree = Tree("(A:1,B:1)Root:0;", format=1)
+    converter = TreeToGraphConverter(feature_names=("time_bin",))
+
+    with pytest.raises(AttributeError, match="missing required attribute 'time_bin'"):
+        converter.convert(tree)
+
+
+def test_converter_non_numeric_requested_time_bin_uses_feature_type_error():
+    """Non-numeric requested time-bin attributes should keep the type path."""
+    tree = Tree("(A:1,B:1)Root:0;", format=1)
+    for node in tree.traverse("preorder"):
+        node.time_bin = 0
+    next(tree.traverse("preorder")).time_bin = "bad"
+    converter = TreeToGraphConverter(feature_names=("time_bin",))
+
+    with pytest.raises(TypeError, match="Feature 'time_bin'.*must be numeric"):
+        converter.convert(tree)
 
 
 def test_rescaled_virtual_edges_follow_post_rescale_time_bins_and_metadata():
