@@ -5,13 +5,36 @@ import torch
 
 from tests.support import require_modules
 
-
 require_modules("torch", "torch_geometric", "ete3")
 
-from ete3 import Tree
-from torch_geometric.data import Data
+from ete3 import Tree  # noqa: E402
+from torch_geometric.data import Data  # noqa: E402
 
-from phylognn.data import TreeFeatureEngineer, TreeToGraphConverter
+from phylognn.data import TreeFeatureEngineer, TreeToGraphConverter  # noqa: E402
+
+
+def _node_index(data, name):
+    try:
+        return data.node_names.index(name)
+    except ValueError as exc:
+        raise AssertionError(f"Node {name!r} not found") from exc
+
+
+def _virtual_node_index(data, bin_label):
+    return _node_index(data, f"__virtual_time_bin_{bin_label}__")
+
+
+def _feature_index(converter, feature_name):
+    try:
+        return converter.output_feature_names.index(feature_name)
+    except ValueError as exc:
+        raise AssertionError(f"Feature {feature_name!r} not found") from exc
+
+
+def _edge_pairs_by_type(data, edge_type):
+    edge_mask = data.edge_type == edge_type
+    typed_edges = data.edge_index[:, edge_mask].t().tolist()
+    return {tuple(edge) for edge in typed_edges}
 
 
 def test_feature_engineer_rejects_duplicate_requested_features():
@@ -100,3 +123,134 @@ def test_converter_asserts_integer_like_time_bins_for_virtual_nodes():
 
     with pytest.raises(AssertionError, match="integer-like"):
         converter._add_virtual_nodes(data)
+
+
+def test_rescaled_virtual_edges_follow_post_rescale_time_bins_and_metadata():
+    """Virtual edges should connect original nodes by their post-rescale bin labels."""
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = engineer.add_features(tree, origin_time=5.0, rescale=True)
+    converter = TreeToGraphConverter(
+        feature_names=engineer.feature_names,
+        add_virtual_nodes=True,
+        num_time_bins=engineer.num_time_bins,
+        append_is_virtual_feature=True,
+        preserve_node_names=True,
+    )
+
+    data = converter.convert(tree)
+
+    assert data.num_time_bins == 5
+    assert data.virtual_node_mask[: data.original_num_nodes].tolist() == [False] * 5
+    assert data.virtual_node_mask[data.original_num_nodes :].tolist() == [True] * 5
+    assert (
+        data.node_type[: data.original_num_nodes].tolist()
+        == [TreeToGraphConverter.NODE_TYPE_ORIGINAL] * 5
+    )
+    assert (
+        data.node_type[data.original_num_nodes :].tolist()
+        == [TreeToGraphConverter.NODE_TYPE_VIRTUAL] * 5
+    )
+
+    time_bin_idx = _feature_index(converter, "time_bin")
+    expected_bins = {
+        "Root": 4,
+        "C": 2,
+        "A": 1,
+        "B": 0,
+        "D": 1,
+    }
+    for node_name, bin_label in expected_bins.items():
+        assert data.x[_node_index(data, node_name), time_bin_idx].item() == pytest.approx(
+            float(bin_label)
+        )
+
+    virtual_edges = _edge_pairs_by_type(
+        data,
+        TreeToGraphConverter.EDGE_TYPE_VIRTUAL_TO_REAL,
+    )
+    expected_virtual_edges = set()
+    for node_name, bin_label in expected_bins.items():
+        original_idx = _node_index(data, node_name)
+        virtual_idx = _virtual_node_index(data, bin_label)
+        expected_virtual_edges.add((virtual_idx, original_idx))
+        expected_virtual_edges.add((original_idx, virtual_idx))
+    assert virtual_edges == expected_virtual_edges
+
+    chain_edges = _edge_pairs_by_type(
+        data,
+        TreeToGraphConverter.EDGE_TYPE_VIRTUAL_CHAIN,
+    )
+    expected_chain_edges = set()
+    for bin_label in range(engineer.num_time_bins - 1):
+        left = _virtual_node_index(data, bin_label)
+        right = _virtual_node_index(data, bin_label + 1)
+        expected_chain_edges.add((left, right))
+        expected_chain_edges.add((right, left))
+    assert chain_edges == expected_chain_edges
+
+
+def test_explicit_num_time_bins_is_authoritative_for_virtual_nodes():
+    """Explicit num_time_bins should preserve empty bins above observed original bins."""
+    converter = TreeToGraphConverter(
+        feature_names=("time_bin",),
+        add_virtual_nodes=True,
+        num_time_bins=5,
+        append_is_virtual_feature=False,
+    )
+    data = Data(
+        x=torch.tensor([[0.0], [2.0]], dtype=torch.float32),
+        edge_index=torch.empty((2, 0), dtype=torch.long),
+        edge_type=torch.empty((0,), dtype=torch.long),
+        original_num_nodes=2,
+    )
+
+    data = converter._add_virtual_nodes(data)
+
+    assert data.num_time_bins == 5
+    assert data.x.shape[0] == 7
+    assert data.x[2:, 0].tolist() == pytest.approx([0.0, 1.0, 2.0, 3.0, 4.0])
+
+
+def test_non_rescaled_virtual_edges_keep_original_time_bin_contract():
+    """Non-rescaled virtual nodes should keep connecting by original timeline bins."""
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = engineer.add_features(tree, origin_time=5.0, rescale=False)
+    converter = TreeToGraphConverter(
+        feature_names=engineer.feature_names,
+        add_virtual_nodes=True,
+        num_time_bins=engineer.num_time_bins,
+        append_is_virtual_feature=True,
+        preserve_node_names=True,
+    )
+
+    data = converter.convert(tree)
+
+    assert data.num_time_bins == 5
+    assert data.node_names[-5:] == [
+        "__virtual_time_bin_0__",
+        "__virtual_time_bin_1__",
+        "__virtual_time_bin_2__",
+        "__virtual_time_bin_3__",
+        "__virtual_time_bin_4__",
+    ]
+
+    expected_bins = {
+        "Root": 4,
+        "C": 2,
+        "A": 1,
+        "B": 0,
+        "D": 1,
+    }
+    virtual_edges = _edge_pairs_by_type(
+        data,
+        TreeToGraphConverter.EDGE_TYPE_VIRTUAL_TO_REAL,
+    )
+    expected_virtual_edges = set()
+    for node_name, bin_label in expected_bins.items():
+        original_idx = _node_index(data, node_name)
+        virtual_idx = _virtual_node_index(data, bin_label)
+        expected_virtual_edges.add((virtual_idx, original_idx))
+        expected_virtual_edges.add((original_idx, virtual_idx))
+    assert virtual_edges == expected_virtual_edges

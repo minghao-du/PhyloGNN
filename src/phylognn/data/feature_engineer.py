@@ -106,7 +106,6 @@ from typing import Callable, Dict, FrozenSet, Optional, Sequence, Tuple
 
 from ete3 import Tree
 
-
 FeatureFunction = Callable[[dict], None]
 
 
@@ -152,7 +151,7 @@ class TreeFeatureEngineer:
         The context dictionary contains at least:
         - "node": current node
         - "root": root node
-        - "origin_time": origin time used for this tree
+        - "origin_time": effective origin time used for this tree
 
     traversal_strategy : str, default="preorder"
         Tree traversal strategy used when iterating over nodes.
@@ -362,7 +361,7 @@ class TreeFeatureEngineer:
         Workflow
         --------
         1. Optionally copy the tree.
-        2. Optionally rescale branch lengths and origin_time.
+        2. Optionally rescale branch lengths and the origin-time context.
         3. Determine which features to add.
         4. Traverse all nodes and compute the requested features.
         5. Store each feature as a node attribute.
@@ -373,7 +372,7 @@ class TreeFeatureEngineer:
             Input tree.
 
         origin_time : float
-            Root age / tree origin time.
+            Root age / tree origin time before optional rescaling.
 
             Constraint:
             - Must be positive.
@@ -393,12 +392,13 @@ class TreeFeatureEngineer:
 
             If True:
             - branch lengths are rescaled by `rescale_tree()`
-            - origin_time is rescaled by the same factor
+            - feature computation uses `origin_time * rescale_factor`
             - every node receives `rescale_factor`
             - feature computation uses the rescaled values
 
             If False:
             - branch lengths remain unchanged
+            - feature computation uses the provided `origin_time`
             - `rescale_factor`, if requested, is defined as 1.0
 
         inplace : bool, default=True
@@ -437,11 +437,13 @@ class TreeFeatureEngineer:
             tree = tree.copy()
 
         scale_factor = 1.0
+        effective_origin_time = origin_time
         if rescale:
             tree, scale_factor = self.rescale_tree(
                 tree=tree,
                 inplace=True,
             )
+            effective_origin_time = origin_time * scale_factor
 
         if feature_names is None:
             features_to_add = self.feature_names
@@ -462,7 +464,7 @@ class TreeFeatureEngineer:
             context = {
                 "node": node,
                 "root": root,
-                "origin_time": origin_time,
+                "origin_time": effective_origin_time,
                 "rescale_factor": scale_factor,
             }
             for feature_name in features_to_add:
@@ -548,12 +550,17 @@ class TreeFeatureEngineer:
 
         Definition
         ----------
-            node_time = origin_time - distance(root, node)
+            node_time = effective_origin_time - distance(root, node)
+
+        The context `origin_time` is the effective origin time. It equals the
+        provided origin time when `rescale=False` and `origin_time * rescale_factor`
+        when `rescale=True`.
 
         Boundary handling
         -----------------
         - If node_time is within tolerance of 0, store 0.0
-        - If node_time is within tolerance of origin_time, store origin_time
+        - If node_time is within tolerance of effective origin time, store that
+          effective origin time
         """
         node = context["node"]
         root = context["root"]
@@ -581,6 +588,8 @@ class TreeFeatureEngineer:
         -----
         `time_bin` is guaranteed to lie in:
             [0, num_time_bins - 1]
+
+        The bin formula uses the same effective origin time as `node_time`.
         """
         node = context["node"]
         origin_time = context["origin_time"]

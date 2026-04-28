@@ -165,6 +165,7 @@ python -m build
 - Existing local checkpoint/history files remain unchanged; external wandb run stores configuration, metrics, and status only (001-wandb-training-logging)
 - Python >=3.12 + Existing runtime dependencies PyTorch, PyTorch Geometric, ete3, numpy; documentation dependency Sphinx with built-in `autodoc`, `autosummary`, `napoleon`, `viewcode`, and `doctest` extensions (001-sphinx-docs)
 - Repository files only: Sphinx sources in `docs/source`, generated HTML in `docs/_build/html`, doctest output in `docs/_build/doctest`, existing non-user notes preserved under `docs/issues` and `docs/myprompt` (001-sphinx-docs)
+- Python >=3.12 + Existing runtime dependencies: PyTorch, PyTorch Geometric, ete3, numpy; stdlib `math`; no new dependency required (001-rescale-time-bins)
+- N/A; operates on in-memory ETE trees and PyTorch Geometric `Data` objects (001-rescale-time-bins)
 
 ## Recent Changes
-- 001-toml-training-config: Added Python >=3.12 + PyTorch, PyTorch Geometric, stdlib `tomllib`, pytest; no new TOML parser dependency

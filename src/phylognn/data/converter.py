@@ -12,7 +12,7 @@ tree, typically by `TreeFeatureEngineer`. It then:
 1. Traverses the tree in a stable order
 2. Extracts the requested node attributes into a feature matrix
 3. Builds graph edges from the tree structure
-4. Optionally adds one virtual node per time bin
+4. Optionally adds one virtual node per configured time bin
 5. Returns a `torch_geometric.data.Data` object
 6. Optionally saves the resulting `Data` object to disk
 
@@ -58,6 +58,9 @@ If enabled, virtual nodes are additionally created to represent time bins.
 These virtual nodes can be:
 - connected to original nodes that share the same `time_bin`
 - connected to neighboring virtual nodes in a temporal chain
+
+When a configured `num_time_bins` is provided, one virtual node is created for
+each bin label in that configured range, including bins with no original nodes.
 
 Produced graph fields
 ---------------------
@@ -123,7 +126,6 @@ import torch
 from torch_geometric.data import Data
 from ete3 import Tree
 
-
 PathLike = Union[str, Path]
 
 
@@ -161,6 +163,8 @@ class TreeToGraphConverter:
         If True:
         - `feature_names` must include `"time_bin"`
         - `num_time_bins` may be provided explicitly or inferred from the tree
+        - an explicit `num_time_bins` creates all configured virtual bins,
+          including empty bins
 
     num_time_bins : Optional[int], default=None
         Number of time bins used for virtual nodes.
@@ -168,7 +172,7 @@ class TreeToGraphConverter:
         Behavior:
         - If `add_virtual_nodes=False`, this argument is ignored.
         - If `add_virtual_nodes=True` and `num_time_bins` is provided:
-              it must be at least 2
+              it must be at least 2 and is authoritative
         - If `add_virtual_nodes=True` and `num_time_bins` is None:
               it is inferred from the maximum observed original-node `time_bin`
               as `max(time_bin) + 1`
@@ -725,6 +729,11 @@ class TreeToGraphConverter:
         """
         Add virtual time-bin nodes to an existing graph.
 
+        Explicit `self.num_time_bins` is authoritative. If it is provided, this
+        method creates one virtual node for every configured bin label even when
+        no original node occupies that bin. Inference from observed original-node
+        bins is only used when `self.num_time_bins` is None.
+
         Preconditions
         -------------
         - `feature_names` must contain "time_bin"
@@ -745,6 +754,8 @@ class TreeToGraphConverter:
         - `time_bin` is set to the bin index
         - `extant_sampling_probability` may optionally be copied
         - if appended, `is_virtual_node` is set to 1.0
+
+        No representative continuous `node_time` is assigned to virtual nodes.
 
         Edge construction
         -----------------
@@ -792,6 +803,29 @@ class TreeToGraphConverter:
         total_num_features = data.x.size(1)
         time_bin_idx = self.feature_names.index("time_bin")
 
+        original_time_bins = data.x[:num_original_nodes, time_bin_idx]
+        rounded_time_bins = torch.round(original_time_bins)
+        assert torch.allclose(
+            original_time_bins,
+            rounded_time_bins,
+            atol=1e-6,
+            rtol=0.0,
+        ), "Original-node time_bin values must be integer-like before conversion."
+
+        original_time_bins = rounded_time_bins.long()
+        invalid_mask = (original_time_bins < 0) | (original_time_bins >= num_time_bins)
+        if torch.any(invalid_mask):
+            invalid_bins = sorted(set(original_time_bins[invalid_mask].tolist()))
+            raise ValueError(
+                "Original-node time_bin values fall outside configured range "
+                f"[0, {num_time_bins - 1}]: {invalid_bins}"
+            )
+
+        bin_to_node_indices = {i: [] for i in range(num_time_bins)}
+
+        for node_idx, bin_value in enumerate(original_time_bins.tolist()):
+            bin_to_node_indices[bin_value].append(node_idx)
+
         # Initialize virtual node features to zeros.
         virtual_x = torch.zeros(
             (num_time_bins, total_num_features),
@@ -818,29 +852,6 @@ class TreeToGraphConverter:
 
         new_edges: List[List[int]] = []
         new_edge_types: List[int] = []
-
-        original_time_bins = data.x[:num_original_nodes, time_bin_idx]
-        rounded_time_bins = torch.round(original_time_bins)
-        assert torch.allclose(
-            original_time_bins,
-            rounded_time_bins,
-            atol=1e-6,
-            rtol=0.0,
-        ), "Original-node time_bin values must be integer-like before conversion."
-
-        original_time_bins = rounded_time_bins.long()
-        invalid_mask = (original_time_bins < 0) | (original_time_bins >= num_time_bins)
-        if torch.any(invalid_mask):
-            invalid_bins = sorted(set(original_time_bins[invalid_mask].tolist()))
-            raise ValueError(
-                "Original-node time_bin values fall outside configured range "
-                f"[0, {num_time_bins - 1}]: {invalid_bins}"
-            )
-
-        bin_to_node_indices = {i: [] for i in range(num_time_bins)}
-
-        for node_idx, bin_value in enumerate(original_time_bins.tolist()):
-            bin_to_node_indices[bin_value].append(node_idx)
 
         # Connect each virtual node to original nodes in the same time bin.
         if self.connect_virtual_to_real:
