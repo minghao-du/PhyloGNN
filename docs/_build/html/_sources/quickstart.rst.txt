@@ -2,7 +2,8 @@ Quickstart
 ==========
 
 This first tutorial creates an `ete3.Tree`, attaches node features, converts it
-to a PyTorch Geometric `Data` object, and inspects the main graph fields.
+to a PyTorch Geometric `Data` object, and inspects the main graph fields:
+`data.x`, `data.edge_index`, `data.edge_type`, and `data.node_names`.
 
 Create a small tree
 -------------------

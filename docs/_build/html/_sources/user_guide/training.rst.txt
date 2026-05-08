@@ -1,8 +1,8 @@
 Training
 ========
 
-Training utilities expect PyTorch Geometric graph samples whose target is
-stored as `data.y`. Datasets, splits, and loaders are caller-controlled; TOML
+Training utilities expect PyTorch Geometric `Data` samples whose target is
+stored as `data.y`. Datasets, splits, and loaders are caller-controlled; `TOML`
 configuration builds models and trainer settings but does not discover data.
 
 Datasets and splits
@@ -16,7 +16,7 @@ split manifests with one sample ID per line.
 When to use TOML
 ----------------
 
-Use TOML when you want a repeatable local record of model, trainer, loss,
+Use `TOML` when you want a repeatable local record of model, trainer, loss,
 metrics, and optional tracking settings. Dataset construction and loader choice
 remain caller-controlled Python code.
 
@@ -24,7 +24,7 @@ Trainer setup
 -------------
 
 `TrainingConfig` controls epochs, batch size, optimizer, scheduler, device,
-checkpoint directory, early stopping, gradient clipping, and DataLoader
+checkpoint directory, early stopping, gradient clipping, and `DataLoader`
 options. `Trainer` validates the config, creates the optimizer and scheduler,
 writes `config.json`, stores training history, and saves checkpoints.
 

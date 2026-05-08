@@ -9,7 +9,7 @@ Metrics
 
 Metric helpers accept `(pred, target)` tensors and return scalar tensors.
 Available helpers are `mse_metric`, `mae_metric`, `rmse_metric`, `r2_metric`,
-and `relative_error_metric`. TOML configuration can select these by name in
+and `relative_error_metric`. `TOML` configuration can select these by name in
 the `[metrics]` section.
 
 Local-first behavior
@@ -17,7 +17,7 @@ Local-first behavior
 
 Training remains local when tracking is disabled. Enable tracking only when a
 run should send sanitized configuration, metrics, and status to an external
-wandb run.
+`wandb` run.
 
 Tracking configuration
 ----------------------

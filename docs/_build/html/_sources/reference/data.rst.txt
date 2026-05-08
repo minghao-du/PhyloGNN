@@ -44,7 +44,7 @@ Graph conversion
 
 .. py:class:: TreeToGraphConverter(feature_names=None, add_virtual_nodes=False, num_time_bins=None, traversal_strategy="preorder", bidirectional=True, connect_virtual_to_real=True, connect_virtual_chain=True, append_is_virtual_feature=True, preserve_node_names=True, copy_sampling_prob_to_virtual=True)
 
-   Convert a feature-bearing ETE tree to a PyTorch Geometric `Data` object.
+   Convert a feature-bearing `ete3.Tree` to a PyTorch Geometric `Data` object.
 
    `feature_names` defines the `data.x` column order. Every node must contain
    every requested feature and each feature value must be numeric.

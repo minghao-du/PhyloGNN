@@ -7,9 +7,10 @@ local checkout with the smallest extra set that matches your task.
 Core package
 ------------
 
-Use the core install when you need ETE trees, feature engineering, graph
-conversion, models, and local training. This includes the public PyTorch,
-PyTorch Geometric, torch-scatter, ETE3, NumPy, and tqdm runtime dependencies.
+Use the core install when you need `ete3.Tree` objects, feature engineering,
+graph conversion, models, and local training. This includes the public
+`PyTorch`, `PyTorch Geometric`, `torch-scatter`, `ETE3`, `NumPy`, and `tqdm`
+runtime dependencies.
 
 .. code-block:: bash
 
@@ -39,7 +40,7 @@ Optional tree I/O
 -----------------
 
 The core tree workflow works with `ete3.Tree` objects. File workflows that read
-NEXUS or BEAST-style trees through DendroPy require the `beast` extra.
+`NEXUS` or `BEAST`-style trees through `DendroPy` require the `beast` extra.
 
 .. code-block:: bash
 

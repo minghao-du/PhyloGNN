@@ -1,7 +1,7 @@
 Feature Engineering
 ===================
 
-`TreeFeatureEngineer` computes numeric node attributes on an ETE tree. The
+`TreeFeatureEngineer` computes numeric node attributes on an `ete3.Tree`. The
 converter later reads those attributes into graph feature columns.
 
 Basic workflow

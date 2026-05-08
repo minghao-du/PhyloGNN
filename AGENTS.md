@@ -171,7 +171,7 @@ python -m build
 - Local TOML package metadata in `/Users/Minghao/Research/PhyloGNN/pyproject.toml`; pytest audit classifications stored in repository tests; existing checkpoint/history files unchanged (001-complete-pyproject-dependencies)
 - Python >=3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy; no new dependency required (001-auto-time-bin)
 - In-memory `torch_geometric.data.Data` objects and existing `torch.save` persistence through `TreeToGraphConverter.save_data()` and `convert_and_save()` (001-auto-time-bin)
-- Python >=3.12 for package imports during Sphinx autodoc; reStructuredText for documentation sources + Sphinx with built-in `autodoc`, `autosummary`, `napoleon`, `viewcode`, and `doctest`; `Furo` as the documentation-only HTML theme dependency (001-docs-visual-polish)
 - Repository documentation files under `/Users/Minghao/Research/PhyloGNN/docs/source`; generated HTML under `/Users/Minghao/Research/PhyloGNN/docs/_build/html`; no runtime data storage changes (001-docs-visual-polish)
+- Python >=3.12 for Sphinx autodoc imports; reStructuredText for documentation content; CSS for presentation + Sphinx built-in extensions (`autodoc`, `autosummary`, `napoleon`, `viewcode`, `doctest`); `furo` documentation theme already declared in `pyproject.toml`; existing runtime dependencies imported by autodoc (`torch`, `torch-geometric`, `ete3`, `numpy`) (001-docs-visual-polish)
 
 ## Recent Changes

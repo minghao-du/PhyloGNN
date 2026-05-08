@@ -1,8 +1,8 @@
 Graph Conversion
 ================
 
-`TreeToGraphConverter` converts an ETE tree with numeric node attributes into a
-PyTorch Geometric `Data` object.
+`TreeToGraphConverter` converts an `ete3.Tree` with numeric node attributes into
+a PyTorch Geometric `Data` object.
 
 Basic workflow
 --------------
@@ -27,9 +27,9 @@ remain stable.
 Output fields
 -------------
 
-Converted data always includes `x`, `edge_index`, `edge_type`,
-`original_num_nodes`, `virtual_node_mask`, and `node_type`. When
-`preserve_node_names=True`, it also includes `node_names`. User-provided
+Converted data always includes `data.x`, `data.edge_index`, `data.edge_type`,
+`data.original_num_nodes`, `data.virtual_node_mask`, and `data.node_type`. When
+`preserve_node_names=True`, it also includes `data.node_names`. User-provided
 `graph_attrs` are attached as graph-level attributes, except for reserved
 generated field names such as `time_bin`.
 
@@ -54,7 +54,8 @@ Saving and loading
 ------------------
 
 Use `convert_and_save()` for preprocessing pipelines, `save_data()` to store a
-`Data` object, and `load_data()` to restore it with `torch.load`.
+PyTorch Geometric `Data` object, and `load_data()` to restore it with
+`torch.load`.
 
 Related pages
 -------------

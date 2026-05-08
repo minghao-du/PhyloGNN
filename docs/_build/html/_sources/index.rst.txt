@@ -1,13 +1,18 @@
-PhyloGNN Documentation
-======================
+PhyloGNN
+========
 
 .. container:: hero
 
-   PhyloGNN turns phylogenetic trees into PyTorch Geometric graph data and
-   supports GNN training workflows on those graphs.
+   Practical graph learning tools for phylogenetic trees.
 
-   Use this documentation when you need a practical path from tree input to
-   feature engineering, graph conversion, training, metrics, and API lookup.
+   PhyloGNN converts `ete3.Tree` objects into PyTorch Geometric `Data` graphs,
+   adds deterministic node features, and supports local GNN training workflows
+   on those graph samples.
+
+   .. container:: hero-actions
+
+      :doc:`Start with the quickstart <quickstart>`
+      :doc:`Install the package <installation>`
 
 Fastest path
 ------------
@@ -17,36 +22,44 @@ Fastest path
    .. container:: entry-card
 
       **Install**
-      Start with the core package and add optional extras only for docs, BEAST
+
+      Start with the core package and add optional extras only for docs, `BEAST`
       file input, or experiment tracking.
+
       :doc:`installation`
 
    .. container:: entry-card
 
       **Quickstart**
-      Build a small ETE tree, attach features, convert it to graph data, and
-      inspect the main tensors.
+
+      Build a small `ete3.Tree`, attach features, convert it to graph data,
+      and inspect the main tensors.
+
       :doc:`quickstart`
 
    .. container:: entry-card
 
       **Concepts**
-      Learn the graph fields and TOML training configuration boundaries before
+
+      Learn the graph fields and `TOML` training configuration boundaries before
       changing workflows.
+
       :doc:`concepts/index`
 
    .. container:: entry-card
 
       **Reference**
+
       Look up curated public APIs for data conversion, models, training, I/O,
       and utilities.
+
       :doc:`reference/index`
 
 .. container:: workflow-strip
 
-   The usual workflow is tree input, feature engineering, graph conversion,
-   training, optional metrics tracking, and reference lookup when a public API
-   detail matters.
+   **Typical workflow:** tree input → feature engineering → graph conversion →
+   training → metrics tracking when needed → API lookup for implementation
+   details.
 
 .. Maintainers: add new user-facing task pages under user_guide/ and link them
    from user_guide/index.rst. Add shared concepts under concepts/, lookup pages

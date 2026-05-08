@@ -8,13 +8,13 @@ Workflow pages
 --------------
 
 `Tree input <tree_input.html>`_
-   Start from in-memory ETE trees or optional file readers.
+   Start from in-memory `ete3.Tree` objects or optional file readers.
 
 `Feature engineering <feature_engineering.html>`_
    Attach deterministic numeric attributes to tree nodes.
 
 `Graph conversion <graph_conversion.html>`_
-   Convert feature-bearing trees into PyTorch Geometric graph data.
+   Convert feature-bearing trees into PyTorch Geometric `Data` objects.
 
 `Training <training.html>`_
    Configure local model training, datasets, loaders, checkpoints, and outputs.

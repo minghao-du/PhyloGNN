@@ -1,7 +1,7 @@
 Training Configuration
 ======================
 
-Training configuration files are local TOML documents loaded with Python
+Training configuration files are local `TOML` documents loaded with Python
 stdlib `tomllib`. They configure model construction, trainer settings, loss,
 metrics, and optional tracking. They do not construct datasets or data loaders.
 

@@ -12,7 +12,7 @@ Optional dependency boundary
 ----------------------------
 
 Core workflows use `ete3.Tree` directly. `phylognn.io` is the explicit
-optional boundary for DendroPy-backed file reading and conversion. Install the
+optional boundary for `DendroPy`-backed file reading and conversion. Install the
 `beast` or `all` extra before using DendroPy readers.
 
 Reader configuration
@@ -31,16 +31,16 @@ Reader functions
 
 .. py:function:: read_tree_with_dendropy(file_path, config)
 
-   Read one DendroPy tree from a file using `TreeReadConfig`.
+   Read one `DendroPy` tree from a file using `TreeReadConfig`.
 
 .. py:function:: dendropy_tree_to_ete3(dtree, config=None)
 
-   Convert a DendroPy tree to an ETE tree.
+   Convert a `DendroPy` tree to an `ete3.Tree`.
 
 Common failures
 ---------------
 
-Missing DendroPy raises `ModuleNotFoundError` with install guidance. Invalid
+Missing `DendroPy` raises `ModuleNotFoundError` with install guidance. Invalid
 paths raise `FileNotFoundError`. Invalid tree indexes and empty files raise
 `ValueError`. Parser failures are wrapped in `RuntimeError`.
 

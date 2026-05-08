@@ -14,11 +14,11 @@ Core fields
    `TreeFeatureEngineer.feature_names`.
 
 `edge_index`
-   Long tensor with shape `[2, num_edges]`. Tree parent-child relations are
+   `torch.long` tensor with shape `[2, num_edges]`. Tree parent-child relations are
    included, and bidirectional conversion adds the reverse edge too.
 
 `edge_type`
-   Long tensor aligned with `edge_index`. Values are `0` for tree edges, `1`
+   `torch.long` tensor aligned with `edge_index`. Values are `0` for tree edges, `1`
    for virtual-to-real edges, and `2` for virtual-chain edges.
 
 `node_names`

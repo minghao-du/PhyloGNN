@@ -48,7 +48,7 @@ Configuration and trainer
 
 .. py:exception:: TrainingConfigError
 
-   Raised when a TOML training configuration cannot be parsed or validated.
+   Raised when a `TOML` training configuration cannot be parsed or validated.
 
 .. py:class:: ConfiguredTrainingSetup
 
@@ -148,7 +148,7 @@ Tracking
 Configuration sections and outputs
 ----------------------------------
 
-TOML files use `[model]`, `[model.params]`, `[training]`, optional `[loss]`,
+`TOML` files use `[model]`, `[model.params]`, `[training]`, optional `[loss]`,
 optional `[metrics]`, and optional `[tracking]`. Training writes local
 checkpoints and `history.json`; enabled tracking logs sanitized run metadata
 and metrics externally.

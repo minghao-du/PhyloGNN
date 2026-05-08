@@ -8,15 +8,15 @@ appear to disagree.
 Malformed or unsupported tree input
 -----------------------------------
 
-If ETE cannot parse a Newick string or DendroPy cannot parse a file, first
+If `ETE3` cannot parse a `Newick` string or `DendroPy` cannot parse a file, first
 confirm the tree format and schema. Core workflows accept `ete3.Tree` objects.
-NEXUS or BEAST-style file reading through DendroPy requires the `beast` or
+`NEXUS` or `BEAST`-style file reading through `DendroPy` requires the `beast` or
 `all` extra.
 
 Missing optional dependencies
 -----------------------------
 
-`ModuleNotFoundError` for DendroPy means optional tree I/O was used without the
+`ModuleNotFoundError` for `DendroPy` means optional tree I/O was used without the
 `beast` extra. `TrackingError` mentioning wandb means tracking was enabled
 without the `wandb` extra.
 
@@ -32,13 +32,13 @@ Invalid graph data
 
 Converters require every requested feature to exist on every node and to be
 numeric. Models require `data.x` as a floating-point matrix and `edge_index` as
-a long tensor of shape `[2, num_edges]`. Batched model training also needs
+a `torch.long` tensor of shape `[2, num_edges]`. Batched model training also needs
 `batch`, and temporal modes need `data.time_bin`.
 
 Invalid TOML training configuration
 -----------------------------------
 
-`TrainingConfigError` reports malformed TOML, missing sections, unknown keys,
+`TrainingConfigError` reports malformed `TOML`, missing sections, unknown keys,
 wrong types, unsupported loss or metric names, and invalid trainer values. See
 :doc:`concepts/training_config` for the accepted sections.
 

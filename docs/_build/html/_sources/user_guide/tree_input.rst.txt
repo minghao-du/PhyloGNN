@@ -8,7 +8,7 @@ readers.
 In-memory ETE trees
 -------------------
 
-For small examples and tests, create an ETE tree directly from Newick.
+For small examples and tests, create an `ete3.Tree` directly from `Newick`.
 
 .. code-block:: python
 
@@ -21,14 +21,14 @@ The resulting tree can be passed to `TreeFeatureEngineer.add_features()`.
 Choosing an input path
 ----------------------
 
-Use direct ETE trees for core workflows, tests, and examples. Use
-`phylognn.io` only when tree files need DendroPy-backed parsing or annotation
+Use direct `ete3.Tree` objects for core workflows, tests, and examples. Use
+`phylognn.io` only when tree files need `DendroPy`-backed parsing or annotation
 handling.
 
 Optional file reading
 ---------------------
 
-File workflows that use DendroPy are exposed from `phylognn.io`, not from the
+File workflows that use `DendroPy` are exposed from `phylognn.io`, not from the
 root package. Install the `beast` or `all` extra before using them.
 
 .. code-block:: python
@@ -37,14 +37,14 @@ root package. Install the `beast` or `all` extra before using them.
 
    tree = read_tree_as_ete3("trees/example.trees", schema="nexus", tree_index=0)
 
-`TreeReadConfig` controls schema, tree index, underscore handling, rooting,
+`TreeReadConfig` controls schema, `tree_index`, underscore handling, rooting,
 comment metadata extraction, and whether annotations are copied to ETE nodes.
 
 Common failures
 ---------------
 
 Use the correct schema for the file. `tree_index` is zero-based and must refer
-to an existing tree in a multi-tree file. Missing DendroPy means the optional
+to an existing tree in a multi-tree file. Missing `DendroPy` means the optional
 extra is not installed. Parse failures are wrapped with the file path and
 schema so the next action is visible.
 
