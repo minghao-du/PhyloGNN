@@ -1,8 +1,8 @@
 Quickstart
 ==========
 
-This quickstart creates an `ete3.Tree`, attaches node features, converts it to
-a PyTorch Geometric `Data` object, and inspects the main graph fields.
+This first tutorial creates an `ete3.Tree`, attaches node features, converts it
+to a PyTorch Geometric `Data` object, and inspects the main graph fields.
 
 Create a small tree
 -------------------
@@ -72,3 +72,10 @@ input tree before any virtual nodes are added.
 For virtual-node graphs, include `time_bin` in the feature order and enable
 `add_virtual_nodes=True`. See :doc:`concepts/graph_data` and
 :doc:`user_guide/graph_conversion` for the complete field contract.
+
+Next steps
+----------
+
+Read :doc:`concepts/graph_data` for field semantics, then move to
+:doc:`user_guide/index` for workflow pages that cover file input, feature
+engineering, conversion, training, and tracking.

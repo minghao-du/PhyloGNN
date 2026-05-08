@@ -15,9 +15,15 @@ Core workflows use `ete3.Tree` directly. `phylognn.io` is the explicit
 optional boundary for DendroPy-backed file reading and conversion. Install the
 `beast` or `all` extra before using DendroPy readers.
 
+Reader configuration
+--------------------
+
 .. py:class:: TreeReadConfig(schema="nexus", tree_index=0, preserve_underscores=True, extract_comment_metadata=True, rooting=None, keep_annotations=True, annotation_prefix="meta_")
 
    Frozen configuration for DendroPy-backed tree reading.
+
+Reader functions
+----------------
 
 .. py:function:: read_tree_as_ete3(file_path, schema="nexus", tree_index=0, preserve_underscores=True, extract_comment_metadata=True, rooting=None, keep_annotations=True, annotation_prefix="meta_")
 

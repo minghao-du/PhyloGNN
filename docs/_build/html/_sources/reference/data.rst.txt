@@ -8,6 +8,9 @@ Import path
 
    from phylognn.data import TreeFeatureEngineer, TreeToGraphConverter
 
+Feature engineering
+-------------------
+
 .. py:class:: TreeFeatureEngineer(num_time_bins=101, extant_sampling_probability=1.0, custom_features=None, traversal_strategy="preorder", time_tolerance=1e-8)
 
    Attach numeric node-level features to an `ete3.Tree`.
@@ -35,6 +38,9 @@ Import path
    .. py:method:: get_available_features()
 
       Return the registered feature names in stable order.
+
+Graph conversion
+----------------
 
 .. py:class:: TreeToGraphConverter(feature_names=None, add_virtual_nodes=False, num_time_bins=None, traversal_strategy="preorder", bidirectional=True, connect_virtual_to_real=True, connect_virtual_chain=True, append_is_virtual_feature=True, preserve_node_names=True, copy_sampling_prob_to_virtual=True)
 

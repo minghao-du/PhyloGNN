@@ -21,8 +21,23 @@ Use the root package for the main workflow objects:
        __version__,
    )
 
-Subpackage surfaces
--------------------
+Reference areas
+---------------
+
+`Data <data.html>`_
+   Feature engineering and tree-to-graph conversion APIs.
+
+`Models <models.html>`_
+   Public model classes and shared model base behavior.
+
+`Training <training.html>`_
+   Trainer, configuration, datasets, metrics, TOML helpers, and tracking.
+
+`Tree I/O <io.html>`_
+   Optional DendroPy-backed file reading and conversion helpers.
+
+`Utilities <utils.html>`_
+   Small public utility helpers.
 
 .. toctree::
    :maxdepth: 1

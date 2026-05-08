@@ -17,6 +17,13 @@ Basic workflow
 The converter expects every node to have every requested feature and every
 feature value to be numeric.
 
+When to use it
+--------------
+
+Use this step after feature engineering and before any model or training code.
+Keep `feature_names` explicit when comparing experiments so `data.x` columns
+remain stable.
+
 Output fields
 -------------
 

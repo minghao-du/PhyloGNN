@@ -13,6 +13,13 @@ Use `SplitPhyloDataset` for in-memory `Data` objects and labels. Use
 files. `DatasetSplit` supports deterministic ratio-based splits and explicit
 split manifests with one sample ID per line.
 
+When to use TOML
+----------------
+
+Use TOML when you want a repeatable local record of model, trainer, loss,
+metrics, and optional tracking settings. Dataset construction and loader choice
+remain caller-controlled Python code.
+
 Trainer setup
 -------------
 

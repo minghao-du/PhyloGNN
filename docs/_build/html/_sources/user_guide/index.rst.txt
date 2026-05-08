@@ -1,8 +1,26 @@
 User Guide
 ==========
 
-Use these pages when you know the basic quickstart and want workflow-level
-guidance for real data preparation, training, and optional integrations.
+Use these pages after the quickstart when you need workflow-level guidance for
+real data preparation, training, and optional integrations.
+
+Workflow pages
+--------------
+
+`Tree input <tree_input.html>`_
+   Start from in-memory ETE trees or optional file readers.
+
+`Feature engineering <feature_engineering.html>`_
+   Attach deterministic numeric attributes to tree nodes.
+
+`Graph conversion <graph_conversion.html>`_
+   Convert feature-bearing trees into PyTorch Geometric graph data.
+
+`Training <training.html>`_
+   Configure local model training, datasets, loaders, checkpoints, and outputs.
+
+`Metrics and tracking <metrics_tracking.html>`_
+   Use built-in metrics and optional Weights & Biases logging.
 
 .. toctree::
    :maxdepth: 1
@@ -13,8 +31,8 @@ guidance for real data preparation, training, and optional integrations.
    training
    metrics_tracking
 
-Workflow map
-------------
+How the pages fit
+-----------------
 
 Start with tree input, attach features, convert graphs, prepare datasets, and
 train with local checkpoints. Optional pages explain tracking and file formats

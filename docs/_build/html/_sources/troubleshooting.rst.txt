@@ -1,6 +1,10 @@
 Troubleshooting
 ===============
 
+Use this page to map common failures to the workflow area that owns the fix.
+Source code and tests remain authoritative when an error message and a guide
+appear to disagree.
+
 Malformed or unsupported tree input
 -----------------------------------
 

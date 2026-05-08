@@ -27,8 +27,8 @@ Use the development extra for tests, linting, and formatting.
 Documentation tools
 -------------------
 
-Use the documentation extra to build this local Sphinx site. It adds Sphinx but
-does not make Sphinx a runtime dependency.
+Use the documentation extra to build this local Sphinx site. It adds Sphinx and
+the Furo HTML theme, but does not make either package a runtime dependency.
 
 .. code-block:: bash
 
@@ -68,5 +68,6 @@ does not include development or documentation tooling.
 Next steps
 ----------
 
-Continue with the :doc:`quickstart`, then read :doc:`concepts/graph_data` for
-the graph fields produced by conversion.
+Continue with the :doc:`quickstart` as the first tutorial. Use
+:doc:`concepts/graph_data` when you need to interpret the graph fields produced
+by conversion.

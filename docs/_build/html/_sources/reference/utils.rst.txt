@@ -8,6 +8,9 @@ Import path
 
    from phylognn.utils import get_max_meta_time
 
+Tree metadata helpers
+---------------------
+
 .. py:function:: get_max_meta_time(tree)
 
    Traverse an ETE tree and return the maximum `meta_time` value among nodes

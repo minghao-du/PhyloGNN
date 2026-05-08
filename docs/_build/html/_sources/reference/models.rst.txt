@@ -13,6 +13,9 @@ Import path
        TemporalBiLSTMEncoder,
    )
 
+Base classes
+------------
+
 .. py:class:: BasePhyloGNN
 
    Abstract base class for phylogenetic graph models.
@@ -37,6 +40,9 @@ Import path
 
    Reusable GAT encoder base with optional feature preprocessing.
 
+End-user model
+--------------
+
 .. py:class:: GATBiLSTMNet(input_dim, output_dim, preprocess_dim=32, gat_hidden_dim=64, gat_heads=4, num_gat_layers=3, dropout_prob=0.2, use_preprocessing=True, encoder_type="res_gat", temporal_mode="lstm", num_time_bins=None, temporal_hidden_dim=128, temporal_fc_hidden_dims=None, num_lstm_layers=2, temporal_aggregation="mean", graph_pool="sum", head_hidden_dim=64, output_positive=False)
 
    End-user model combining GAT node encoding with graph pooling, FC temporal
@@ -45,6 +51,9 @@ Import path
    Inputs require `data.x`, `data.edge_index`, and batched `data.batch`.
    Temporal modes other than `none` also require node-aligned `data.time_bin`.
    The output tensor has shape `[batch_size, output_dim]`.
+
+Temporal encoder
+----------------
 
 .. py:class:: TemporalBiLSTMEncoder(input_dim, hidden_dim, num_layers=1, dropout_prob=0.0, aggregation="mean")
 

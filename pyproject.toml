@@ -28,6 +28,7 @@ dev = [
 ]
 docs = [
 "sphinx>=7.0.0",
+"furo>=2024.8.6",
 ]
 beast = [
 "dendropy>=4.6.0",
