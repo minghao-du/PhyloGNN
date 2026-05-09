@@ -92,10 +92,10 @@ to a PyTorch Geometric <code class="docutils literal notranslate"><span class="p
 <code class="docutils literal notranslate"><span class="pre">data.x</span></code>, <code class="docutils literal notranslate"><span class="pre">data.edge_index</span></code>, <code class="docutils literal notranslate"><span class="pre">data.edge_type</span></code>, and <code class="docutils literal notranslate"><span class="pre">data.node_names</span></code>.</p>
 <section id="create-a-small-tree">
 <h2>Create a small tree<a class="headerlink" href="#create-a-small-tree" title="Link to this heading"></a></h2>
-<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">ete3</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tree</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">tree</span> <span class="o">=</span> <span class="n">Tree</span><span class="p">(</span><span class="s2">&quot;((A:1,B:1)C:1,D:2)Root:0;&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">traverse</span><span class="p">(</span><span class="s2">&quot;preorder&quot;</span><span class="p">)))</span>
-<span class="go">5</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">build_demo_tree</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Tree</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">Tree</span><span class="p">(</span><span class="s2">&quot;((A:1.0,B:1.5)C:0.5,D:2.0)root:0.0;&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+
 </pre></div>
 </div>
 </section>
@@ -103,18 +103,18 @@ to a PyTorch Geometric <code class="docutils literal notranslate"><span class="p
 <h2>Attach node features<a class="headerlink" href="#attach-node-features" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">TreeFeatureEngineer</span></code> writes numeric attributes to each tree node. Use
 <code class="docutils literal notranslate"><span class="pre">feature_names</span></code> as the stable column order for graph conversion.</p>
-<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">phylognn</span><span class="w"> </span><span class="kn">import</span> <span class="n">TreeFeatureEngineer</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">engineer</span> <span class="o">=</span> <span class="n">TreeFeatureEngineer</span><span class="p">(</span><span class="n">num_time_bins</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">feature_names</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;node_time&quot;</span><span class="p">,</span> <span class="s2">&quot;time_bin&quot;</span><span class="p">,</span> <span class="s2">&quot;is_tip&quot;</span><span class="p">,</span> <span class="s2">&quot;branch_length&quot;</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">featured_tree</span> <span class="o">=</span> <span class="n">engineer</span><span class="o">.</span><span class="n">add_features</span><span class="p">(</span>
-<span class="gp">... </span>    <span class="n">tree</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="n">origin_time</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="n">feature_names</span><span class="o">=</span><span class="n">feature_names</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="n">rescale</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-<span class="gp">... </span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">all</span><span class="p">(</span><span class="nb">hasattr</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s2">&quot;time_bin&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">featured_tree</span><span class="o">.</span><span class="n">traverse</span><span class="p">())</span>
-<span class="go">True</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">build_featured_tree</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tree</span><span class="p">,</span> <span class="n">TreeFeatureEngineer</span><span class="p">]:</span>
+    <span class="n">engineer</span> <span class="o">=</span> <span class="n">TreeFeatureEngineer</span><span class="p">(</span><span class="n">num_time_bins</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+    <span class="n">tree</span> <span class="o">=</span> <span class="n">engineer</span><span class="o">.</span><span class="n">add_features</span><span class="p">(</span>
+        <span class="n">build_demo_tree</span><span class="p">(),</span>
+        <span class="n">origin_time</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
+        <span class="n">feature_names</span><span class="o">=</span><span class="n">FEATURE_NAMES</span><span class="p">,</span>
+        <span class="n">rescale</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">tree</span><span class="p">,</span> <span class="n">engineer</span>
+
+
 </pre></div>
 </div>
 </section>
@@ -122,21 +122,17 @@ to a PyTorch Geometric <code class="docutils literal notranslate"><span class="p
 <h2>Convert the tree to graph data<a class="headerlink" href="#convert-the-tree-to-graph-data" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">TreeToGraphConverter</span></code> reads the node attributes into <code class="docutils literal notranslate"><span class="pre">data.x</span></code> and builds
 tree edges in <code class="docutils literal notranslate"><span class="pre">data.edge_index</span></code>.</p>
-<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">phylognn</span><span class="w"> </span><span class="kn">import</span> <span class="n">TreeToGraphConverter</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">converter</span> <span class="o">=</span> <span class="n">TreeToGraphConverter</span><span class="p">(</span>
-<span class="gp">... </span>    <span class="n">feature_names</span><span class="o">=</span><span class="n">feature_names</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="n">add_virtual_nodes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-<span class="gp">... </span>    <span class="n">append_is_virtual_feature</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-<span class="gp">... </span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span> <span class="o">=</span> <span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="n">featured_tree</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">tuple</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-<span class="go">(5, 4)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">tuple</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-<span class="go">(2, 8)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span><span class="o">.</span><span class="n">edge_type</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-<span class="go">[0, 0, 0, 0, 0, 0, 0, 0]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span><span class="o">.</span><span class="n">node_names</span>
-<span class="go">[&#39;Root&#39;, &#39;C&#39;, &#39;A&#39;, &#39;B&#39;, &#39;D&#39;]</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">convert_tree_to_graph</span><span class="p">(</span><span class="n">tree</span><span class="p">:</span> <span class="n">Tree</span><span class="p">,</span> <span class="n">engineer</span><span class="p">:</span> <span class="n">TreeFeatureEngineer</span><span class="p">):</span>
+    <span class="n">converter</span> <span class="o">=</span> <span class="n">TreeToGraphConverter</span><span class="p">(</span>
+        <span class="n">feature_names</span><span class="o">=</span><span class="n">FEATURE_NAMES</span><span class="p">,</span>
+        <span class="n">add_virtual_nodes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">append_is_virtual_feature</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">traversal_strategy</span><span class="o">=</span><span class="n">engineer</span><span class="o">.</span><span class="n">traversal_strategy</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">graph_attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;example_name&quot;</span><span class="p">:</span> <span class="s2">&quot;tree_to_graph&quot;</span><span class="p">})</span>
+    <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">converter</span>
+
+
 </pre></div>
 </div>
 </section>

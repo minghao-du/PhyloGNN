@@ -120,31 +120,45 @@ def test_generated_user_guide_navigation_order_and_reachability():
 def test_examples_docs_are_discoverable_from_toctrees():
     assert "examples/index" in _toctree_entries(TOP_LEVEL_INDEX)
     assert _toctree_entries(DOCS_EXAMPLES / "index.rst") == [
+        "feature_engineering",
+        "tree_to_graph",
+        "tree_io",
+        "single_task_training",
         "toml_training_config",
         "complete_pipeline",
     ]
-    assert (DOCS_EXAMPLES / "toml_training_config.rst").is_file()
-    assert (DOCS_EXAMPLES / "complete_pipeline.rst").is_file()
+    for name in _toctree_entries(DOCS_EXAMPLES / "index.rst"):
+        assert (DOCS_EXAMPLES / f"{name}.rst").is_file()
 
 
 def test_examples_docs_map_to_runnable_files():
-    toml_page = _read(DOCS_EXAMPLES / "toml_training_config.rst")
-    pipeline_page = _read(DOCS_EXAMPLES / "complete_pipeline.rst")
+    pages = {
+        path.stem: _read(path)
+        for path in DOCS_EXAMPLES.glob("*.rst")
+        if path.name != "index.rst"
+    }
 
-    assert "examples/toml_training_config.py" in toml_page
-    assert "examples/toml_training_config.toml" in toml_page
-    assert "examples/complete_pipeline.py" in pipeline_page
-    assert str(TOML_CHECKPOINT.relative_to(ROOT)) in toml_page
-    assert str(TOML_HISTORY.relative_to(ROOT)) in toml_page
-    assert str(TOML_CHECKPOINT.relative_to(ROOT)) in pipeline_page
+    for name in (
+        "feature_engineering",
+        "tree_to_graph",
+        "tree_io",
+        "single_task_training",
+        "toml_training_config",
+        "complete_pipeline",
+    ):
+        assert f"examples/{name}.py" in pages[name]
+        assert ".. literalinclude::" in pages[name]
+        assert ":language: python" in pages[name]
+
+    assert "examples/toml_training_config.toml" in pages["toml_training_config"]
+    assert str(TOML_CHECKPOINT.relative_to(ROOT)) in pages["toml_training_config"]
+    assert str(TOML_HISTORY.relative_to(ROOT)) in pages["toml_training_config"]
+    assert str(TOML_CHECKPOINT.relative_to(ROOT)) in pages["complete_pipeline"]
 
 
 def test_example_docs_cover_inputs_actions_outputs_failure_modes_and_options():
     required_terms = ("Inputs", "Actions", "Expected outputs", "Failure modes", "Optional settings")
-    pages = [
-        DOCS_EXAMPLES / "toml_training_config.rst",
-        DOCS_EXAMPLES / "complete_pipeline.rst",
-    ]
+    pages = [path for path in DOCS_EXAMPLES.glob("*.rst") if path.name != "index.rst"]
 
     covered = 0
     total = len(required_terms) * len(pages)
@@ -158,16 +172,34 @@ def test_example_docs_cover_inputs_actions_outputs_failure_modes_and_options():
 def test_generated_examples_pages_are_reachable():
     examples_index = _read(DOCS_BUILD_HTML / "examples" / "index.html")
 
-    assert "toml_training_config.html" in examples_index
-    assert "complete_pipeline.html" in examples_index
+    for name in (
+        "feature_engineering",
+        "tree_to_graph",
+        "tree_io",
+        "single_task_training",
+        "toml_training_config",
+        "complete_pipeline",
+    ):
+        assert f"{name}.html" in examples_index
 
 
 def test_generated_examples_pages_include_runtime_markers():
     text = "\n".join(
         _read(DOCS_BUILD_HTML / "examples" / name)
-        for name in ("toml_training_config.html", "complete_pipeline.html")
+        for name in (
+            "feature_engineering.html",
+            "tree_to_graph.html",
+            "tree_io.html",
+            "single_task_training.html",
+            "toml_training_config.html",
+            "complete_pipeline.html",
+        )
     )
 
+    assert re.search(r"Feature engineering summary", text)
+    assert re.search(r"Graph summary", text)
+    assert re.search(r"Tree I/O summary", text)
+    assert re.search(r"Training summary", text)
     assert re.search(r"TOML training run summary", text)
     assert re.search(r"Complete pipeline summary", text)
     assert "checkpoint: example_outputs/toml_training_config/final_model.pt" in text

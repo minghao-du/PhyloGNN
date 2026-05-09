@@ -5,12 +5,12 @@ tree-to-graph conversion, creates deterministic train/val/test splits, and
 runs a short single-task training loop. It favors clarity and fast runtime over
 scientific realism.
 
-Outputs are written to `example_outputs/single_task_training/`, which is safe
-to delete after the example finishes.
+Outputs are written to a temporary directory that is removed after the example
+finishes.
 """
 
 from pathlib import Path
-import shutil
+import tempfile
 
 import torch
 import torch.nn as nn
@@ -22,7 +22,6 @@ from phylognn import Trainer, TrainingConfig, TreeFeatureEngineer, TreeToGraphCo
 from phylognn.training import DatasetSplit, SplitPhyloDataset, rmse_metric
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT_DIR = ROOT / "example_outputs" / "single_task_training"
 FEATURE_NAMES = ["node_time", "time_bin", "branch_length", "is_tip"]
 
 
@@ -89,7 +88,6 @@ def build_dataset() -> SplitPhyloDataset:
 
 def main() -> None:
     torch.manual_seed(7)
-    shutil.rmtree(OUTPUT_DIR, ignore_errors=True)
 
     dataset = build_dataset()
     split = DatasetSplit.from_ratios(
@@ -101,38 +99,42 @@ def main() -> None:
     )
     subsets = dataset.build_subsets(split)
 
-    model = ToyGraphRegressor(input_dim=len(FEATURE_NAMES), hidden_dim=16)
-    config = TrainingConfig(
-        epochs=3,
-        batch_size=4,
-        learning_rate=5e-3,
-        weight_decay=0.0,
-        scheduler=None,
-        early_stopping_patience=None,
-        save_dir=str(OUTPUT_DIR),
-        verbose=False,
-    )
-    trainer = Trainer(model=model, config=config, metrics={"rmse": rmse_metric})
+    with tempfile.TemporaryDirectory(prefix="phylognn_single_task_training_") as temp_dir:
+        output_dir = Path(temp_dir)
+        model = ToyGraphRegressor(input_dim=len(FEATURE_NAMES), hidden_dim=16)
+        config = TrainingConfig(
+            epochs=3,
+            batch_size=4,
+            learning_rate=5e-3,
+            weight_decay=0.0,
+            scheduler=None,
+            early_stopping_patience=None,
+            save_dir=str(output_dir),
+            verbose=False,
+        )
+        trainer = Trainer(model=model, config=config, metrics={"rmse": rmse_metric})
 
-    history = trainer.fit(
-        train_dataset=subsets["train"],
-        val_dataset=subsets["val"],
-    )
-    predictions = trainer.predict(subsets["test"])
+        history = trainer.fit(
+            train_dataset=subsets["train"],
+            val_dataset=subsets["val"],
+        )
+        predictions = trainer.predict(subsets["test"])
 
-    first_prediction = float(predictions[0].detach().cpu().item())
-    first_target = float(subsets["test"][0].y.detach().cpu().item())
+        first_prediction = float(predictions[0].detach().cpu().item())
+        first_target = float(subsets["test"][0].y.detach().cpu().item())
 
-    print("Training summary")
-    print(
-        "dataset sizes: "
-        f"train={len(subsets['train'])}, val={len(subsets['val'])}, test={len(subsets['test'])}"
-    )
-    print(
-        "final losses: " f"train={history['train_loss'][-1]:.4f}, val={history['val_loss'][-1]:.4f}"
-    )
-    print(f"output_dir: {OUTPUT_DIR.relative_to(ROOT)}")
-    print(f"prediction sample: pred={first_prediction:.4f}, target={first_target:.4f}")
+        print("Training summary")
+        print(
+            "dataset sizes: "
+            f"train={len(subsets['train'])}, val={len(subsets['val'])}, "
+            f"test={len(subsets['test'])}"
+        )
+        print(
+            "final losses: "
+            f"train={history['train_loss'][-1]:.4f}, val={history['val_loss'][-1]:.4f}"
+        )
+        print(f"output_dir: {output_dir}")
+        print(f"prediction sample: pred={first_prediction:.4f}, target={first_target:.4f}")
 
 
 if __name__ == "__main__":

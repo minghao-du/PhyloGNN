@@ -9,6 +9,7 @@ If the optional `dendropy` dependency is unavailable, the script prints concise
 installation guidance and exits cleanly without a traceback.
 """
 
+import importlib.util
 from pathlib import Path
 
 from phylognn.data import TreeFeatureEngineer
@@ -18,17 +19,20 @@ ROOT = Path(__file__).resolve().parents[1]
 SAMPLE_TREE = ROOT / "examples_data" / "simulated_trees" / "1.trees"
 
 
-def main() -> None:
-    try:
-        tree = read_tree_as_ete3(SAMPLE_TREE)
-    except (ModuleNotFoundError, ImportError, RuntimeError) as exc:
-        message = str(exc)
-        if "dendropy" not in message.lower():
-            raise
+def _dendropy_available() -> bool:
+    return importlib.util.find_spec("dendropy") is not None
 
+
+def main() -> None:
+    if not _dendropy_available():
         print("Optional dependency missing: dendropy")
         print('Install it with `python -m pip install -e ".[beast]"`.')
         return
+
+    try:
+        tree = read_tree_as_ete3(SAMPLE_TREE)
+    except (ModuleNotFoundError, ImportError):
+        raise RuntimeError("DendroPy is installed but tree loading failed during import.") from None
 
     engineer = TreeFeatureEngineer(num_time_bins=8)
     featured_tree = engineer.add_features(

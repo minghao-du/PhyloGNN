@@ -189,6 +189,7 @@ def test_self_contained_examples_run(script_name: str, expected_text: str):
             in completed.stdout
         )
         assert "num_nodes: 5" in completed.stdout
+        assert "virtual node count: 6" in completed.stdout
 
 
 def test_tree_io_example_handles_available_or_missing_optional_dependency():
@@ -206,12 +207,16 @@ def test_tree_io_example_handles_available_or_missing_optional_dependency():
 
 
 def test_single_task_training_example_runs():
+    legacy_output_dir = ROOT / "example_outputs" / "single_task_training"
+    shutil.rmtree(legacy_output_dir, ignore_errors=True)
+
     completed = _run_example("single_task_training.py")
 
     assert completed.returncode == 0, completed.stderr
     assert "Training summary" in completed.stdout
     assert "dataset sizes:" in completed.stdout
     assert "prediction sample:" in completed.stdout
+    assert not legacy_output_dir.exists()
 
 
 def test_toml_training_config_example_runs():
@@ -227,15 +232,21 @@ def test_toml_training_config_example_runs():
     assert TOML_HISTORY.is_file()
 
 
-def test_complete_pipeline_example_runs_after_toml_training():
-    if not TOML_CHECKPOINT.is_file():
-        training = _run_example("toml_training_config.py")
-        assert training.returncode == 0, training.stderr
+def test_toml_training_config_uses_single_config_creation_path():
+    script = (EXAMPLES_DIR / "toml_training_config.py").read_text(encoding="utf-8")
+
+    assert script.count("create_trainer_from_config(") == 1
+    assert "load_training_config" not in script
+
+
+def test_complete_pipeline_example_runs_without_existing_checkpoint():
+    if TOML_CHECKPOINT.exists():
+        TOML_CHECKPOINT.unlink()
 
     completed = _run_example("complete_pipeline.py")
 
     assert completed.returncode == 0, completed.stderr
     assert "Complete pipeline summary" in completed.stdout
-    assert "checkpoint: example_outputs/toml_training_config/final_model.pt" in completed.stdout
+    assert "checkpoint:" in completed.stdout
     assert "graph x shape:" in completed.stdout
     assert "prediction:" in completed.stdout

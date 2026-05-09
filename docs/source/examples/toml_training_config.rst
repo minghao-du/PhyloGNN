@@ -24,9 +24,8 @@ Run the script from the repository root:
 
    python examples/toml_training_config.py
 
-The script loads the TOML config through ``load_training_config()``, creates a
-``Trainer`` through ``create_trainer_from_config()``, builds train and
-validation splits, and calls ``Trainer.fit()``.
+The script creates a ``Trainer`` through ``create_trainer_from_config()``,
+builds train and validation splits, and calls ``Trainer.fit()``.
 
 Expected outputs
 ----------------
@@ -63,3 +62,8 @@ The default ``[tracking]`` section keeps experiment tracking disabled. Install
 and configure the ``wandb`` extra only when you intentionally enable tracking;
 this local example does not require credentials.
 
+Source
+------
+
+.. literalinclude:: ../../../examples/toml_training_config.py
+   :language: python

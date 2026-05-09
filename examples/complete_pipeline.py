@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import sys
+import tempfile
 
 import torch
 from ete3 import Tree
@@ -38,22 +39,41 @@ def _build_graph():
     return converter.convert(tree, graph_attrs={"sample_id": "pipeline_tree"})
 
 
-def main() -> None:
-    if not CHECKPOINT_PATH.is_file():
-        raise SystemExit("Missing checkpoint. Run `python examples/toml_training_config.py` first.")
-
-    torch.manual_seed(7)
-    graph = _build_graph()
+def _predict_with_checkpoint(graph, checkpoint_dir: Path, checkpoint_name: str) -> float:
     trainer = create_trainer_from_config(
         CONFIG_PATH,
-        training_overrides={"save_dir": str(OUTPUT_DIR), "verbose": False},
+        training_overrides={"save_dir": str(checkpoint_dir), "verbose": False},
     )
-    trainer.load_checkpoint("final_model.pt")
+    trainer.load_checkpoint(checkpoint_name)
     prediction = trainer.predict([graph], batch_size=1)
-    value = float(prediction.reshape(-1)[0].item())
+    return float(prediction.reshape(-1)[0].item())
+
+
+def _predict_with_temporary_checkpoint(graph) -> tuple[float, Path]:
+    with tempfile.TemporaryDirectory(prefix="phylognn_complete_pipeline_") as temp_dir:
+        checkpoint_dir = Path(temp_dir)
+        trainer = create_trainer_from_config(
+            CONFIG_PATH,
+            training_overrides={"save_dir": str(checkpoint_dir), "verbose": False},
+        )
+        trainer.save_checkpoint("final_model.pt")
+        value = _predict_with_checkpoint(graph, checkpoint_dir, "final_model.pt")
+        return value, checkpoint_dir / "final_model.pt"
+
+
+def main() -> None:
+    torch.manual_seed(7)
+    graph = _build_graph()
+
+    if CHECKPOINT_PATH.is_file():
+        value = _predict_with_checkpoint(graph, OUTPUT_DIR, "final_model.pt")
+        checkpoint_label = CHECKPOINT_PATH.relative_to(ROOT)
+    else:
+        value, checkpoint_path = _predict_with_temporary_checkpoint(graph)
+        checkpoint_label = checkpoint_path
 
     print("Complete pipeline summary")
-    print(f"checkpoint: {CHECKPOINT_PATH.relative_to(ROOT)}")
+    print(f"checkpoint: {checkpoint_label}")
     print(f"graph x shape: {tuple(graph.x.shape)}")
     print(f"graph edge_index shape: {tuple(graph.edge_index.shape)}")
     print(f"prediction: {value:.4f}")

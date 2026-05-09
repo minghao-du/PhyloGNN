@@ -11,7 +11,6 @@ from phylognn.training import (
     DatasetSplit,
     SplitPhyloDataset,
     create_trainer_from_config,
-    load_training_config,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,10 +66,6 @@ def main() -> None:
         seed=7,
     )
     subsets = dataset.build_subsets(split)
-    setup = load_training_config(
-        CONFIG_PATH,
-        training_overrides={"save_dir": str(OUTPUT_DIR), "verbose": False},
-    )
     trainer = create_trainer_from_config(
         CONFIG_PATH,
         training_overrides={"save_dir": str(OUTPUT_DIR), "verbose": False},
@@ -81,16 +76,16 @@ def main() -> None:
     )
 
     print("TOML training run summary")
-    print(f"configured model: {setup.model.__class__.__name__}")
+    print(f"configured model: {trainer.model.__class__.__name__}")
     print(f"feature order: {FEATURE_NAMES}")
     print(f"dataset sizes: train={len(subsets['train'])}, val={len(subsets['val'])}")
-    print(f"epochs: {setup.training_config.epochs}")
-    print(f"batch_size: {setup.training_config.batch_size}")
+    print(f"epochs: {trainer.config.epochs}")
+    print(f"batch_size: {trainer.config.batch_size}")
     print(
         "final losses: " f"train={history['train_loss'][-1]:.4f}, val={history['val_loss'][-1]:.4f}"
     )
-    print(f"metrics: {', '.join(setup.metrics)}")
-    print(f"tracking: {'enabled' if setup.tracking_config.enabled else 'disabled'}")
+    print(f"metrics: {', '.join(trainer.metrics)}")
+    print(f"tracking: {'enabled' if trainer.tracking_config.enabled else 'disabled'}")
     print(f"checkpoint: {(OUTPUT_DIR / 'final_model.pt').relative_to(ROOT)}")
     print(f"history: {(OUTPUT_DIR / 'history.json').relative_to(ROOT)}")
 

@@ -8,12 +8,10 @@ to a PyTorch Geometric `Data` object, and inspects the main graph fields:
 Create a small tree
 -------------------
 
-.. doctest::
-
-   >>> from ete3 import Tree
-   >>> tree = Tree("((A:1,B:1)C:1,D:2)Root:0;", format=1)
-   >>> len(list(tree.traverse("preorder")))
-   5
+.. literalinclude:: ../../examples/tree_to_graph.py
+   :language: python
+   :start-after: [START build_demo_tree]
+   :end-before: [END build_demo_tree]
 
 Attach node features
 --------------------
@@ -21,20 +19,10 @@ Attach node features
 `TreeFeatureEngineer` writes numeric attributes to each tree node. Use
 `feature_names` as the stable column order for graph conversion.
 
-.. doctest::
-
-   >>> from phylognn import TreeFeatureEngineer
-   >>> engineer = TreeFeatureEngineer(num_time_bins=4)
-   >>> feature_names = ("node_time", "time_bin", "is_tip", "branch_length")
-   >>> featured_tree = engineer.add_features(
-   ...     tree,
-   ...     origin_time=3.0,
-   ...     feature_names=feature_names,
-   ...     rescale=False,
-   ...     inplace=False,
-   ... )
-   >>> all(hasattr(node, "time_bin") for node in featured_tree.traverse())
-   True
+.. literalinclude:: ../../examples/tree_to_graph.py
+   :language: python
+   :start-after: [START feature_engineering]
+   :end-before: [END feature_engineering]
 
 Convert the tree to graph data
 ------------------------------
@@ -42,23 +30,10 @@ Convert the tree to graph data
 `TreeToGraphConverter` reads the node attributes into `data.x` and builds
 tree edges in `data.edge_index`.
 
-.. doctest::
-
-   >>> from phylognn import TreeToGraphConverter
-   >>> converter = TreeToGraphConverter(
-   ...     feature_names=feature_names,
-   ...     add_virtual_nodes=False,
-   ...     append_is_virtual_feature=False,
-   ... )
-   >>> data = converter.convert(featured_tree)
-   >>> tuple(data.x.shape)
-   (5, 4)
-   >>> tuple(data.edge_index.shape)
-   (2, 8)
-   >>> data.edge_type.tolist()
-   [0, 0, 0, 0, 0, 0, 0, 0]
-   >>> data.node_names
-   ['Root', 'C', 'A', 'B', 'D']
+.. literalinclude:: ../../examples/tree_to_graph.py
+   :language: python
+   :start-after: [START tree_to_graph_conversion]
+   :end-before: [END tree_to_graph_conversion]
 
 Interpret the output
 --------------------
