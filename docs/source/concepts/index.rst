@@ -1,0 +1,21 @@
+Concepts
+========
+
+Concept pages explain contracts that appear across multiple workflows. Use
+them when you need to interpret graph tensors or understand what a local
+`TOML` training file is allowed to configure.
+
+Available concepts
+------------------
+
+`Graph data <graph_data.html>`_
+   Fields attached to converted PyTorch Geometric `Data` objects.
+
+`Training configuration <training_config.html>`_
+   `TOML` sections, validation behavior, and training output boundaries.
+
+.. toctree::
+   :maxdepth: 1
+
+   graph_data
+   training_config

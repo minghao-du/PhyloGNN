@@ -4,7 +4,6 @@ from ete3 import Tree
 
 from phylognn.data import TreeFeatureEngineer
 
-
 FEATURE_NAMES = [
     "node_time",
     "time_bin",

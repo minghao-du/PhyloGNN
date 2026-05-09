@@ -13,6 +13,9 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_DIR = ROOT / "examples"
+EXAMPLE_OUTPUT_DIR = ROOT / "example_outputs" / "toml_training_config"
+TOML_CHECKPOINT = EXAMPLE_OUTPUT_DIR / "final_model.pt"
+TOML_HISTORY = EXAMPLE_OUTPUT_DIR / "history.json"
 
 EXPECTED_FILES = {
     "README.md",
@@ -22,6 +25,7 @@ EXPECTED_FILES = {
     "single_task_training.py",
     "toml_training_config.py",
     "toml_training_config.toml",
+    "complete_pipeline.py",
 }
 
 REMOVED_FILES = {
@@ -214,6 +218,24 @@ def test_toml_training_config_example_runs():
     completed = _run_example("toml_training_config.py")
 
     assert completed.returncode == 0, completed.stderr
-    assert "TOML training config summary" in completed.stdout
+    assert "TOML training run summary" in completed.stdout
     assert "configured model: GATBiLSTMNet" in completed.stdout
     assert "metrics: mse, rmse" in completed.stdout
+    assert "checkpoint: example_outputs/toml_training_config/final_model.pt" in completed.stdout
+    assert "history: example_outputs/toml_training_config/history.json" in completed.stdout
+    assert TOML_CHECKPOINT.is_file()
+    assert TOML_HISTORY.is_file()
+
+
+def test_complete_pipeline_example_runs_after_toml_training():
+    if not TOML_CHECKPOINT.is_file():
+        training = _run_example("toml_training_config.py")
+        assert training.returncode == 0, training.stderr
+
+    completed = _run_example("complete_pipeline.py")
+
+    assert completed.returncode == 0, completed.stderr
+    assert "Complete pipeline summary" in completed.stdout
+    assert "checkpoint: example_outputs/toml_training_config/final_model.pt" in completed.stdout
+    assert "graph x shape:" in completed.stdout
+    assert "prediction:" in completed.stdout

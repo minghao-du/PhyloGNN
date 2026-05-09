@@ -1,0 +1,65 @@
+Graph Conversion
+================
+
+`TreeToGraphConverter` converts an `ete3.Tree` with numeric node attributes into
+a PyTorch Geometric `Data` object.
+
+Basic workflow
+--------------
+
+.. code-block:: python
+
+   from phylognn import TreeToGraphConverter
+
+   converter = TreeToGraphConverter(feature_names=engineer.feature_names)
+   data = converter.convert(tree, graph_attrs={"tree_id": "example"})
+
+The converter expects every node to have every requested feature and every
+feature value to be numeric.
+
+When to use it
+--------------
+
+Use this step after feature engineering and before any model or training code.
+Keep `feature_names` explicit when comparing experiments so `data.x` columns
+remain stable.
+
+Output fields
+-------------
+
+Converted data always includes `data.x`, `data.edge_index`, `data.edge_type`,
+`data.original_num_nodes`, `data.virtual_node_mask`, and `data.node_type`. When
+`preserve_node_names=True`, it also includes `data.node_names`. User-provided
+`graph_attrs` are attached as graph-level attributes, except for reserved
+generated field names such as `time_bin`.
+
+When `feature_names` includes `time_bin`, the converter also attaches
+`data.time_bin` as a one-dimensional `torch.long` tensor with one label per
+final graph node. The labels follow the same row order as `data.x`. When
+`feature_names` does not include `time_bin`, the converter does not infer or
+attach `data.time_bin`.
+
+Virtual nodes
+-------------
+
+Set `add_virtual_nodes=True` to add one virtual node per time bin. In this
+mode, `feature_names` must include `time_bin`. Virtual-to-real edges have
+`edge_type=1`; virtual-chain edges have `edge_type=2`. If
+`append_is_virtual_feature=True`, the final feature column identifies virtual
+nodes. If `num_time_bins` is configured, one virtual node is created for every
+configured bin, including empty bins. Generated `data.time_bin` labels for
+virtual nodes are appended in ascending bin order.
+
+Saving and loading
+------------------
+
+Use `convert_and_save()` for preprocessing pipelines, `save_data()` to store a
+PyTorch Geometric `Data` object, and `load_data()` to restore it with
+`torch.load`.
+
+Related pages
+-------------
+
+See :doc:`../concepts/graph_data` for field semantics,
+:doc:`feature_engineering` for node features, :doc:`training` for model input
+expectations, and :doc:`../reference/data` for the public API.

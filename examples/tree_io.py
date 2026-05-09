@@ -14,7 +14,6 @@ from pathlib import Path
 from phylognn.data import TreeFeatureEngineer
 from phylognn.io import read_tree_as_ete3
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLE_TREE = ROOT / "examples_data" / "simulated_trees" / "1.trees"
 

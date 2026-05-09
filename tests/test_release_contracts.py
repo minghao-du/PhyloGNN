@@ -74,7 +74,8 @@ def test_dependency_profiles_match_release_metadata_contract():
     assert dependencies == {"ete3", "numpy", "torch", "torch-geometric", "torch-scatter", "tqdm"}
     assert optional["beast"] == {"dendropy"}
     assert optional["wandb"] == {"wandb"}
-    assert optional["docs"] == {"sphinx"}
+    assert optional["docs"] == {"sphinx", "sphinx-rtd-theme"}
+    assert "furo" not in optional["docs"]
     assert optional["dev"] == {"black", "pytest", "ruff"}
     assert optional["all"] == {"dendropy", "pandas", "wandb"}
 

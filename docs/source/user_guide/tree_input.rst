@@ -1,0 +1,56 @@
+Tree Input
+==========
+
+Core PhyloGNN workflows operate on `ete3.Tree` objects. This keeps the
+feature-engineering and conversion pipeline independent of optional file
+readers.
+
+In-memory ETE trees
+-------------------
+
+For small examples and tests, create an `ete3.Tree` directly from `Newick`.
+
+.. code-block:: python
+
+   from ete3 import Tree
+
+   tree = Tree("((A:1,B:1)C:1,D:2)Root:0;", format=1)
+
+The resulting tree can be passed to `TreeFeatureEngineer.add_features()`.
+
+Choosing an input path
+----------------------
+
+Use direct `ete3.Tree` objects for core workflows, tests, and examples. Use
+`phylognn.io` only when tree files need `DendroPy`-backed parsing or annotation
+handling.
+
+Optional file reading
+---------------------
+
+File workflows that use `DendroPy` are exposed from `phylognn.io`, not from the
+root package. Install the `beast` or `all` extra before using them.
+
+.. code-block:: python
+
+   from phylognn.io import read_tree_as_ete3
+
+   tree = read_tree_as_ete3("trees/example.trees", schema="nexus", tree_index=0)
+
+`TreeReadConfig` controls schema, `tree_index`, underscore handling, rooting,
+comment metadata extraction, and whether annotations are copied to ETE nodes.
+
+Common failures
+---------------
+
+Use the correct schema for the file. `tree_index` is zero-based and must refer
+to an existing tree in a multi-tree file. Missing `DendroPy` means the optional
+extra is not installed. Parse failures are wrapped with the file path and
+schema so the next action is visible.
+
+Related pages
+-------------
+
+See :doc:`feature_engineering` for node features,
+:doc:`../reference/io` for optional I/O APIs, and :doc:`../troubleshooting` for
+recovery steps.

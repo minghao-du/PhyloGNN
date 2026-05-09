@@ -21,7 +21,6 @@ from torch_geometric.nn import global_mean_pool
 from phylognn import Trainer, TrainingConfig, TreeFeatureEngineer, TreeToGraphConverter
 from phylognn.training import DatasetSplit, SplitPhyloDataset, rmse_metric
 
-
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "example_outputs" / "single_task_training"
 FEATURE_NAMES = ["node_time", "time_bin", "branch_length", "is_tip"]
@@ -130,8 +129,7 @@ def main() -> None:
         f"train={len(subsets['train'])}, val={len(subsets['val'])}, test={len(subsets['test'])}"
     )
     print(
-        "final losses: "
-        f"train={history['train_loss'][-1]:.4f}, val={history['val_loss'][-1]:.4f}"
+        "final losses: " f"train={history['train_loss'][-1]:.4f}, val={history['val_loss'][-1]:.4f}"
     )
     print(f"output_dir: {OUTPUT_DIR.relative_to(ROOT)}")
     print(f"prediction sample: pred={first_prediction:.4f}, target={first_target:.4f}")

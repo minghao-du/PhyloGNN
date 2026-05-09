@@ -1,0 +1,58 @@
+Training
+========
+
+Training utilities expect PyTorch Geometric `Data` samples whose target is
+stored as `data.y`. Datasets, splits, and loaders are caller-controlled; `TOML`
+configuration builds models and trainer settings but does not discover data.
+
+Datasets and splits
+-------------------
+
+Use `SplitPhyloDataset` for in-memory `Data` objects and labels. Use
+`SplitPhyloDiskDataset` when graphs and labels are stored as mirrored `.pt`
+files. `DatasetSplit` supports deterministic ratio-based splits and explicit
+split manifests with one sample ID per line.
+
+When to use TOML
+----------------
+
+Use `TOML` when you want a repeatable local record of model, trainer, loss,
+metrics, and optional tracking settings. Dataset construction and loader choice
+remain caller-controlled Python code.
+
+Trainer setup
+-------------
+
+`TrainingConfig` controls epochs, batch size, optimizer, scheduler, device,
+checkpoint directory, early stopping, gradient clipping, and `DataLoader`
+options. `Trainer` validates the config, creates the optimizer and scheduler,
+writes `config.json`, stores training history, and saves checkpoints.
+
+TOML setup
+----------
+
+`load_training_config()` returns a `ConfiguredTrainingSetup` containing a
+`GATBiLSTMNet`, `TrainingConfig`, loss, metrics, tracking configuration, and
+sanitized tracking metadata. `create_trainer_from_config()` creates a
+`Trainer` from the same TOML file.
+
+Model data contract
+-------------------
+
+All model inputs need `data.x` and `data.edge_index`. Batched graph-level
+training needs `data.batch`. Temporal modes of `GATBiLSTMNet` require
+`data.time_bin` as a node-aligned tensor. The training dataset must provide
+`data.y` for loss computation.
+
+Outputs
+-------
+
+Training writes checkpoints and `history.json` under `save_dir`. The final
+checkpoint is always saved; best-checkpoint behavior is controlled by
+`save_best_only`.
+
+Related pages
+-------------
+
+See :doc:`../concepts/training_config`, :doc:`metrics_tracking`,
+:doc:`../reference/training`, and :doc:`../troubleshooting`.

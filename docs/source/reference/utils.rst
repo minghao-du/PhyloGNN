@@ -1,0 +1,23 @@
+Utilities Reference
+===================
+
+Import path
+-----------
+
+.. code-block:: python
+
+   from phylognn.utils import get_max_meta_time
+
+Tree metadata helpers
+---------------------
+
+.. py:function:: get_max_meta_time(tree)
+
+   Traverse an `ete3.Tree` and return the maximum `meta_time` value among nodes
+   that define it. Returns `None` if no node has `meta_time`.
+
+Related guide
+-------------
+
+Use this helper when tree metadata imported from optional readers needs a
+simple maximum-time summary before feature engineering.

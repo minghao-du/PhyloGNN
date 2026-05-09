@@ -173,5 +173,7 @@ python -m build
 - In-memory `torch_geometric.data.Data` objects and existing `torch.save` persistence through `TreeToGraphConverter.save_data()` and `convert_and_save()` (001-auto-time-bin)
 - Repository documentation files under `/Users/Minghao/Research/PhyloGNN/docs/source`; generated HTML under `/Users/Minghao/Research/PhyloGNN/docs/_build/html`; no runtime data storage changes (001-docs-visual-polish)
 - Python >=3.12 for Sphinx autodoc imports; reStructuredText for documentation content; CSS for presentation + Sphinx built-in extensions (`autodoc`, `autosummary`, `napoleon`, `viewcode`, `doctest`); `furo` documentation theme already declared in `pyproject.toml`; existing runtime dependencies imported by autodoc (`torch`, `torch-geometric`, `ete3`, `numpy`) (001-docs-visual-polish)
+- Python >=3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy, `torch-scatter`, `tqdm`, stdlib `tomllib`; documentation tooling uses Sphinx built-in `autodoc`, `autosummary`, `napoleon`, `viewcode`, `doctest`, and the Read the Docs theme package `sphinx-rtd-theme` (001-sphinx-docs-fixes)
+- Repository files only: Sphinx sources in `/Users/Minghao/Research/PhyloGNN/docs/source`, generated HTML in `/Users/Minghao/Research/PhyloGNN/docs/_build/html`, doctest output in `/Users/Minghao/Research/PhyloGNN/docs/_build/doctest`, runnable examples in `/Users/Minghao/Research/PhyloGNN/examples`, example outputs in `/Users/Minghao/Research/PhyloGNN/example_outputs` (001-sphinx-docs-fixes)
 
 ## Recent Changes

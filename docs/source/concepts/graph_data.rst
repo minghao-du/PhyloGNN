@@ -1,0 +1,58 @@
+Graph Data
+==========
+
+PhyloGNN represents converted trees as `torch_geometric.data.Data` objects.
+The converter treats package source and tests as the contract; examples are
+illustrations of that contract.
+
+Core fields
+-----------
+
+`x`
+   Floating-point node feature matrix with shape `[num_nodes, num_features]`.
+   Column order is defined by the converter `feature_names`, commonly
+   `TreeFeatureEngineer.feature_names`.
+
+`edge_index`
+   `torch.long` tensor with shape `[2, num_edges]`. Tree parent-child relations are
+   included, and bidirectional conversion adds the reverse edge too.
+
+`edge_type`
+   `torch.long` tensor aligned with `edge_index`. Values are `0` for tree edges, `1`
+   for virtual-to-real edges, and `2` for virtual-chain edges.
+
+`node_names`
+   Optional list aligned with graph node order. Original nodes use ETE node
+   names, unnamed nodes use an empty string, and virtual nodes are named like
+   `__virtual_time_bin_i__`.
+
+`original_num_nodes`
+   Integer count of nodes from the original tree before virtual nodes are
+   appended.
+
+Virtual-node fields
+-------------------
+
+When virtual nodes are enabled, the converter also attaches
+`virtual_node_mask`, `node_type`, and `num_time_bins`. Original nodes use node
+type `0`; virtual nodes use node type `1`. If `append_is_virtual_feature=True`,
+the final `x` column is `is_virtual_node`.
+
+Deterministic ordering
+----------------------
+
+Feature order is deterministic when callers pass an ordered sequence such as
+`TreeFeatureEngineer.feature_names`. Node order follows the converter traversal
+strategy, with `preorder` as the default. Metadata aligned to nodes, including
+`node_names`, follows that same order.
+
+Compatibility notes
+-------------------
+
+Model inputs must include `x` and `edge_index`. Batched graph-level training
+also requires `batch`. Temporal model modes require a separate `data.time_bin`
+tensor aligned with nodes; do not assume that a feature column alone satisfies
+that model field.
+
+See :doc:`../user_guide/graph_conversion` for the conversion workflow and
+:doc:`../reference/data` for the data API reference.
