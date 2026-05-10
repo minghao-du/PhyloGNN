@@ -19,6 +19,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinx.ext.doctest",
+    "sphinx.ext.githubpages",
 ]
 
 autosummary_generate = True
@@ -70,3 +71,11 @@ doctest_global_setup = """
 import os
 os.environ.setdefault("PYTHONHASHSEED", "0")
 """
+
+linkcheck_ignore = [
+    r"https://github\.com/.*",
+    r"https://docs\.github\.com/.*",
+    r"https://pytorch\.org/.*",
+    r"https://pytorch-geometric\.readthedocs\.io/.*",
+    r"https://www\.sphinx-doc\.org/.*",
+]

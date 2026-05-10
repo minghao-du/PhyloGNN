@@ -7,28 +7,28 @@ real data preparation, training, and optional integrations.
 Workflow pages
 --------------
 
-`Tree input <tree_input.html>`_
+:doc:`Tree input <tree_input>`
    Start from in-memory `ete3.Tree` objects or optional file readers.
 
-`Feature engineering <feature_engineering.html>`_
+:doc:`Feature engineering <feature_engineering>`
    Attach deterministic numeric attributes to tree nodes.
 
-`Graph conversion <graph_conversion.html>`_
+:doc:`Graph conversion <graph_conversion>`
    Convert feature-bearing trees into PyTorch Geometric `Data` objects.
 
-`Datasets and splits <datasets_and_splits.html>`_
+:doc:`Datasets and splits <datasets_and_splits>`
    Package graph samples, labels, and deterministic train/validation/test
    partitions.
 
-`Training <training.html>`_
+:doc:`Training <training>`
    Run the trainer lifecycle with PyG datasets, loaders, checkpoints, and
    predictions.
 
-`Training configuration <training_config.html>`_
+:doc:`Training configuration <training_config>`
    Use local TOML files for repeatable model, trainer, loss, metrics, and
    tracking settings.
 
-`Metrics and tracking <metrics_tracking.html>`_
+:doc:`Metrics and tracking <metrics_tracking>`
    Use built-in metrics and optional Weights & Biases logging.
 
 .. toctree::

@@ -24,19 +24,19 @@ Use the root package for the main workflow objects:
 Reference areas
 ---------------
 
-`Data <data.html>`_
+:doc:`Data <data>`
    Feature engineering and tree-to-graph conversion APIs.
 
-`Models <models.html>`_
+:doc:`Models <models>`
    Public model classes and shared model base behavior.
 
-`Training <training.html>`_
+:doc:`Training <training>`
    Trainer, configuration, datasets, metrics, TOML helpers, and tracking.
 
-`Tree I/O <io.html>`_
+:doc:`Tree I/O <io>`
    Optional DendroPy-backed file reading and conversion helpers.
 
-`Utilities <utils.html>`_
+:doc:`Utilities <utils>`
    Small public utility helpers.
 
 .. toctree::
