@@ -5,6 +5,9 @@ PhyloGNN API. Start with the small self-contained demos, then move to the
 optional file-loading boundary, the lightweight training walkthrough, and the
 complete checkpoint-backed pipeline.
 
+`quickstart_training.py` is the tiny smoke test used by the Quickstart guide.
+It is intentionally separate from the six example launchers below.
+
 ## Recommended Order
 
 1. `feature_engineering.py`
@@ -55,6 +58,7 @@ python -m pip install -e ".[beast]"
 ```bash
 python examples/feature_engineering.py
 python examples/tree_to_graph.py
+python examples/quickstart_training.py
 python examples/tree_io.py
 python examples/single_task_training.py
 python examples/toml_training_config.py
@@ -67,6 +71,8 @@ python examples/complete_pipeline.py
   node-by-node feature listing.
 - `tree_to_graph.py` prints a `Graph summary` with tensor shapes and selected
   metadata.
+- `quickstart_training.py` prints a `Quickstart training summary` with graph
+  shapes, target shape, batch readiness, and one prediction.
 - `tree_io.py` prints a `Tree I/O summary` for a tree loaded from
   `examples_data/simulated_trees/`, or a concise optional-dependency guidance
   message when DendroPy is unavailable.

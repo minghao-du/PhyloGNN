@@ -36,3 +36,6 @@ Recommended order
 6. :doc:`complete_pipeline`
    Builds a tree, attaches features, converts it to graph data, loads a
    checkpoint or creates a temporary one, and prints a prediction.
+
+Each page is a script launcher with inputs, run command, stable stdout markers,
+files written, optional dependencies, failure modes, and source.

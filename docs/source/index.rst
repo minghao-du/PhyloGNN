@@ -33,25 +33,25 @@ Fastest path
       **Quickstart**
 
       Build a small `ete3.Tree`, attach features, convert it to graph data,
-      and inspect the main tensors.
+      run a tiny training smoke test, and print a prediction.
 
       :doc:`quickstart`
 
    .. container:: entry-card
 
-      **Concepts**
+      **User Guide**
 
-      Learn the graph fields and `TOML` training configuration boundaries before
-      changing workflows.
+      Follow the full workflow from tree input through feature engineering,
+      graph conversion, datasets, training, configuration, and tracking.
 
-      :doc:`concepts/index`
+      :doc:`user_guide/index`
 
    .. container:: entry-card
 
       **Examples**
 
-      Run the TOML-configured training example and the complete tree-to-
-      prediction pipeline with tiny local data.
+      Launch six runnable scripts that cover feature engineering, graph
+      conversion, tree I/O, training, TOML configuration, and prediction.
 
       :doc:`examples/index`
 
@@ -71,7 +71,7 @@ Fastest path
    details.
 
 .. Maintainers: add new user-facing task pages under user_guide/ and link them
-   from user_guide/index.rst. Add shared concepts under concepts/, lookup pages
+   from user_guide/index.rst. Add lookup pages
    under reference/, and recovery advice in troubleshooting.rst. Keep legacy
    docs/issues, docs/myprompt, and specs out of official toctrees unless the
    content is rewritten for ordinary users.
@@ -82,7 +82,6 @@ Fastest path
 
    installation
    quickstart
-   concepts/index
    user_guide/index
    examples/index
    reference/index

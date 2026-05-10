@@ -1,10 +1,8 @@
 TOML Training Configuration
 ===========================
 
-This example maps ``examples/toml_training_config.toml`` to a complete local
-training run in ``examples/toml_training_config.py``. It demonstrates how a
-TOML file configures the model, trainer, loss, metrics, and tracking boundary
-while data still comes from ordinary Python code.
+Script: ``examples/toml_training_config.py``.
+Configuration: ``examples/toml_training_config.toml``.
 
 Inputs
 ------
@@ -15,8 +13,8 @@ Inputs
   ``ete3.Tree`` objects.
 - Feature order ``("node_time", "time_bin", "branch_length", "is_tip")``.
 
-Actions
--------
+Run command
+-----------
 
 Run the script from the repository root:
 
@@ -27,8 +25,8 @@ Run the script from the repository root:
 The script creates a ``Trainer`` through ``create_trainer_from_config()``,
 builds train and validation splits, and calls ``Trainer.fit()``.
 
-Expected outputs
-----------------
+Expected output
+---------------
 
 The script prints stable markers for smoke tests and writes the checkpoint and
 history files used by the complete pipeline:
@@ -40,7 +38,18 @@ history files used by the complete pipeline:
    checkpoint: example_outputs/toml_training_config/final_model.pt
    history: example_outputs/toml_training_config/history.json
 
-Files created:
+Stable stdout markers include:
+
+.. code-block:: text
+
+   TOML training run summary
+   configured model: GATBiLSTMNet
+   metrics: mse, rmse
+   checkpoint: example_outputs/toml_training_config/final_model.pt
+   history: example_outputs/toml_training_config/history.json
+
+Files written
+-------------
 
 - ``example_outputs/toml_training_config/final_model.pt``
 - ``example_outputs/toml_training_config/history.json``
@@ -55,8 +64,8 @@ Failure modes
 - Output files are regenerated on each run, so stale files can be removed by
   deleting ``example_outputs/toml_training_config/``.
 
-Optional settings
------------------
+Optional dependencies
+---------------------
 
 The default ``[tracking]`` section keeps experiment tracking disabled. Install
 and configure the ``wandb`` extra only when you intentionally enable tracking;
@@ -67,3 +76,6 @@ Source
 
 .. literalinclude:: ../../../examples/toml_training_config.py
    :language: python
+
+.. literalinclude:: ../../../examples/toml_training_config.toml
+   :language: toml

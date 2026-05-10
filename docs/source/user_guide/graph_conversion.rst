@@ -27,11 +27,30 @@ remain stable.
 Output fields
 -------------
 
-Converted data always includes `data.x`, `data.edge_index`, `data.edge_type`,
-`data.original_num_nodes`, `data.virtual_node_mask`, and `data.node_type`. When
-`preserve_node_names=True`, it also includes `data.node_names`. User-provided
-`graph_attrs` are attached as graph-level attributes, except for reserved
-generated field names such as `time_bin`.
+`data.x`
+   Floating-point node feature matrix with shape `[num_nodes, num_features]`.
+   Column order is defined by `feature_names`, commonly
+   `TreeFeatureEngineer.feature_names`.
+
+`data.edge_index`
+   `torch.long` tensor with shape `[2, num_edges]`. Tree parent-child
+   relations are included, and bidirectional conversion adds reverse edges.
+
+`data.edge_type`
+   `torch.long` tensor aligned with `data.edge_index`. Values are `0` for tree
+   edges, `1` for virtual-to-real edges, and `2` for virtual-chain edges.
+
+`data.node_names`
+   Optional list aligned with graph node order when `preserve_node_names=True`.
+   Original nodes use ETE names, unnamed nodes use an empty string, and virtual
+   nodes use generated names.
+
+`data.original_num_nodes`
+   Count of nodes from the original tree before virtual nodes are appended.
+
+Converted data also includes `data.virtual_node_mask` and `data.node_type`.
+User-provided `graph_attrs` are attached as graph-level attributes, except for
+reserved generated field names such as `time_bin`.
 
 When `feature_names` includes `time_bin`, the converter also attaches
 `data.time_bin` as a one-dimensional `torch.long` tensor with one label per
@@ -50,6 +69,22 @@ nodes. If `num_time_bins` is configured, one virtual node is created for every
 configured bin, including empty bins. Generated `data.time_bin` labels for
 virtual nodes are appended in ascending bin order.
 
+Deterministic ordering
+----------------------
+
+Feature order is deterministic when callers pass an ordered sequence such as
+`TreeFeatureEngineer.feature_names`. Node order follows the converter
+traversal strategy, with `preorder` as the default. Metadata aligned to nodes,
+including `node_names`, follows that same order.
+
+Common validation errors
+------------------------
+
+The converter raises clear errors for missing requested node attributes,
+non-numeric feature values, duplicate feature names, unsupported traversal
+strategies, invalid virtual-node settings, and graph attribute names that
+collide with generated fields.
+
 Saving and loading
 ------------------
 
@@ -60,6 +95,5 @@ PyTorch Geometric `Data` object, and `load_data()` to restore it with
 Related pages
 -------------
 
-See :doc:`../concepts/graph_data` for field semantics,
-:doc:`feature_engineering` for node features, :doc:`training` for model input
-expectations, and :doc:`../reference/data` for the public API.
+See :doc:`feature_engineering` for node features, :doc:`training` for model
+input expectations, and :doc:`../reference/data` for the public API.

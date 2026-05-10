@@ -1,10 +1,7 @@
 Complete Pipeline
 =================
 
-This example maps to ``examples/complete_pipeline.py`` and demonstrates the
-full local path from a tree to prediction. It uses the standard TOML training
-checkpoint when present, and creates a temporary checkpoint internally when the
-standard checkpoint has not been generated yet.
+Script: ``examples/complete_pipeline.py``.
 
 Inputs
 ------
@@ -14,8 +11,8 @@ Inputs
 - TOML model settings from ``examples/toml_training_config.toml``.
 - Optional checkpoint ``example_outputs/toml_training_config/final_model.pt``.
 
-Actions
--------
+Run command
+-----------
 
 Run the pipeline directly from the repository root:
 
@@ -28,11 +25,10 @@ with ``TreeToGraphConverter``, creates a matching trainer from the TOML config,
 loads the standard checkpoint when available, or creates a temporary checkpoint
 for the same model before calling ``Trainer.predict()``.
 
-Expected outputs
-----------------
+Expected output
+---------------
 
-The script prints stable markers showing the checkpoint, graph tensor shape,
-and prediction value:
+Stable stdout markers include:
 
 .. code-block:: text
 
@@ -41,19 +37,24 @@ and prediction value:
    graph x shape:
    prediction:
 
+Files written
+-------------
+
+If ``example_outputs/toml_training_config/final_model.pt`` exists, the script
+loads it. If it is missing, the script creates a temporary checkpoint
+internally and removes it before exit.
+
+Optional dependencies
+---------------------
+
+None.
+
 Failure modes
 -------------
 
 Invalid graph fields fail through the existing model and trainer validation
 paths. A missing standard checkpoint is handled internally with a temporary
 checkpoint.
-
-Optional settings
------------------
-
-The pipeline uses the same local, tracking-disabled TOML configuration as the
-training example. Optional tracking and external services are outside this
-default path.
 
 Source
 ------

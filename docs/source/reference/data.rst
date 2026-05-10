@@ -46,7 +46,7 @@ Graph conversion
 
    Convert a feature-bearing `ete3.Tree` to a PyTorch Geometric `Data` object.
 
-   `feature_names` defines the `data.x` column order. Every node must contain
+   `feature_names` defines the feature column order. Every node must contain
    every requested feature and each feature value must be numeric.
 
    Output fields include `x`, `edge_index`, `edge_type`, `original_num_nodes`,
@@ -75,5 +75,5 @@ Graph conversion
 Related guide
 -------------
 
-See :doc:`../user_guide/feature_engineering`,
-:doc:`../user_guide/graph_conversion`, and :doc:`../concepts/graph_data`.
+See :doc:`../user_guide/feature_engineering` and
+:doc:`../user_guide/graph_conversion`.

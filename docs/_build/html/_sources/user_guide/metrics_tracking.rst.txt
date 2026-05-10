@@ -26,6 +26,25 @@ Tracking configuration
 wandb. When tracking is enabled, the backend must be `wandb`, `project` is
 required, and the `wandb` extra must be installed.
 
+Tracking choices
+----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Need
+     - Setting
+     - Result
+   * - Local development
+     - `TrackingConfig(enabled=False)`
+     - No external import or network logging.
+   * - Logged experiment
+     - `TrackingConfig(enabled=True, project="...")`
+     - Logs sanitized config, metrics, and status to W&B.
+   * - TOML-driven tracking
+     - `[tracking] enabled = true`
+     - Requires `project` and the `wandb` extra.
+
 External run metadata
 ---------------------
 
@@ -44,5 +63,5 @@ tracking to keep the workflow local while debugging model or data issues.
 Related pages
 -------------
 
-See :doc:`training`, :doc:`../concepts/training_config`,
-:doc:`../reference/training`, and :doc:`../troubleshooting`.
+See :doc:`training`, :doc:`training_config`, :doc:`../reference/training`, and
+:doc:`../troubleshooting`.

@@ -9,7 +9,7 @@
   <title>PhyloGNN &mdash; PhyloGNN</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
-      <link rel="stylesheet" type="text/css" href="_static/phylognn.css?v=7b57e86e" />
+      <link rel="stylesheet" type="text/css" href="_static/phylognn.css?v=bb9dcb9c" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
@@ -46,7 +46,6 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concepts/index.html">Concepts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="user_guide/index.html">User Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="examples/index.html">Examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/index.html">Reference</a></li>
@@ -101,19 +100,19 @@ file input, or experiment tracking.</p>
 <div class="entry-card docutils container">
 <p><strong>Quickstart</strong></p>
 <p>Build a small <code class="docutils literal notranslate"><span class="pre">ete3.Tree</span></code>, attach features, convert it to graph data,
-and inspect the main tensors.</p>
+run a tiny training smoke test, and print a prediction.</p>
 <p><a class="reference internal" href="quickstart.html"><span class="doc">Quickstart</span></a></p>
 </div>
 <div class="entry-card docutils container">
-<p><strong>Concepts</strong></p>
-<p>Learn the graph fields and <code class="docutils literal notranslate"><span class="pre">TOML</span></code> training configuration boundaries before
-changing workflows.</p>
-<p><a class="reference internal" href="concepts/index.html"><span class="doc">Concepts</span></a></p>
+<p><strong>User Guide</strong></p>
+<p>Follow the full workflow from tree input through feature engineering,
+graph conversion, datasets, training, configuration, and tracking.</p>
+<p><a class="reference internal" href="user_guide/index.html"><span class="doc">User Guide</span></a></p>
 </div>
 <div class="entry-card docutils container">
 <p><strong>Examples</strong></p>
-<p>Run the TOML-configured training example and the complete tree-to-
-prediction pipeline with tiny local data.</p>
+<p>Launch six runnable scripts that cover feature engineering, graph
+conversion, tree I/O, training, TOML configuration, and prediction.</p>
 <p><a class="reference internal" href="examples/index.html"><span class="doc">Examples</span></a></p>
 </div>
 <div class="entry-card docutils container">
@@ -145,12 +144,11 @@ details.</p>
 <li class="toctree-l2"><a class="reference internal" href="quickstart.html#create-a-small-tree">Create a small tree</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quickstart.html#attach-node-features">Attach node features</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quickstart.html#convert-the-tree-to-graph-data">Convert the tree to graph data</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#interpret-the-output">Interpret the output</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#add-a-target-label">Add a target label</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#validate-the-graph-fields">Validate the graph fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#run-a-tiny-training-smoke-test">Run a tiny training smoke test</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#completion-summary">Completion summary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="quickstart.html#next-steps">Next steps</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="concepts/index.html">Concepts</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="concepts/index.html#available-concepts">Available concepts</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="user_guide/index.html">User Guide</a><ul>

@@ -16,8 +16,17 @@ Workflow pages
 `Graph conversion <graph_conversion.html>`_
    Convert feature-bearing trees into PyTorch Geometric `Data` objects.
 
+`Datasets and splits <datasets_and_splits.html>`_
+   Package graph samples, labels, and deterministic train/validation/test
+   partitions.
+
 `Training <training.html>`_
-   Configure local model training, datasets, loaders, checkpoints, and outputs.
+   Run the trainer lifecycle with PyG datasets, loaders, checkpoints, and
+   predictions.
+
+`Training configuration <training_config.html>`_
+   Use local TOML files for repeatable model, trainer, loss, metrics, and
+   tracking settings.
 
 `Metrics and tracking <metrics_tracking.html>`_
    Use built-in metrics and optional Weights & Biases logging.
@@ -28,7 +37,9 @@ Workflow pages
    tree_input
    feature_engineering
    graph_conversion
+   datasets_and_splits
    training
+   training_config
    metrics_tracking
 
 How the pages fit
@@ -36,5 +47,4 @@ How the pages fit
 
 Start with tree input, attach features, convert graphs, prepare datasets, and
 train with local checkpoints. Optional pages explain tracking and file formats
-that require extras. API details live in :doc:`../reference/index`, while
-shared graph and configuration concepts live in :doc:`../concepts/index`.
+that require extras. API details live in :doc:`../reference/index`.

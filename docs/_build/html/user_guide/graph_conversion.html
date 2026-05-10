@@ -20,7 +20,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Training" href="training.html" />
+    <link rel="next" title="Datasets And Splits" href="datasets_and_splits.html" />
     <link rel="prev" title="Feature Engineering" href="feature_engineering.html" /> 
 </head>
 
@@ -47,7 +47,6 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#workflow-pages">Workflow pages</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="tree_input.html">Tree Input</a></li>
@@ -57,11 +56,15 @@
 <li class="toctree-l4"><a class="reference internal" href="#when-to-use-it">When to use it</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#output-fields">Output fields</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#virtual-nodes">Virtual nodes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#deterministic-ordering">Deterministic ordering</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#common-validation-errors">Common validation errors</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#saving-and-loading">Saving and loading</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#related-pages">Related pages</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="datasets_and_splits.html">Datasets And Splits</a></li>
 <li class="toctree-l3"><a class="reference internal" href="training.html">Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="training_config.html">Training Configuration</a></li>
 <li class="toctree-l3"><a class="reference internal" href="metrics_tracking.html">Metrics And Tracking</a></li>
 </ul>
 </li>
@@ -121,11 +124,27 @@ remain stable.</p>
 </section>
 <section id="output-fields">
 <h2>Output fields<a class="headerlink" href="#output-fields" title="Link to this heading"></a></h2>
-<p>Converted data always includes <code class="docutils literal notranslate"><span class="pre">data.x</span></code>, <code class="docutils literal notranslate"><span class="pre">data.edge_index</span></code>, <code class="docutils literal notranslate"><span class="pre">data.edge_type</span></code>,
-<code class="docutils literal notranslate"><span class="pre">data.original_num_nodes</span></code>, <code class="docutils literal notranslate"><span class="pre">data.virtual_node_mask</span></code>, and <code class="docutils literal notranslate"><span class="pre">data.node_type</span></code>. When
-<code class="docutils literal notranslate"><span class="pre">preserve_node_names=True</span></code>, it also includes <code class="docutils literal notranslate"><span class="pre">data.node_names</span></code>. User-provided
-<code class="docutils literal notranslate"><span class="pre">graph_attrs</span></code> are attached as graph-level attributes, except for reserved
-generated field names such as <code class="docutils literal notranslate"><span class="pre">time_bin</span></code>.</p>
+<dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">data.x</span></code></dt><dd><p>Floating-point node feature matrix with shape <code class="docutils literal notranslate"><span class="pre">[num_nodes,</span> <span class="pre">num_features]</span></code>.
+Column order is defined by <code class="docutils literal notranslate"><span class="pre">feature_names</span></code>, commonly
+<code class="docutils literal notranslate"><span class="pre">TreeFeatureEngineer.feature_names</span></code>.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">data.edge_index</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">torch.long</span></code> tensor with shape <code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">num_edges]</span></code>. Tree parent-child
+relations are included, and bidirectional conversion adds reverse edges.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">data.edge_type</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">torch.long</span></code> tensor aligned with <code class="docutils literal notranslate"><span class="pre">data.edge_index</span></code>. Values are <code class="docutils literal notranslate"><span class="pre">0</span></code> for tree
+edges, <code class="docutils literal notranslate"><span class="pre">1</span></code> for virtual-to-real edges, and <code class="docutils literal notranslate"><span class="pre">2</span></code> for virtual-chain edges.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">data.node_names</span></code></dt><dd><p>Optional list aligned with graph node order when <code class="docutils literal notranslate"><span class="pre">preserve_node_names=True</span></code>.
+Original nodes use ETE names, unnamed nodes use an empty string, and virtual
+nodes use generated names.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">data.original_num_nodes</span></code></dt><dd><p>Count of nodes from the original tree before virtual nodes are appended.</p>
+</dd>
+</dl>
+<p>Converted data also includes <code class="docutils literal notranslate"><span class="pre">data.virtual_node_mask</span></code> and <code class="docutils literal notranslate"><span class="pre">data.node_type</span></code>.
+User-provided <code class="docutils literal notranslate"><span class="pre">graph_attrs</span></code> are attached as graph-level attributes, except for
+reserved generated field names such as <code class="docutils literal notranslate"><span class="pre">time_bin</span></code>.</p>
 <p>When <code class="docutils literal notranslate"><span class="pre">feature_names</span></code> includes <code class="docutils literal notranslate"><span class="pre">time_bin</span></code>, the converter also attaches
 <code class="docutils literal notranslate"><span class="pre">data.time_bin</span></code> as a one-dimensional <code class="docutils literal notranslate"><span class="pre">torch.long</span></code> tensor with one label per
 final graph node. The labels follow the same row order as <code class="docutils literal notranslate"><span class="pre">data.x</span></code>. When
@@ -142,6 +161,20 @@ nodes. If <code class="docutils literal notranslate"><span class="pre">num_time_
 configured bin, including empty bins. Generated <code class="docutils literal notranslate"><span class="pre">data.time_bin</span></code> labels for
 virtual nodes are appended in ascending bin order.</p>
 </section>
+<section id="deterministic-ordering">
+<h2>Deterministic ordering<a class="headerlink" href="#deterministic-ordering" title="Link to this heading"></a></h2>
+<p>Feature order is deterministic when callers pass an ordered sequence such as
+<code class="docutils literal notranslate"><span class="pre">TreeFeatureEngineer.feature_names</span></code>. Node order follows the converter
+traversal strategy, with <code class="docutils literal notranslate"><span class="pre">preorder</span></code> as the default. Metadata aligned to nodes,
+including <code class="docutils literal notranslate"><span class="pre">node_names</span></code>, follows that same order.</p>
+</section>
+<section id="common-validation-errors">
+<h2>Common validation errors<a class="headerlink" href="#common-validation-errors" title="Link to this heading"></a></h2>
+<p>The converter raises clear errors for missing requested node attributes,
+non-numeric feature values, duplicate feature names, unsupported traversal
+strategies, invalid virtual-node settings, and graph attribute names that
+collide with generated fields.</p>
+</section>
 <section id="saving-and-loading">
 <h2>Saving and loading<a class="headerlink" href="#saving-and-loading" title="Link to this heading"></a></h2>
 <p>Use <code class="docutils literal notranslate"><span class="pre">convert_and_save()</span></code> for preprocessing pipelines, <code class="docutils literal notranslate"><span class="pre">save_data()</span></code> to store a
@@ -150,9 +183,8 @@ PyTorch Geometric <code class="docutils literal notranslate"><span class="pre">D
 </section>
 <section id="related-pages">
 <h2>Related pages<a class="headerlink" href="#related-pages" title="Link to this heading"></a></h2>
-<p>See <a class="reference internal" href="../concepts/graph_data.html"><span class="doc">Graph Data</span></a> for field semantics,
-<a class="reference internal" href="feature_engineering.html"><span class="doc">Feature Engineering</span></a> for node features, <a class="reference internal" href="training.html"><span class="doc">Training</span></a> for model input
-expectations, and <a class="reference internal" href="../reference/data.html"><span class="doc">Data Reference</span></a> for the public API.</p>
+<p>See <a class="reference internal" href="feature_engineering.html"><span class="doc">Feature Engineering</span></a> for node features, <a class="reference internal" href="training.html"><span class="doc">Training</span></a> for model
+input expectations, and <a class="reference internal" href="../reference/data.html"><span class="doc">Data Reference</span></a> for the public API.</p>
 </section>
 </section>
 
@@ -161,7 +193,7 @@ expectations, and <a class="reference internal" href="../reference/data.html"><s
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="feature_engineering.html" class="btn btn-neutral float-left" title="Feature Engineering" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="training.html" class="btn btn-neutral float-right" title="Training" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="datasets_and_splits.html" class="btn btn-neutral float-right" title="Datasets And Splits" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

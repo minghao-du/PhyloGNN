@@ -1,8 +1,7 @@
 Single-Task Training
 ====================
 
-This example maps to ``examples/single_task_training.py`` and demonstrates a
-compact end-to-end single-task training workflow.
+Script: ``examples/single_task_training.py``.
 
 Inputs
 ------
@@ -11,8 +10,8 @@ Inputs
 - Feature order ``["node_time", "time_bin", "branch_length", "is_tip"]``.
 - A minimal graph regressor defined inside the example.
 
-Actions
--------
+Run command
+-----------
 
 Run the script from the repository root:
 
@@ -23,24 +22,35 @@ Run the script from the repository root:
 The script creates train, validation, and test splits, trains for a few epochs,
 and runs prediction on the test split.
 
-Expected outputs
-----------------
+Expected output
+---------------
 
-The script prints a ``Training summary``, split sizes, final losses, a
-temporary output directory, and one prediction sample. Training artifacts are
-written under a temporary directory that is removed when the script exits.
+Stable stdout markers include:
+
+.. code-block:: text
+
+   Training summary
+   dataset sizes:
+   final losses:
+   output_dir:
+   prediction sample:
+
+Files written
+-------------
+
+Temporary checkpoints and history are written under a temporary directory and
+removed when the script exits.
+
+Optional dependencies
+---------------------
+
+None.
 
 Failure modes
 -------------
 
 Invalid graph fields or trainer settings fail through the existing model and
 trainer validation paths.
-
-Optional settings
------------------
-
-This local example keeps external tracking disabled and does not require
-optional service credentials.
 
 Source
 ------

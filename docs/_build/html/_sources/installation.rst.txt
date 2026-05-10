@@ -71,5 +71,5 @@ Next steps
 ----------
 
 Continue with the :doc:`quickstart` as the first tutorial. Use
-:doc:`concepts/graph_data` when you need to interpret the graph fields produced
-by conversion.
+:doc:`user_guide/graph_conversion` when you need to interpret the graph fields
+produced by conversion.

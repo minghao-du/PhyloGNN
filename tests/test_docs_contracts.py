@@ -21,7 +21,9 @@ USER_GUIDE_ENTRIES = [
     "tree_input",
     "feature_engineering",
     "graph_conversion",
+    "datasets_and_splits",
     "training",
+    "training_config",
     "metrics_tracking",
 ]
 
@@ -133,9 +135,7 @@ def test_examples_docs_are_discoverable_from_toctrees():
 
 def test_examples_docs_map_to_runnable_files():
     pages = {
-        path.stem: _read(path)
-        for path in DOCS_EXAMPLES.glob("*.rst")
-        if path.name != "index.rst"
+        path.stem: _read(path) for path in DOCS_EXAMPLES.glob("*.rst") if path.name != "index.rst"
     }
 
     for name in (
@@ -157,7 +157,15 @@ def test_examples_docs_map_to_runnable_files():
 
 
 def test_example_docs_cover_inputs_actions_outputs_failure_modes_and_options():
-    required_terms = ("Inputs", "Actions", "Expected outputs", "Failure modes", "Optional settings")
+    required_terms = (
+        "Inputs",
+        "Run command",
+        "Expected output",
+        "Files written",
+        "Optional dependencies",
+        "Failure modes",
+        "Source",
+    )
     pages = [path for path in DOCS_EXAMPLES.glob("*.rst") if path.name != "index.rst"]
 
     covered = 0
@@ -203,3 +211,12 @@ def test_generated_examples_pages_include_runtime_markers():
     assert re.search(r"TOML training run summary", text)
     assert re.search(r"Complete pipeline summary", text)
     assert "checkpoint: example_outputs/toml_training_config/final_model.pt" in text
+
+
+def test_quickstart_references_runnable_training_smoke_test():
+    quickstart = _read(DOCS_SOURCE / "quickstart.rst")
+
+    assert "python examples/quickstart_training.py" in quickstart
+    assert "../../examples/quickstart_training.py" in quickstart
+    assert "Quickstart training summary" in quickstart
+    assert "prediction:" in quickstart

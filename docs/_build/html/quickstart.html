@@ -9,7 +9,7 @@
   <title>Quickstart &mdash; PhyloGNN</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
       <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
-      <link rel="stylesheet" type="text/css" href="_static/phylognn.css?v=7b57e86e" />
+      <link rel="stylesheet" type="text/css" href="_static/phylognn.css?v=bb9dcb9c" />
 
   
       <script src="_static/jquery.js?v=5d32c60e"></script>
@@ -20,7 +20,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Concepts" href="concepts/index.html" />
+    <link rel="next" title="User Guide" href="user_guide/index.html" />
     <link rel="prev" title="Installation" href="installation.html" /> 
 </head>
 
@@ -50,11 +50,13 @@
 <li class="toctree-l2"><a class="reference internal" href="#create-a-small-tree">Create a small tree</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#attach-node-features">Attach node features</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#convert-the-tree-to-graph-data">Convert the tree to graph data</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#interpret-the-output">Interpret the output</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#add-a-target-label">Add a target label</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#validate-the-graph-fields">Validate the graph fields</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#run-a-tiny-training-smoke-test">Run a tiny training smoke test</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#completion-summary">Completion summary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#next-steps">Next steps</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="concepts/index.html">Concepts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="user_guide/index.html">User Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="examples/index.html">Examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/index.html">Reference</a></li>
@@ -88,14 +90,12 @@
   <section id="quickstart">
 <h1>Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading"></a></h1>
 <p>This first tutorial creates an <code class="docutils literal notranslate"><span class="pre">ete3.Tree</span></code>, attaches node features, converts it
-to a PyTorch Geometric <code class="docutils literal notranslate"><span class="pre">Data</span></code> object, and inspects the main graph fields:
-<code class="docutils literal notranslate"><span class="pre">data.x</span></code>, <code class="docutils literal notranslate"><span class="pre">data.edge_index</span></code>, <code class="docutils literal notranslate"><span class="pre">data.edge_type</span></code>, and <code class="docutils literal notranslate"><span class="pre">data.node_names</span></code>.</p>
+to a PyTorch Geometric <code class="docutils literal notranslate"><span class="pre">Data</span></code> object, adds a target label, runs a tiny training
+smoke test, and prints a prediction.</p>
 <section id="create-a-small-tree">
 <h2>Create a small tree<a class="headerlink" href="#create-a-small-tree" title="Link to this heading"></a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">build_demo_tree</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Tree</span><span class="p">:</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">build_tree</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Tree</span><span class="p">:</span>
     <span class="k">return</span> <span class="n">Tree</span><span class="p">(</span><span class="s2">&quot;((A:1.0,B:1.5)C:0.5,D:2.0)root:0.0;&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-
-
 </pre></div>
 </div>
 </section>
@@ -103,56 +103,125 @@ to a PyTorch Geometric <code class="docutils literal notranslate"><span class="p
 <h2>Attach node features<a class="headerlink" href="#attach-node-features" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">TreeFeatureEngineer</span></code> writes numeric attributes to each tree node. Use
 <code class="docutils literal notranslate"><span class="pre">feature_names</span></code> as the stable column order for graph conversion.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">build_featured_tree</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Tree</span><span class="p">,</span> <span class="n">TreeFeatureEngineer</span><span class="p">]:</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">make_graph</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Data</span><span class="p">:</span>
     <span class="n">engineer</span> <span class="o">=</span> <span class="n">TreeFeatureEngineer</span><span class="p">(</span><span class="n">num_time_bins</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
     <span class="n">tree</span> <span class="o">=</span> <span class="n">engineer</span><span class="o">.</span><span class="n">add_features</span><span class="p">(</span>
-        <span class="n">build_demo_tree</span><span class="p">(),</span>
+        <span class="n">build_tree</span><span class="p">(),</span>
         <span class="n">origin_time</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
         <span class="n">feature_names</span><span class="o">=</span><span class="n">FEATURE_NAMES</span><span class="p">,</span>
         <span class="n">rescale</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="k">return</span> <span class="n">tree</span><span class="p">,</span> <span class="n">engineer</span>
-
-
-</pre></div>
-</div>
-</section>
-<section id="convert-the-tree-to-graph-data">
-<h2>Convert the tree to graph data<a class="headerlink" href="#convert-the-tree-to-graph-data" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">TreeToGraphConverter</span></code> reads the node attributes into <code class="docutils literal notranslate"><span class="pre">data.x</span></code> and builds
-tree edges in <code class="docutils literal notranslate"><span class="pre">data.edge_index</span></code>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">convert_tree_to_graph</span><span class="p">(</span><span class="n">tree</span><span class="p">:</span> <span class="n">Tree</span><span class="p">,</span> <span class="n">engineer</span><span class="p">:</span> <span class="n">TreeFeatureEngineer</span><span class="p">):</span>
     <span class="n">converter</span> <span class="o">=</span> <span class="n">TreeToGraphConverter</span><span class="p">(</span>
         <span class="n">feature_names</span><span class="o">=</span><span class="n">FEATURE_NAMES</span><span class="p">,</span>
         <span class="n">add_virtual_nodes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">append_is_virtual_feature</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">traversal_strategy</span><span class="o">=</span><span class="n">engineer</span><span class="o">.</span><span class="n">traversal_strategy</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">graph_attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;example_name&quot;</span><span class="p">:</span> <span class="s2">&quot;tree_to_graph&quot;</span><span class="p">})</span>
-    <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">converter</span>
-
-
+    <span class="n">data</span> <span class="o">=</span> <span class="n">converter</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="n">tree</span><span class="p">,</span> <span class="n">graph_attrs</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;sample_id&quot;</span><span class="p">:</span> <span class="s2">&quot;quickstart&quot;</span><span class="p">})</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">1.0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data</span>
 </pre></div>
 </div>
 </section>
-<section id="interpret-the-output">
-<h2>Interpret the output<a class="headerlink" href="#interpret-the-output" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">data.x</span></code> is a floating-point matrix with one row per graph node and one column
-per requested feature. <code class="docutils literal notranslate"><span class="pre">data.edge_index</span></code> is a <code class="docutils literal notranslate"><span class="pre">LongTensor</span></code> with shape
-<code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">num_edges]</span></code>; by default tree edges are bidirectional. <code class="docutils literal notranslate"><span class="pre">data.edge_type</span></code>
-uses <code class="docutils literal notranslate"><span class="pre">0</span></code> for tree edges. <code class="docutils literal notranslate"><span class="pre">data.node_names</span></code> follows the converter traversal
-order, and <code class="docutils literal notranslate"><span class="pre">data.original_num_nodes</span></code> records how many nodes came from the
-input tree before any virtual nodes are added.</p>
-<p>For virtual-node graphs, include <code class="docutils literal notranslate"><span class="pre">time_bin</span></code> in the feature order and enable
-<code class="docutils literal notranslate"><span class="pre">add_virtual_nodes=True</span></code>. See <a class="reference internal" href="concepts/graph_data.html"><span class="doc">Graph Data</span></a> and
-<a class="reference internal" href="user_guide/graph_conversion.html"><span class="doc">Graph Conversion</span></a> for the complete field contract.</p>
+<section id="convert-the-tree-to-graph-data">
+<h2>Convert the tree to graph data<a class="headerlink" href="#convert-the-tree-to-graph-data" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">TreeToGraphConverter</span></code> reads node attributes into graph tensors. The same
+snippet above also adds a dummy graph-level target label as <code class="docutils literal notranslate"><span class="pre">data.y</span></code>, which is
+the field the trainer expects during supervised training.</p>
+</section>
+<section id="add-a-target-label">
+<h2>Add a target label<a class="headerlink" href="#add-a-target-label" title="Link to this heading"></a></h2>
+<p>The smoke test uses a single regression target:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">data</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">1.0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For real datasets, attach one target per graph and keep target shape compatible
+with the selected model head and loss.</p>
+</section>
+<section id="validate-the-graph-fields">
+<h2>Validate the graph fields<a class="headerlink" href="#validate-the-graph-fields" title="Link to this heading"></a></h2>
+<p>Before training, check the required tensor shapes and dtypes.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">validate_graph</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">assert</span> <span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span>
+    <span class="k">assert</span> <span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+    <span class="k">assert</span> <span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>
+    <span class="k">assert</span> <span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">long</span>
+    <span class="k">assert</span> <span class="n">data</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)</span>
+    <span class="k">assert</span> <span class="n">data</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+</pre></div>
+</div>
+<p>For complete field semantics, including <code class="docutils literal notranslate"><span class="pre">data.x</span></code>, <code class="docutils literal notranslate"><span class="pre">data.edge_index</span></code>,
+<code class="docutils literal notranslate"><span class="pre">data.edge_type</span></code>, <code class="docutils literal notranslate"><span class="pre">data.time_bin</span></code>, and deterministic node ordering, see
+<a class="reference internal" href="user_guide/graph_conversion.html"><span class="doc">Graph Conversion</span></a>.</p>
+</section>
+<section id="run-a-tiny-training-smoke-test">
+<h2>Run a tiny training smoke test<a class="headerlink" href="#run-a-tiny-training-smoke-test" title="Link to this heading"></a></h2>
+<p>Run the maintained script from the repository root:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">python examples/quickstart_training.py</span>
+</pre></div>
+</div>
+<p>The training function creates a temporary output directory, trains for two
+epochs on the one-graph dataset, and returns one prediction.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">train_and_predict</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">Data</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;phylognn_quickstart_&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">temp_dir</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">TinyGraphRegressor</span><span class="p">(</span><span class="n">input_dim</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">TrainingConfig</span><span class="p">(</span>
+            <span class="n">epochs</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">batch_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">learning_rate</span><span class="o">=</span><span class="mf">1e-2</span><span class="p">,</span>
+            <span class="n">weight_decay</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+            <span class="n">scheduler</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">early_stopping_patience</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">save_dir</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">)),</span>
+            <span class="n">save_best_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">trainer</span> <span class="o">=</span> <span class="n">Trainer</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+        <span class="n">trainer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_dataset</span><span class="o">=</span><span class="p">[</span><span class="n">data</span><span class="p">])</span>
+        <span class="n">prediction</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="p">[</span><span class="n">data</span><span class="p">])</span>
+    <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">prediction</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>Expected output includes stable markers like these:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Quickstart training summary
+x shape:
+edge_index shape:
+target shape:
+batch ready: true
+prediction:
+</pre></div>
+</div>
+</section>
+<section id="completion-summary">
+<h2>Completion summary<a class="headerlink" href="#completion-summary" title="Link to this heading"></a></h2>
+<p>At this point you have created a tree, attached deterministic features,
+converted it to graph data, validated the required fields, trained a tiny
+model, and printed a prediction.</p>
 </section>
 <section id="next-steps">
 <h2>Next steps<a class="headerlink" href="#next-steps" title="Link to this heading"></a></h2>
-<p>Read <a class="reference internal" href="concepts/graph_data.html"><span class="doc">Graph Data</span></a> for field semantics, then move to
-<a class="reference internal" href="user_guide/index.html"><span class="doc">User Guide</span></a> for workflow pages that cover file input, feature
-engineering, conversion, training, and tracking.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Need</p></th>
+<th class="head"><p>Go to</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Prepare real trees and features</p></td>
+<td><p><a class="reference internal" href="user_guide/index.html"><span class="doc">User Guide</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p>Understand graph fields</p></td>
+<td><p><a class="reference internal" href="user_guide/graph_conversion.html"><span class="doc">Graph Conversion</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p>Configure datasets, splits, and TOML training</p></td>
+<td><p><a class="reference internal" href="user_guide/training_config.html"><span class="doc">Training Configuration</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p>Run complete scripts</p></td>
+<td><p><a class="reference internal" href="examples/index.html"><span class="doc">Examples</span></a></p></td>
+</tr>
+</tbody>
+</table>
 </section>
 </section>
 
@@ -161,7 +230,7 @@ engineering, conversion, training, and tracking.</p>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="concepts/index.html" class="btn btn-neutral float-right" title="Concepts" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="user_guide/index.html" class="btn btn-neutral float-right" title="User Guide" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

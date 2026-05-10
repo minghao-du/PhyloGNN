@@ -20,8 +20,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Metrics And Tracking" href="metrics_tracking.html" />
-    <link rel="prev" title="Graph Conversion" href="graph_conversion.html" /> 
+    <link rel="next" title="Training Configuration" href="training_config.html" />
+    <link rel="prev" title="Datasets And Splits" href="datasets_and_splits.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,15 +47,13 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#workflow-pages">Workflow pages</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="tree_input.html">Tree Input</a></li>
 <li class="toctree-l3"><a class="reference internal" href="feature_engineering.html">Feature Engineering</a></li>
 <li class="toctree-l3"><a class="reference internal" href="graph_conversion.html">Graph Conversion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="datasets_and_splits.html">Datasets And Splits</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Training</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#datasets-and-splits">Datasets and splits</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#when-to-use-toml">When to use TOML</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#trainer-setup">Trainer setup</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#toml-setup">TOML setup</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#model-data-contract">Model data contract</a></li>
@@ -63,6 +61,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#related-pages">Related pages</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="training_config.html">Training Configuration</a></li>
 <li class="toctree-l3"><a class="reference internal" href="metrics_tracking.html">Metrics And Tracking</a></li>
 </ul>
 </li>
@@ -104,19 +103,6 @@
 <p>Training utilities expect PyTorch Geometric <code class="docutils literal notranslate"><span class="pre">Data</span></code> samples whose target is
 stored as <code class="docutils literal notranslate"><span class="pre">data.y</span></code>. Datasets, splits, and loaders are caller-controlled; <code class="docutils literal notranslate"><span class="pre">TOML</span></code>
 configuration builds models and trainer settings but does not discover data.</p>
-<section id="datasets-and-splits">
-<h2>Datasets and splits<a class="headerlink" href="#datasets-and-splits" title="Link to this heading"></a></h2>
-<p>Use <code class="docutils literal notranslate"><span class="pre">SplitPhyloDataset</span></code> for in-memory <code class="docutils literal notranslate"><span class="pre">Data</span></code> objects and labels. Use
-<code class="docutils literal notranslate"><span class="pre">SplitPhyloDiskDataset</span></code> when graphs and labels are stored as mirrored <code class="docutils literal notranslate"><span class="pre">.pt</span></code>
-files. <code class="docutils literal notranslate"><span class="pre">DatasetSplit</span></code> supports deterministic ratio-based splits and explicit
-split manifests with one sample ID per line.</p>
-</section>
-<section id="when-to-use-toml">
-<h2>When to use TOML<a class="headerlink" href="#when-to-use-toml" title="Link to this heading"></a></h2>
-<p>Use <code class="docutils literal notranslate"><span class="pre">TOML</span></code> when you want a repeatable local record of model, trainer, loss,
-metrics, and optional tracking settings. Dataset construction and loader choice
-remain caller-controlled Python code.</p>
-</section>
 <section id="trainer-setup">
 <h2>Trainer setup<a class="headerlink" href="#trainer-setup" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">TrainingConfig</span></code> controls epochs, batch size, optimizer, scheduler, device,
@@ -133,10 +119,10 @@ sanitized tracking metadata. <code class="docutils literal notranslate"><span cl
 </section>
 <section id="model-data-contract">
 <h2>Model data contract<a class="headerlink" href="#model-data-contract" title="Link to this heading"></a></h2>
-<p>All model inputs need <code class="docutils literal notranslate"><span class="pre">data.x</span></code> and <code class="docutils literal notranslate"><span class="pre">data.edge_index</span></code>. Batched graph-level
-training needs <code class="docutils literal notranslate"><span class="pre">data.batch</span></code>. Temporal modes of <code class="docutils literal notranslate"><span class="pre">GATBiLSTMNet</span></code> require
-<code class="docutils literal notranslate"><span class="pre">data.time_bin</span></code> as a node-aligned tensor. The training dataset must provide
-<code class="docutils literal notranslate"><span class="pre">data.y</span></code> for loss computation.</p>
+<p>Model inputs follow the graph contract in <a class="reference internal" href="graph_conversion.html"><span class="doc">Graph Conversion</span></a>. Batched
+graph-level training needs <code class="docutils literal notranslate"><span class="pre">data.batch</span></code>. Temporal modes of <code class="docutils literal notranslate"><span class="pre">GATBiLSTMNet</span></code>
+require <code class="docutils literal notranslate"><span class="pre">data.time_bin</span></code> as a node-aligned tensor. The training dataset must
+provide <code class="docutils literal notranslate"><span class="pre">data.y</span></code> for loss computation.</p>
 </section>
 <section id="outputs">
 <h2>Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h2>
@@ -146,7 +132,7 @@ checkpoint is always saved; best-checkpoint behavior is controlled by
 </section>
 <section id="related-pages">
 <h2>Related pages<a class="headerlink" href="#related-pages" title="Link to this heading"></a></h2>
-<p>See <a class="reference internal" href="../concepts/training_config.html"><span class="doc">Training Configuration</span></a>, <a class="reference internal" href="metrics_tracking.html"><span class="doc">Metrics And Tracking</span></a>,
+<p>See <a class="reference internal" href="datasets_and_splits.html"><span class="doc">Datasets And Splits</span></a>, <a class="reference internal" href="training_config.html"><span class="doc">Training Configuration</span></a>, <a class="reference internal" href="metrics_tracking.html"><span class="doc">Metrics And Tracking</span></a>,
 <a class="reference internal" href="../reference/training.html"><span class="doc">Training Reference</span></a>, and <a class="reference internal" href="../troubleshooting.html"><span class="doc">Troubleshooting</span></a>.</p>
 </section>
 </section>
@@ -155,8 +141,8 @@ checkpoint is always saved; best-checkpoint behavior is controlled by
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="graph_conversion.html" class="btn btn-neutral float-left" title="Graph Conversion" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="metrics_tracking.html" class="btn btn-neutral float-right" title="Metrics And Tracking" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="datasets_and_splits.html" class="btn btn-neutral float-left" title="Datasets And Splits" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="training_config.html" class="btn btn-neutral float-right" title="Training Configuration" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

@@ -2,16 +2,16 @@ Quickstart
 ==========
 
 This first tutorial creates an `ete3.Tree`, attaches node features, converts it
-to a PyTorch Geometric `Data` object, and inspects the main graph fields:
-`data.x`, `data.edge_index`, `data.edge_type`, and `data.node_names`.
+to a PyTorch Geometric `Data` object, adds a target label, runs a tiny training
+smoke test, and prints a prediction.
 
 Create a small tree
 -------------------
 
-.. literalinclude:: ../../examples/tree_to_graph.py
+.. literalinclude:: ../../examples/quickstart_training.py
    :language: python
-   :start-after: [START build_demo_tree]
-   :end-before: [END build_demo_tree]
+   :start-after: [START build_tree]
+   :end-before: [END build_tree]
 
 Attach node features
 --------------------
@@ -19,39 +19,92 @@ Attach node features
 `TreeFeatureEngineer` writes numeric attributes to each tree node. Use
 `feature_names` as the stable column order for graph conversion.
 
-.. literalinclude:: ../../examples/tree_to_graph.py
+.. literalinclude:: ../../examples/quickstart_training.py
    :language: python
-   :start-after: [START feature_engineering]
-   :end-before: [END feature_engineering]
+   :start-after: [START make_graph]
+   :end-before: [END make_graph]
 
 Convert the tree to graph data
 ------------------------------
 
-`TreeToGraphConverter` reads the node attributes into `data.x` and builds
-tree edges in `data.edge_index`.
+`TreeToGraphConverter` reads node attributes into graph tensors. The same
+snippet above also adds a dummy graph-level target label as `data.y`, which is
+the field the trainer expects during supervised training.
 
-.. literalinclude:: ../../examples/tree_to_graph.py
+Add a target label
+------------------
+
+The smoke test uses a single regression target:
+
+.. code-block:: python
+
+   data.y = torch.tensor([1.0], dtype=torch.float32)
+
+For real datasets, attach one target per graph and keep target shape compatible
+with the selected model head and loss.
+
+Validate the graph fields
+-------------------------
+
+Before training, check the required tensor shapes and dtypes.
+
+.. literalinclude:: ../../examples/quickstart_training.py
    :language: python
-   :start-after: [START tree_to_graph_conversion]
-   :end-before: [END tree_to_graph_conversion]
+   :start-after: [START validate_graph]
+   :end-before: [END validate_graph]
 
-Interpret the output
---------------------
+For complete field semantics, including `data.x`, `data.edge_index`,
+`data.edge_type`, `data.time_bin`, and deterministic node ordering, see
+:doc:`user_guide/graph_conversion`.
 
-`data.x` is a floating-point matrix with one row per graph node and one column
-per requested feature. `data.edge_index` is a `LongTensor` with shape
-`[2, num_edges]`; by default tree edges are bidirectional. `data.edge_type`
-uses `0` for tree edges. `data.node_names` follows the converter traversal
-order, and `data.original_num_nodes` records how many nodes came from the
-input tree before any virtual nodes are added.
+Run a tiny training smoke test
+------------------------------
 
-For virtual-node graphs, include `time_bin` in the feature order and enable
-`add_virtual_nodes=True`. See :doc:`concepts/graph_data` and
-:doc:`user_guide/graph_conversion` for the complete field contract.
+Run the maintained script from the repository root:
+
+.. code-block:: console
+
+   python examples/quickstart_training.py
+
+The training function creates a temporary output directory, trains for two
+epochs on the one-graph dataset, and returns one prediction.
+
+.. literalinclude:: ../../examples/quickstart_training.py
+   :language: python
+   :start-after: [START train_and_predict]
+   :end-before: [END train_and_predict]
+
+Expected output includes stable markers like these:
+
+.. code-block:: text
+
+   Quickstart training summary
+   x shape:
+   edge_index shape:
+   target shape:
+   batch ready: true
+   prediction:
+
+Completion summary
+------------------
+
+At this point you have created a tree, attached deterministic features,
+converted it to graph data, validated the required fields, trained a tiny
+model, and printed a prediction.
 
 Next steps
 ----------
 
-Read :doc:`concepts/graph_data` for field semantics, then move to
-:doc:`user_guide/index` for workflow pages that cover file input, feature
-engineering, conversion, training, and tracking.
+.. list-table::
+   :header-rows: 1
+
+   * - Need
+     - Go to
+   * - Prepare real trees and features
+     - :doc:`user_guide/index`
+   * - Understand graph fields
+     - :doc:`user_guide/graph_conversion`
+   * - Configure datasets, splits, and TOML training
+     - :doc:`user_guide/training_config`
+   * - Run complete scripts
+     - :doc:`examples/index`

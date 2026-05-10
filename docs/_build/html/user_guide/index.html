@@ -21,7 +21,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Tree Input" href="tree_input.html" />
-    <link rel="prev" title="Training Configuration" href="../concepts/training_config.html" /> 
+    <link rel="prev" title="Quickstart" href="../quickstart.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,13 +47,14 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">User Guide</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#workflow-pages">Workflow pages</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="tree_input.html">Tree Input</a></li>
 <li class="toctree-l3"><a class="reference internal" href="feature_engineering.html">Feature Engineering</a></li>
 <li class="toctree-l3"><a class="reference internal" href="graph_conversion.html">Graph Conversion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="datasets_and_splits.html">Datasets And Splits</a></li>
 <li class="toctree-l3"><a class="reference internal" href="training.html">Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="training_config.html">Training Configuration</a></li>
 <li class="toctree-l3"><a class="reference internal" href="metrics_tracking.html">Metrics And Tracking</a></li>
 </ul>
 </li>
@@ -102,7 +103,14 @@ real data preparation, training, and optional integrations.</p>
 </dd>
 <dt><a class="reference external" href="graph_conversion.html">Graph conversion</a></dt><dd><p>Convert feature-bearing trees into PyTorch Geometric <code class="docutils literal notranslate"><span class="pre">Data</span></code> objects.</p>
 </dd>
-<dt><a class="reference external" href="training.html">Training</a></dt><dd><p>Configure local model training, datasets, loaders, checkpoints, and outputs.</p>
+<dt><a class="reference external" href="datasets_and_splits.html">Datasets and splits</a></dt><dd><p>Package graph samples, labels, and deterministic train/validation/test
+partitions.</p>
+</dd>
+<dt><a class="reference external" href="training.html">Training</a></dt><dd><p>Run the trainer lifecycle with PyG datasets, loaders, checkpoints, and
+predictions.</p>
+</dd>
+<dt><a class="reference external" href="training_config.html">Training configuration</a></dt><dd><p>Use local TOML files for repeatable model, trainer, loss, metrics, and
+tracking settings.</p>
 </dd>
 <dt><a class="reference external" href="metrics_tracking.html">Metrics and tracking</a></dt><dd><p>Use built-in metrics and optional Weights &amp; Biases logging.</p>
 </dd>
@@ -112,7 +120,9 @@ real data preparation, training, and optional integrations.</p>
 <li class="toctree-l1"><a class="reference internal" href="tree_input.html">Tree Input</a></li>
 <li class="toctree-l1"><a class="reference internal" href="feature_engineering.html">Feature Engineering</a></li>
 <li class="toctree-l1"><a class="reference internal" href="graph_conversion.html">Graph Conversion</a></li>
+<li class="toctree-l1"><a class="reference internal" href="datasets_and_splits.html">Datasets And Splits</a></li>
 <li class="toctree-l1"><a class="reference internal" href="training.html">Training</a></li>
+<li class="toctree-l1"><a class="reference internal" href="training_config.html">Training Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="metrics_tracking.html">Metrics And Tracking</a></li>
 </ul>
 </div>
@@ -121,8 +131,7 @@ real data preparation, training, and optional integrations.</p>
 <h2>How the pages fit<a class="headerlink" href="#how-the-pages-fit" title="Link to this heading"></a></h2>
 <p>Start with tree input, attach features, convert graphs, prepare datasets, and
 train with local checkpoints. Optional pages explain tracking and file formats
-that require extras. API details live in <a class="reference internal" href="../reference/index.html"><span class="doc">Reference</span></a>, while
-shared graph and configuration concepts live in <a class="reference internal" href="../concepts/index.html"><span class="doc">Concepts</span></a>.</p>
+that require extras. API details live in <a class="reference internal" href="../reference/index.html"><span class="doc">Reference</span></a>.</p>
 </section>
 </section>
 
@@ -130,7 +139,7 @@ shared graph and configuration concepts live in <a class="reference internal" hr
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../concepts/training_config.html" class="btn btn-neutral float-left" title="Training Configuration" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../quickstart.html" class="btn btn-neutral float-left" title="Quickstart" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="tree_input.html" class="btn btn-neutral float-right" title="Tree Input" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

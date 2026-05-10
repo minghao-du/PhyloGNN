@@ -21,7 +21,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Examples" href="../examples/index.html" />
-    <link rel="prev" title="Training" href="training.html" /> 
+    <link rel="prev" title="Training Configuration" href="training_config.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,17 +47,19 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#workflow-pages">Workflow pages</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="tree_input.html">Tree Input</a></li>
 <li class="toctree-l3"><a class="reference internal" href="feature_engineering.html">Feature Engineering</a></li>
 <li class="toctree-l3"><a class="reference internal" href="graph_conversion.html">Graph Conversion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="datasets_and_splits.html">Datasets And Splits</a></li>
 <li class="toctree-l3"><a class="reference internal" href="training.html">Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="training_config.html">Training Configuration</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Metrics And Tracking</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#metrics">Metrics</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#local-first-behavior">Local-first behavior</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#tracking-configuration">Tracking configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#tracking-choices">Tracking choices</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#external-run-metadata">External run metadata</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#common-failures">Common failures</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#related-pages">Related pages</a></li>
@@ -121,6 +123,31 @@ run should send sanitized configuration, metrics, and status to an external
 wandb. When tracking is enabled, the backend must be <code class="docutils literal notranslate"><span class="pre">wandb</span></code>, <code class="docutils literal notranslate"><span class="pre">project</span></code> is
 required, and the <code class="docutils literal notranslate"><span class="pre">wandb</span></code> extra must be installed.</p>
 </section>
+<section id="tracking-choices">
+<h2>Tracking choices<a class="headerlink" href="#tracking-choices" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Need</p></th>
+<th class="head"><p>Setting</p></th>
+<th class="head"><p>Result</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Local development</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TrackingConfig(enabled=False)</span></code></p></td>
+<td><p>No external import or network logging.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Logged experiment</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TrackingConfig(enabled=True,</span> <span class="pre">project=&quot;...&quot;)</span></code></p></td>
+<td><p>Logs sanitized config, metrics, and status to W&amp;B.</p></td>
+</tr>
+<tr class="row-even"><td><p>TOML-driven tracking</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[tracking]</span> <span class="pre">enabled</span> <span class="pre">=</span> <span class="pre">true</span></code></p></td>
+<td><p>Requires <code class="docutils literal notranslate"><span class="pre">project</span></code> and the <code class="docutils literal notranslate"><span class="pre">wandb</span></code> extra.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
 <section id="external-run-metadata">
 <h2>External run metadata<a class="headerlink" href="#external-run-metadata" title="Link to this heading"></a></h2>
 <p>The trainer logs sanitized configuration metadata, epoch metrics, final
@@ -136,8 +163,8 @@ tracking to keep the workflow local while debugging model or data issues.</p>
 </section>
 <section id="related-pages">
 <h2>Related pages<a class="headerlink" href="#related-pages" title="Link to this heading"></a></h2>
-<p>See <a class="reference internal" href="training.html"><span class="doc">Training</span></a>, <a class="reference internal" href="../concepts/training_config.html"><span class="doc">Training Configuration</span></a>,
-<a class="reference internal" href="../reference/training.html"><span class="doc">Training Reference</span></a>, and <a class="reference internal" href="../troubleshooting.html"><span class="doc">Troubleshooting</span></a>.</p>
+<p>See <a class="reference internal" href="training.html"><span class="doc">Training</span></a>, <a class="reference internal" href="training_config.html"><span class="doc">Training Configuration</span></a>, <a class="reference internal" href="../reference/training.html"><span class="doc">Training Reference</span></a>, and
+<a class="reference internal" href="../troubleshooting.html"><span class="doc">Troubleshooting</span></a>.</p>
 </section>
 </section>
 
@@ -145,7 +172,7 @@ tracking to keep the workflow local while debugging model or data issues.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="training.html" class="btn btn-neutral float-left" title="Training" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="training_config.html" class="btn btn-neutral float-left" title="Training Configuration" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="../examples/index.html" class="btn btn-neutral float-right" title="Examples" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

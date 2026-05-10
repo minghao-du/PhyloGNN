@@ -47,7 +47,6 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#workflow-pages">Workflow pages</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="tree_input.html">Tree Input</a></li>
@@ -61,7 +60,9 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="graph_conversion.html">Graph Conversion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="datasets_and_splits.html">Datasets And Splits</a></li>
 <li class="toctree-l3"><a class="reference internal" href="training.html">Training</a></li>
+<li class="toctree-l3"><a class="reference internal" href="training_config.html">Training Configuration</a></li>
 <li class="toctree-l3"><a class="reference internal" href="metrics_tracking.html">Metrics And Tracking</a></li>
 </ul>
 </li>
@@ -118,13 +119,13 @@ fossil/extant indicators, sampled-ancestor indicators, <code class="docutils lit
 <section id="when-to-use-it">
 <h2>When to use it<a class="headerlink" href="#when-to-use-it" title="Link to this heading"></a></h2>
 <p>Run feature engineering before graph conversion whenever the converter should
-read computed node attributes into <code class="docutils literal notranslate"><span class="pre">data.x</span></code>. Keep custom features numeric and
-registered by name before requesting them.</p>
+read computed node attributes into graph feature columns. Keep custom features
+numeric and registered by name before requesting them.</p>
 </section>
 <section id="feature-order-and-determinism">
 <h2>Feature order and determinism<a class="headerlink" href="#feature-order-and-determinism" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">feature_names</span></code> is an immutable ordered tuple. Use it when constructing a
-converter so <code class="docutils literal notranslate"><span class="pre">data.x</span></code> columns stay stable across runs. Custom features are
+converter so feature columns stay stable across runs. Custom features are
 appended after built-in features in registration order.</p>
 </section>
 <section id="validation">
@@ -132,7 +133,8 @@ appended after built-in features in registration order.</p>
 <p><code class="docutils literal notranslate"><span class="pre">origin_time</span></code> must be positive. Requested feature names must be unique and
 must exist in <code class="docutils literal notranslate"><span class="pre">available_features</span></code>. <code class="docutils literal notranslate"><span class="pre">num_time_bins</span></code> must be at least two,
 <code class="docutils literal notranslate"><span class="pre">extant_sampling_probability</span></code> must be in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>, and traversal strategy must
-be one of <code class="docutils literal notranslate"><span class="pre">preorder</span></code>, <code class="docutils literal notranslate"><span class="pre">postorder</span></code>, or <code class="docutils literal notranslate"><span class="pre">levelorder</span></code>.</p>
+be one of <code class="docutils literal notranslate"><span class="pre">preorder</span></code>, <code class="docutils literal notranslate"><span class="pre">postorder</span></code>, or <code class="docutils literal notranslate"><span class="pre">levelorder</span></code>. These contracts are checked
+before graph conversion so invalid features fail early.</p>
 </section>
 <section id="rescaling">
 <h2>Rescaling<a class="headerlink" href="#rescaling" title="Link to this heading"></a></h2>
@@ -143,8 +145,8 @@ one. The same factor is used for feature computation and is attached as
 <section id="related-pages">
 <h2>Related pages<a class="headerlink" href="#related-pages" title="Link to this heading"></a></h2>
 <p>See <a class="reference internal" href="graph_conversion.html"><span class="doc">Graph Conversion</span></a> for converting features to graph tensors,
-<a class="reference internal" href="../concepts/graph_data.html"><span class="doc">Graph Data</span></a> for graph fields, and <a class="reference internal" href="../reference/data.html"><span class="doc">Data Reference</span></a>
-for API details.</p>
+<a class="reference internal" href="../reference/data.html"><span class="doc">Data Reference</span></a> for API details, and <a class="reference internal" href="../examples/feature_engineering.html"><span class="doc">Feature Engineering</span></a>
+for the runnable script.</p>
 </section>
 </section>
 

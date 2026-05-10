@@ -21,9 +21,17 @@ The resulting tree can be passed to `TreeFeatureEngineer.add_features()`.
 Choosing an input path
 ----------------------
 
-Use direct `ete3.Tree` objects for core workflows, tests, and examples. Use
-`phylognn.io` only when tree files need `DendroPy`-backed parsing or annotation
-handling.
+.. list-table::
+   :header-rows: 1
+
+   * - Need
+     - Input path
+   * - Tests, quickstarts, and generated trees
+     - Create `ete3.Tree` objects directly.
+   * - Newick or Nexus files with annotations
+     - Use `phylognn.io` with the `beast` or `all` extra installed.
+   * - Preprocessed graphs
+     - Load saved `Data` objects with `TreeToGraphConverter.load_data()`.
 
 Optional file reading
 ---------------------

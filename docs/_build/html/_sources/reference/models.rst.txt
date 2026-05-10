@@ -48,9 +48,9 @@ End-user model
    End-user model combining `GAT` node encoding with graph pooling, `FC`
    temporal encoding, or `BiLSTM` temporal encoding.
 
-   Inputs require `data.x`, `data.edge_index`, and batched `data.batch`.
-   Temporal modes other than `none` also require node-aligned `data.time_bin`.
-   The output tensor has shape `[batch_size, output_dim]`.
+   Inputs follow the graph field contract documented in
+   :doc:`../user_guide/graph_conversion`. The output tensor has shape
+   `[batch_size, output_dim]`.
 
 Temporal encoder
 ----------------
@@ -68,4 +68,4 @@ and `MLPHead` are not package-level user APIs.
 Related guide
 -------------
 
-See :doc:`../user_guide/training` and :doc:`../concepts/graph_data`.
+See :doc:`../user_guide/training` and :doc:`../user_guide/graph_conversion`.

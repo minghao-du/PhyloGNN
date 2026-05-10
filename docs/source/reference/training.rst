@@ -156,5 +156,5 @@ and metrics externally.
 Related guide
 -------------
 
-See :doc:`../concepts/training_config`, :doc:`../user_guide/training`, and
+See :doc:`../user_guide/training_config`, :doc:`../user_guide/training`, and
 :doc:`../user_guide/metrics_tracking`.

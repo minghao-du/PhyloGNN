@@ -46,7 +46,6 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="concepts/index.html">Concepts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="user_guide/index.html">User Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="examples/index.html">Examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="reference/index.html">Reference</a></li>
@@ -113,15 +112,15 @@ and unknown features. Use <code class="docutils literal notranslate"><span class
 <section id="invalid-graph-data">
 <h2>Invalid graph data<a class="headerlink" href="#invalid-graph-data" title="Link to this heading"></a></h2>
 <p>Converters require every requested feature to exist on every node and to be
-numeric. Models require <code class="docutils literal notranslate"><span class="pre">data.x</span></code> as a floating-point matrix and <code class="docutils literal notranslate"><span class="pre">edge_index</span></code> as
-a <code class="docutils literal notranslate"><span class="pre">torch.long</span></code> tensor of shape <code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">num_edges]</span></code>. Batched model training also needs
-<code class="docutils literal notranslate"><span class="pre">batch</span></code>, and temporal modes need <code class="docutils literal notranslate"><span class="pre">data.time_bin</span></code>.</p>
+numeric. See <a class="reference internal" href="user_guide/graph_conversion.html"><span class="doc">Graph Conversion</span></a> for the canonical graph field
+contract. Batched model training also needs <code class="docutils literal notranslate"><span class="pre">batch</span></code>, and temporal modes need
+<code class="docutils literal notranslate"><span class="pre">data.time_bin</span></code>.</p>
 </section>
 <section id="invalid-toml-training-configuration">
 <h2>Invalid TOML training configuration<a class="headerlink" href="#invalid-toml-training-configuration" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">TrainingConfigError</span></code> reports malformed <code class="docutils literal notranslate"><span class="pre">TOML</span></code>, missing sections, unknown keys,
 wrong types, unsupported loss or metric names, and invalid trainer values. See
-<a class="reference internal" href="concepts/training_config.html"><span class="doc">Training Configuration</span></a> for the accepted sections.</p>
+<a class="reference internal" href="user_guide/training_config.html"><span class="doc">Training Configuration</span></a> for the accepted sections.</p>
 </section>
 <section id="tracking-setup-failures">
 <h2>Tracking setup failures<a class="headerlink" href="#tracking-setup-failures" title="Link to this heading"></a></h2>

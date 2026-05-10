@@ -1,3 +1,10 @@
+/*
+===============================================================================
+PhyloGNN Documentation Theme
+Custom CSS for Sphinx + sphinx_rtd_theme
+===============================================================================
+*/
+
 :root {
   --phylognn-accent: #1f6f68;
   --phylognn-accent-dark: #15524d;
@@ -9,13 +16,20 @@
   --phylognn-shadow: 0 8px 24px rgb(31 111 104 / 0.08);
 }
 
+/*
+===============================================================================
+Global typography
+===============================================================================
+*/
+
 body {
   letter-spacing: 0;
   text-rendering: optimizeLegibility;
 }
 
+/* Wider content area for better table rendering */
 .wy-nav-content {
-  max-width: 980px;
+  max-width: 1100px;
 }
 
 .rst-content,
@@ -34,6 +48,12 @@ body {
   text-decoration-thickness: 0.12em;
 }
 
+/*
+===============================================================================
+Sidebar
+===============================================================================
+*/
+
 .wy-side-nav-search {
   background: var(--phylognn-accent);
 }
@@ -50,6 +70,12 @@ body {
 .wy-menu-vertical li.toctree-l1.current > a {
   font-weight: 700;
 }
+
+/*
+===============================================================================
+Headings
+===============================================================================
+*/
 
 h1,
 h2,
@@ -70,12 +96,24 @@ h3 {
   margin-top: 1.45rem;
 }
 
+/*
+===============================================================================
+Text blocks
+===============================================================================
+*/
+
 p,
 li,
 dd,
 .field-list p {
   line-height: 1.65;
 }
+
+/*
+===============================================================================
+Hero section
+===============================================================================
+*/
 
 .hero {
   border-bottom: 1px solid var(--phylognn-border);
@@ -123,6 +161,12 @@ dd,
   box-shadow: var(--phylognn-shadow);
 }
 
+/*
+===============================================================================
+Entry cards
+===============================================================================
+*/
+
 .entry-grid {
   display: grid;
   gap: 1rem;
@@ -155,12 +199,24 @@ dd,
   margin-top: 0.45rem;
 }
 
+/*
+===============================================================================
+Workflow strip
+===============================================================================
+*/
+
 .workflow-strip {
   border-left: 4px solid var(--phylognn-accent);
   background: var(--phylognn-surface);
   margin: 1.2rem 0 1.8rem;
   padding: 0.45rem 1rem;
 }
+
+/*
+===============================================================================
+Inline code and code blocks
+===============================================================================
+*/
 
 code.literal {
   background: var(--phylognn-code-bg);
@@ -189,22 +245,53 @@ div.highlight pre {
   white-space: pre;
 }
 
-table.docutils {
-  display: block;
-  margin: 1rem 0 1.35rem;
+/*
+===============================================================================
+Tables
+===============================================================================
+*/
+
+/* Responsive wrapper provided by sphinx_rtd_theme */
+.wy-table-responsive {
   overflow-x: auto;
+}
+
+/* Main table styling */
+.wy-table-responsive table.docutils,
+.rst-content table.docutils {
+  display: table;
   width: 100%;
+  table-layout: auto;
+  border-collapse: collapse;
+  margin: 1rem 0 1.35rem;
 }
 
-table.docutils th {
+/* Table headers */
+.wy-table-responsive table.docutils th,
+.rst-content table.docutils th {
   background: var(--phylognn-surface);
+  font-weight: 700;
 }
 
-table.docutils th,
-table.docutils td {
+/* Table cells */
+.wy-table-responsive table.docutils th,
+.wy-table-responsive table.docutils td,
+.rst-content table.docutils th,
+.rst-content table.docutils td {
   padding: 0.58rem 0.7rem;
   vertical-align: top;
+
+  /* Allow line wrapping */
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
+
+/*
+===============================================================================
+Admonitions
+===============================================================================
+*/
 
 .admonition,
 .topic {
@@ -219,6 +306,12 @@ table.docutils td {
 .admonition-title {
   overflow-wrap: anywhere;
 }
+
+/*
+===============================================================================
+Field lists and API docs
+===============================================================================
+*/
 
 dl.field-list {
   display: grid;
@@ -258,9 +351,21 @@ dl.py dd {
   overflow-wrap: anywhere;
 }
 
+/*
+===============================================================================
+Toctree
+===============================================================================
+*/
+
 .toctree-wrapper ul {
   line-height: 1.55;
 }
+
+/*
+===============================================================================
+Mobile optimizations
+===============================================================================
+*/
 
 @media (max-width: 720px) {
   .hero {

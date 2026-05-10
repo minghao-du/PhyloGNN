@@ -5,21 +5,6 @@ Training utilities expect PyTorch Geometric `Data` samples whose target is
 stored as `data.y`. Datasets, splits, and loaders are caller-controlled; `TOML`
 configuration builds models and trainer settings but does not discover data.
 
-Datasets and splits
--------------------
-
-Use `SplitPhyloDataset` for in-memory `Data` objects and labels. Use
-`SplitPhyloDiskDataset` when graphs and labels are stored as mirrored `.pt`
-files. `DatasetSplit` supports deterministic ratio-based splits and explicit
-split manifests with one sample ID per line.
-
-When to use TOML
-----------------
-
-Use `TOML` when you want a repeatable local record of model, trainer, loss,
-metrics, and optional tracking settings. Dataset construction and loader choice
-remain caller-controlled Python code.
-
 Trainer setup
 -------------
 
@@ -39,10 +24,10 @@ sanitized tracking metadata. `create_trainer_from_config()` creates a
 Model data contract
 -------------------
 
-All model inputs need `data.x` and `data.edge_index`. Batched graph-level
-training needs `data.batch`. Temporal modes of `GATBiLSTMNet` require
-`data.time_bin` as a node-aligned tensor. The training dataset must provide
-`data.y` for loss computation.
+Model inputs follow the graph contract in :doc:`graph_conversion`. Batched
+graph-level training needs `data.batch`. Temporal modes of `GATBiLSTMNet`
+require `data.time_bin` as a node-aligned tensor. The training dataset must
+provide `data.y` for loss computation.
 
 Outputs
 -------
@@ -54,5 +39,5 @@ checkpoint is always saved; best-checkpoint behavior is controlled by
 Related pages
 -------------
 
-See :doc:`../concepts/training_config`, :doc:`metrics_tracking`,
+See :doc:`datasets_and_splits`, :doc:`training_config`, :doc:`metrics_tracking`,
 :doc:`../reference/training`, and :doc:`../troubleshooting`.

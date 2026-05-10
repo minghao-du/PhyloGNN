@@ -1,9 +1,10 @@
 Training Configuration
 ======================
 
-Training configuration files are local `TOML` documents loaded with Python
-stdlib `tomllib`. They configure model construction, trainer settings, loss,
-metrics, and optional tracking. They do not construct datasets or data loaders.
+Training configuration files are local `TOML` documents loaded with Python's
+standard `tomllib` reader. They configure model construction, trainer settings,
+loss, metrics, and optional tracking. They do not construct datasets or data
+loaders.
 
 Required sections
 -----------------
@@ -47,9 +48,12 @@ tracking lacks required settings or dependencies.
 Training outputs
 ----------------
 
-The trainer writes checkpoints and `history.json` under `TrainingConfig.save_dir`.
-External tracking stores sanitized configuration, epoch metrics, final metrics,
-and terminal status only when enabled.
+The trainer writes checkpoints and `history.json` under
+`TrainingConfig.save_dir`. External tracking stores sanitized configuration,
+epoch metrics, final metrics, and terminal status only when enabled.
 
-See :doc:`../user_guide/training`, :doc:`../user_guide/metrics_tracking`, and
-:doc:`../reference/training` for workflow and API details.
+Related pages
+-------------
+
+See :doc:`datasets_and_splits`, :doc:`training`, :doc:`metrics_tracking`, and
+:doc:`../reference/training`.

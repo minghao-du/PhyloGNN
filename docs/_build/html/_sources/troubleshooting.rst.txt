@@ -31,16 +31,16 @@ Invalid graph data
 ------------------
 
 Converters require every requested feature to exist on every node and to be
-numeric. Models require `data.x` as a floating-point matrix and `edge_index` as
-a `torch.long` tensor of shape `[2, num_edges]`. Batched model training also needs
-`batch`, and temporal modes need `data.time_bin`.
+numeric. See :doc:`user_guide/graph_conversion` for the canonical graph field
+contract. Batched model training also needs `batch`, and temporal modes need
+`data.time_bin`.
 
 Invalid TOML training configuration
 -----------------------------------
 
 `TrainingConfigError` reports malformed `TOML`, missing sections, unknown keys,
 wrong types, unsupported loss or metric names, and invalid trainer values. See
-:doc:`concepts/training_config` for the accepted sections.
+:doc:`user_guide/training_config` for the accepted sections.
 
 Tracking setup failures
 -----------------------

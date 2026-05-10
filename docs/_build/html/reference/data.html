@@ -47,7 +47,6 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../user_guide/index.html">User Guide</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples/index.html">Examples</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Reference</a><ul class="current">
@@ -147,7 +146,7 @@ rescaling trees with no non-zero branch lengths.</p>
 <dt class="sig sig-object py" id="TreeToGraphConverter">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">TreeToGraphConverter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">feature_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_virtual_nodes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_time_bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">traversal_strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'preorder'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bidirectional</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">connect_virtual_to_real</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">connect_virtual_chain</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">append_is_virtual_feature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preserve_node_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_sampling_prob_to_virtual</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#TreeToGraphConverter" title="Link to this definition"></a></dt>
 <dd><p>Convert a feature-bearing <code class="docutils literal notranslate"><span class="pre">ete3.Tree</span></code> to a PyTorch Geometric <code class="docutils literal notranslate"><span class="pre">Data</span></code> object.</p>
-<p><code class="docutils literal notranslate"><span class="pre">feature_names</span></code> defines the <code class="docutils literal notranslate"><span class="pre">data.x</span></code> column order. Every node must contain
+<p><code class="docutils literal notranslate"><span class="pre">feature_names</span></code> defines the feature column order. Every node must contain
 every requested feature and each feature value must be numeric.</p>
 <p>Output fields include <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">edge_index</span></code>, <code class="docutils literal notranslate"><span class="pre">edge_type</span></code>, <code class="docutils literal notranslate"><span class="pre">original_num_nodes</span></code>,
 <code class="docutils literal notranslate"><span class="pre">virtual_node_mask</span></code>, <code class="docutils literal notranslate"><span class="pre">node_type</span></code>, optional <code class="docutils literal notranslate"><span class="pre">node_names</span></code>, optional
@@ -183,8 +182,8 @@ every requested feature and each feature value must be numeric.</p>
 </section>
 <section id="related-guide">
 <h2>Related guide<a class="headerlink" href="#related-guide" title="Link to this heading"></a></h2>
-<p>See <a class="reference internal" href="../user_guide/feature_engineering.html"><span class="doc">Feature Engineering</span></a>,
-<a class="reference internal" href="../user_guide/graph_conversion.html"><span class="doc">Graph Conversion</span></a>, and <a class="reference internal" href="../concepts/graph_data.html"><span class="doc">Graph Data</span></a>.</p>
+<p>See <a class="reference internal" href="../user_guide/feature_engineering.html"><span class="doc">Feature Engineering</span></a> and
+<a class="reference internal" href="../user_guide/graph_conversion.html"><span class="doc">Graph Conversion</span></a>.</p>
 </section>
 </section>
 

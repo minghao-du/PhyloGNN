@@ -177,5 +177,7 @@ python -m build
 - Repository files only: Sphinx sources in `/Users/Minghao/Research/PhyloGNN/docs/source`, generated HTML in `/Users/Minghao/Research/PhyloGNN/docs/_build/html`, doctest output in `/Users/Minghao/Research/PhyloGNN/docs/_build/doctest`, runnable examples in `/Users/Minghao/Research/PhyloGNN/examples`, example outputs in `/Users/Minghao/Research/PhyloGNN/example_outputs` (001-sphinx-docs-fixes)
 - Python 3.9+ + Sphinx, PyTorch Geometric, PyTorch (002-fix-docs-examples)
 - N/A (Temporary directories for outputs) (002-fix-docs-examples)
+- reStructuredText, Python 3.x + Sphinx, PhyloGNN package (001-docs-restructure)
+- Documentation files (.rst) (001-docs-restructure)
 
 ## Recent Changes

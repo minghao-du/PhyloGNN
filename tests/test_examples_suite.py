@@ -20,6 +20,7 @@ TOML_HISTORY = EXAMPLE_OUTPUT_DIR / "history.json"
 EXPECTED_FILES = {
     "README.md",
     "feature_engineering.py",
+    "quickstart_training.py",
     "tree_to_graph.py",
     "tree_io.py",
     "single_task_training.py",
@@ -170,6 +171,7 @@ def test_examples_readme_references_each_supported_script():
     [
         ("feature_engineering.py", "Feature engineering summary"),
         ("tree_to_graph.py", "Graph summary"),
+        ("quickstart_training.py", "Quickstart training summary"),
     ],
 )
 def test_self_contained_examples_run(script_name: str, expected_text: str):
@@ -183,13 +185,19 @@ def test_self_contained_examples_run(script_name: str, expected_text: str):
             in completed.stdout
         )
         assert "root: node_time=4.00" in completed.stdout
-    else:
+    elif script_name == "tree_to_graph.py":
         assert (
             "feature_names: ('node_time', 'time_bin', 'branch_length', 'is_tip')"
             in completed.stdout
         )
         assert "num_nodes: 5" in completed.stdout
         assert "virtual node count: 6" in completed.stdout
+    else:
+        assert "x shape: (5, 4)" in completed.stdout
+        assert "edge_index shape: (2, 8)" in completed.stdout
+        assert "target shape: (1,)" in completed.stdout
+        assert "batch ready: true" in completed.stdout
+        assert "prediction:" in completed.stdout
 
 
 def test_tree_io_example_handles_available_or_missing_optional_dependency():

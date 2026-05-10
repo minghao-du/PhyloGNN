@@ -1,8 +1,7 @@
 Tree To Graph
 =============
 
-This example maps to ``examples/tree_to_graph.py`` and demonstrates converting
-a featured tree into a PyTorch Geometric ``Data`` object.
+Script: ``examples/tree_to_graph.py``.
 
 Inputs
 ------
@@ -11,8 +10,8 @@ Inputs
 - Feature order ``("node_time", "time_bin", "branch_length", "is_tip")``.
 - A virtual-node conversion variant using the same featured tree.
 
-Actions
--------
+Run command
+-----------
 
 Run the script from the repository root:
 
@@ -24,23 +23,34 @@ The script applies ``TreeFeatureEngineer.add_features()``, converts the tree
 with ``TreeToGraphConverter``, then repeats conversion with virtual time-bin
 nodes enabled.
 
-Expected outputs
-----------------
+Expected output
+---------------
 
-The script prints a ``Graph summary`` with tensor shapes, metadata, and virtual
-node counts. It does not write output files.
+Stable stdout markers include:
+
+.. code-block:: text
+
+   Graph summary
+   x shape:
+   edge_index shape:
+   num_nodes:
+   virtual node count:
+
+Files written
+-------------
+
+None.
+
+Optional dependencies
+---------------------
+
+None.
 
 Failure modes
 -------------
 
 Invalid feature names, missing required node attributes, or incompatible
 virtual-node settings fail through the existing converter validation paths.
-
-Optional settings
------------------
-
-Virtual nodes are demonstrated in the script. File-loading and tracking
-dependencies are not required.
 
 Source
 ------
