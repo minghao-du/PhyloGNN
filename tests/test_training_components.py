@@ -9,10 +9,11 @@ from tests.support import require_modules
 torch = pytest.importorskip("torch")
 require_modules("torch_geometric")
 import torch.nn as nn
+from torch_geometric.loader import DataLoader
 from torch_geometric.data import Data
 from torchmetrics import MeanAbsolutePercentageError, MeanSquaredError, Metric, R2Score
 
-from phylognn.training.dataset import DatasetSplit
+from phylognn.training.dataset import DatasetSplit, SplitPhyloDiskDataset
 from phylognn.training.metrics import MetricRegistry
 from phylognn.training.trainer import Trainer, TrainingConfig, _detach_item, _safe_mean
 
@@ -26,6 +27,15 @@ class TinyRegressor(nn.Module):
         return self.linear(data.x)
 
 
+class ConstantOutputModel(nn.Module):
+    def __init__(self, output: torch.Tensor) -> None:
+        super().__init__()
+        self.output = nn.Parameter(output.clone())
+
+    def forward(self, data: Data) -> torch.Tensor:
+        return self.output
+
+
 def _trainer(tmp_path, *, metrics=None, output_dim: int = 1) -> Trainer:
     return Trainer(
         model=TinyRegressor(output_dim=output_dim),
@@ -37,6 +47,26 @@ def _trainer(tmp_path, *, metrics=None, output_dim: int = 1) -> Trainer:
             verbose=False,
         ),
         metrics={} if metrics is None else metrics,
+    )
+
+
+def _constant_trainer(tmp_path, output: torch.Tensor, *, metrics=None) -> Trainer:
+    return Trainer(
+        model=ConstantOutputModel(output),
+        config=TrainingConfig(
+            epochs=1,
+            batch_size=2,
+            scheduler=None,
+            save_dir=str(tmp_path / "checkpoints"),
+            verbose=False,
+        ),
+        metrics={} if metrics is None else metrics,
+    )
+
+
+def _loader_with_target(target: torch.Tensor) -> DataLoader:
+    return DataLoader(
+        [Data(x=torch.ones((1, 1)), edge_index=torch.empty((2, 0), dtype=torch.long), y=target)]
     )
 
 
@@ -177,3 +207,101 @@ def test_registry_created_metrics_disable_step_sync_for_ddp():
         metric = MetricRegistry.create(name)
         assert isinstance(metric, Metric)
         assert metric.dist_sync_on_step is False
+
+
+def test_validate_single_output_accepts_vector_targets(tmp_path):
+    """Single-output predictions should not broadcast against [batch] targets."""
+    output = torch.tensor([[1.0], [2.0]])
+    trainer = _constant_trainer(tmp_path, output, metrics={"mse": "mse"})
+
+    result = trainer.validate(_loader_with_target(torch.tensor([1.0, 2.0])))
+
+    assert result["loss"] == pytest.approx(0.0)
+    assert result["mse"] == pytest.approx(0.0)
+
+
+def test_validate_single_output_accepts_column_targets(tmp_path):
+    """Single-output predictions should accept already aligned [batch, 1] targets."""
+    output = torch.tensor([[1.0], [2.0]])
+    trainer = _constant_trainer(tmp_path, output, metrics={"mse": "mse"})
+
+    result = trainer.validate(_loader_with_target(torch.tensor([[1.0], [2.0]])))
+
+    assert result["loss"] == pytest.approx(0.0)
+    assert result["mse"] == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize(
+    ("prediction", "target"),
+    [
+        (torch.ones((2, 1)), torch.ones((1, 2))),
+        (torch.ones((2, 2)), torch.ones(2)),
+        (torch.ones((2, 2)), torch.ones((2, 1))),
+    ],
+)
+def test_trainer_rejects_incompatible_target_shapes(tmp_path, prediction, target):
+    """Ambiguous target shapes should fail before loss broadcasting can occur."""
+    trainer = _constant_trainer(tmp_path, prediction)
+
+    with pytest.raises(ValueError, match="Prediction and target"):
+        trainer.validate(_loader_with_target(target))
+
+
+def test_trainer_does_not_update_metrics_after_target_shape_error(tmp_path):
+    """Shape validation must happen before metric state is mutated."""
+    trainer = _constant_trainer(tmp_path, torch.ones((2, 2)), metrics={"mse": "mse"})
+
+    with pytest.raises(ValueError, match="Prediction and target shapes are incompatible"):
+        trainer.validate(_loader_with_target(torch.ones((2, 1))))
+
+    metric = trainer.metrics["mse"]
+    assert metric.update_count == 0
+
+
+def test_split_phylo_disk_dataset_loaders_use_explicit_trusted_load(tmp_path, monkeypatch):
+    """Disk graph and label artifacts should opt into complete-object loading explicitly."""
+    graph_dir = tmp_path / "graphs"
+    label_dir = tmp_path / "labels"
+    graph_dir.mkdir()
+    label_dir.mkdir()
+    graph_path = graph_dir / "sample.pt"
+    label_path = label_dir / "sample.pt"
+    graph_path.touch()
+    label_path.touch()
+    graph = Data(x=torch.ones((1, 1)), edge_index=torch.empty((2, 0), dtype=torch.long))
+    label = torch.tensor([3.0])
+    calls = []
+
+    def fake_load(path, *, map_location=None, weights_only=None):
+        calls.append((path, map_location, weights_only))
+        return graph if path == graph_path else label
+
+    monkeypatch.setattr(torch, "load", fake_load)
+
+    dataset = SplitPhyloDiskDataset(graph_dir=graph_dir, label_dir=label_dir)
+    loaded = dataset[0]
+
+    assert torch.equal(loaded.y, label)
+    assert calls == [
+        (graph_path, "cpu", False),
+        (label_path, "cpu", False),
+    ]
+
+
+def test_trainer_load_checkpoint_uses_explicit_trusted_load(tmp_path, monkeypatch):
+    """Trainer checkpoints should opt into complete-object loading explicitly."""
+    trainer = _trainer(tmp_path)
+    checkpoint = trainer._checkpoint_state()
+    checkpoint["current_epoch"] = 1
+    calls = []
+
+    def fake_load(path, *, map_location=None, weights_only=None):
+        calls.append((path, map_location, weights_only))
+        return checkpoint
+
+    monkeypatch.setattr(torch, "load", fake_load)
+
+    trainer.load_checkpoint("model.pt")
+
+    assert trainer.current_epoch == 1
+    assert calls == [(trainer.save_dir / "model.pt", trainer.device, False)]

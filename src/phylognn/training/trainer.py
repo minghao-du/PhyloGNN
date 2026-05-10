@@ -586,6 +586,29 @@ class Trainer:
             raise TypeError(f"Target batch.y must be a Tensor, got {type(target).__name__}.")
         return target
 
+    def _prepare_single_target(self, pred: Tensor, target: Tensor) -> Tensor:
+        """
+        Align a single-task target tensor with model predictions.
+        """
+        if pred.size(0) != target.size(0):
+            raise ValueError(
+                "Prediction and target batch dimensions must match before loss/metric "
+                f"calculation, got {pred.size(0)} and {target.size(0)}."
+            )
+
+        if pred.shape == target.shape:
+            return target
+
+        if pred.ndim == 2 and pred.size(1) == 1 and target.ndim == 1:
+            return target.reshape(-1, 1)
+
+        raise ValueError(
+            "Prediction and target shapes are incompatible for loss/metric calculation: "
+            f"prediction shape {tuple(pred.shape)}, target shape {tuple(target.shape)}. "
+            "Single-output predictions shaped [batch, 1] accept targets shaped [batch]; "
+            "all other cases require identical shapes."
+        )
+
     # -----------------------------------------------------------------
     # Core epoch loops
     # -----------------------------------------------------------------
@@ -634,6 +657,7 @@ class Trainer:
                 raise TypeError(f"Model output must be Tensor, got {type(pred).__name__}.")
 
             target = self._extract_single_target(batch)
+            target = self._prepare_single_target(pred, target)
             loss = self.loss_fn(pred, target)
 
             if not isinstance(loss, Tensor):
@@ -698,6 +722,7 @@ class Trainer:
                 raise TypeError(f"Model output must be Tensor, got {type(pred).__name__}.")
 
             target = self._extract_single_target(batch)
+            target = self._prepare_single_target(pred, target)
             loss = self.loss_fn(pred, target)
 
             total_loss += _detach_item(loss)
@@ -1021,6 +1046,10 @@ class Trainer:
 
         Notes
         -----
+        Checkpoints are loaded with `weights_only=False` because trainer
+        checkpoints are complete project artifacts. Only load checkpoint files
+        produced by trusted project workflows.
+
         This restores:
         - model weights
         - optimizer state
@@ -1033,7 +1062,7 @@ class Trainer:
         the recorded history length as the lower bound.
         """
         checkpoint_path = self.save_dir / filename
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
 
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])

@@ -106,10 +106,17 @@
 training runs.</p>
 <section id="metrics">
 <h2>Metrics<a class="headerlink" href="#metrics" title="Link to this heading"></a></h2>
-<p>Metric helpers accept <code class="docutils literal notranslate"><span class="pre">(pred,</span> <span class="pre">target)</span></code> tensors and return scalar tensors.
-Available helpers are <code class="docutils literal notranslate"><span class="pre">mse_metric</span></code>, <code class="docutils literal notranslate"><span class="pre">mae_metric</span></code>, <code class="docutils literal notranslate"><span class="pre">rmse_metric</span></code>, <code class="docutils literal notranslate"><span class="pre">r2_metric</span></code>,
-and <code class="docutils literal notranslate"><span class="pre">relative_error_metric</span></code>. <code class="docutils literal notranslate"><span class="pre">TOML</span></code> configuration can select these by name in
-the <code class="docutils literal notranslate"><span class="pre">[metrics]</span></code> section.</p>
+<p>Trainer metrics use TorchMetrics stateful objects. Pass built-in string keys
+such as <code class="docutils literal notranslate"><span class="pre">mse</span></code>, <code class="docutils literal notranslate"><span class="pre">mae</span></code>, <code class="docutils literal notranslate"><span class="pre">rmse</span></code>, <code class="docutils literal notranslate"><span class="pre">r2</span></code>, and <code class="docutils literal notranslate"><span class="pre">mape</span></code>, or pass an instantiated
+<code class="docutils literal notranslate"><span class="pre">torchmetrics.Metric</span></code> object. <code class="docutils literal notranslate"><span class="pre">TOML</span></code> configuration selects the same built-in
+keys in the <code class="docutils literal notranslate"><span class="pre">[metrics]</span></code> section.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">trainer</span> <span class="o">=</span> <span class="n">Trainer</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;rmse&quot;</span><span class="p">:</span> <span class="s2">&quot;rmse&quot;</span><span class="p">})</span>
+</pre></div>
+</div>
+<p>Multi-output R2 requires a TorchMetrics <code class="docutils literal notranslate"><span class="pre">R2Score</span></code> instance configured for the
+model output shape, or an explicit internal configuration path that sets a
+positive output count. Direct custom metrics must inherit from
+<code class="docutils literal notranslate"><span class="pre">torchmetrics.Metric</span></code>.</p>
 </section>
 <section id="local-first-behavior">
 <h2>Local-first behavior<a class="headerlink" href="#local-first-behavior" title="Link to this heading"></a></h2>

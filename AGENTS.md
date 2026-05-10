@@ -181,5 +181,7 @@ python -m build
 - Documentation files (.rst) (001-docs-restructure)
 - Python 3.11, Sphinx + sphinx, github-actions (001-host-sphinx-docs-github)
 - Python 3.11 + `torchmetrics`, `torch`, `torch_geometric` (002-torchmetrics-migration)
+- Python >=3.12 + PyTorch, PyTorch Geometric, torch-scatter, torchmetrics, ete3, numpy, pytest (003-fix-training-stability)
+- Local `.pt` graph files and trainer checkpoint/history files; no storage format migration (003-fix-training-stability)
 
 ## Recent Changes

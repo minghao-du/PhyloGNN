@@ -128,7 +128,8 @@ provide <code class="docutils literal notranslate"><span class="pre">data.y</spa
 <h2>Outputs<a class="headerlink" href="#outputs" title="Link to this heading"></a></h2>
 <p>Training writes checkpoints and <code class="docutils literal notranslate"><span class="pre">history.json</span></code> under <code class="docutils literal notranslate"><span class="pre">save_dir</span></code>. The final
 checkpoint is always saved; best-checkpoint behavior is controlled by
-<code class="docutils literal notranslate"><span class="pre">save_best_only</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">save_best_only</span></code>. Checkpoints are complete PyTorch project artifacts, so resume
+only from trusted checkpoint files produced by your own training runs.</p>
 </section>
 <section id="related-pages">
 <h2>Related pages<a class="headerlink" href="#related-pages" title="Link to this heading"></a></h2>

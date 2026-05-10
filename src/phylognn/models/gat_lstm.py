@@ -15,7 +15,7 @@ data contract explicit:
 
 Supported temporal modes:
     - "none": graph-level pooling directly from GAT node embeddings
-    - "fc": time-bin pooling followed by flattening and FC temporal encoder
+    - "fc": time-bin pooling followed by flattening and single-sample-safe FC temporal encoder
     - "lstm": time-bin pooling followed by a reusable bidirectional LSTM encoder
 """
 
@@ -327,6 +327,9 @@ class GATBiLSTMNet(BaseGATNet):
     ) -> nn.Sequential:
         """
         Build an FC temporal encoder from explicit layer widths.
+
+        LayerNorm is used so training-mode execution remains valid when the
+        current batch contains one graph.
         """
         layers = []
         current_dim = input_dim
@@ -336,7 +339,7 @@ class GATBiLSTMNet(BaseGATNet):
                 [
                     nn.Linear(current_dim, hidden_dim),
                     nn.ReLU(),
-                    nn.BatchNorm1d(hidden_dim),
+                    nn.LayerNorm(hidden_dim),
                     nn.Dropout(dropout_prob),
                 ]
             )

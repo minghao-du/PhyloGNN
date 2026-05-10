@@ -12,7 +12,7 @@ from torch_geometric.data import Data  # noqa: E402
 
 from phylognn.models.base import BaseGATNet, BasePhyloGNN  # noqa: E402
 from phylognn.models.gat_lstm import GATBiLSTMNet  # noqa: E402
-from phylognn.models.layers import GATBlock, TemporalBiLSTMEncoder  # noqa: E402
+from phylognn.models.layers import GATBlock, MLPHead, TemporalBiLSTMEncoder  # noqa: E402
 
 
 class _DummyPhyloModel(BasePhyloGNN):
@@ -58,6 +58,28 @@ def _tiny_temporal_graph():
         ),
         batch=torch.tensor([0, 0, 1, 1], dtype=torch.long),
         time_bin=torch.tensor([0, 1, 0, 1], dtype=torch.long),
+    )
+
+
+def _single_graph():
+    return Data(
+        x=torch.tensor(
+            [
+                [1.0, 0.0, 0.5, 1.0],
+                [0.5, 1.0, 0.0, 1.0],
+                [1.0, 1.0, 0.5, 0.0],
+            ],
+            dtype=torch.float,
+        ),
+        edge_index=torch.tensor(
+            [
+                [0, 1, 1, 2],
+                [1, 0, 2, 1],
+            ],
+            dtype=torch.long,
+        ),
+        batch=torch.zeros(3, dtype=torch.long),
+        time_bin=torch.tensor([0, 1, 0], dtype=torch.long),
     )
 
 
@@ -385,3 +407,64 @@ def test_gat_bilstm_keeps_graph_specific_time_bin_pooling_boundary():
     assert pooled.shape == (2, 2, 3)
     assert pooled.size(-1) == 2 + GATBiLSTMNet.TIME_BIN_SCALAR_FEATURE_DIM
     assert torch.allclose(pooled[0, :, -1], torch.tensor([0.0, 1.0]))
+
+
+def test_gat_bilstm_none_mode_trains_with_single_graph_batch():
+    """Graph-level prediction heads must be safe for batch size one in training mode."""
+    model = GATBiLSTMNet(
+        input_dim=4,
+        output_dim=2,
+        temporal_mode="none",
+        gat_hidden_dim=2,
+        gat_heads=1,
+        num_gat_layers=1,
+        dropout_prob=0.0,
+    )
+    model.train()
+
+    out = model(_single_graph())
+
+    assert model.training
+    assert out.shape == (1, 2)
+
+
+def test_gat_bilstm_fc_mode_trains_with_single_graph_batch():
+    """Temporal FC encoders must be safe for batch size one in training mode."""
+    model = GATBiLSTMNet(
+        input_dim=4,
+        output_dim=2,
+        temporal_mode="fc",
+        num_time_bins=2,
+        gat_hidden_dim=2,
+        gat_heads=1,
+        num_gat_layers=1,
+        temporal_fc_hidden_dims=(5,),
+        dropout_prob=0.0,
+    )
+    model.train()
+
+    out = model(_single_graph())
+
+    assert model.training
+    assert out.shape == (1, 2)
+
+
+def test_graph_level_and_temporal_fc_normalization_is_single_sample_safe():
+    """Affected prediction paths should use LayerNorm instead of BatchNorm1d."""
+    head = MLPHead(input_dim=3, hidden_dim=4, output_dim=1, dropout_prob=0.0)
+    model = GATBiLSTMNet(
+        input_dim=4,
+        output_dim=1,
+        temporal_mode="fc",
+        num_time_bins=2,
+        temporal_fc_hidden_dims=(5,),
+        dropout_prob=0.0,
+    )
+
+    head_norms = [module for module in head.mlp if isinstance(module, nn.LayerNorm)]
+    temporal_norms = [module for module in model.temporal_mlp if isinstance(module, nn.LayerNorm)]
+
+    assert head_norms
+    assert temporal_norms
+    assert not any(isinstance(module, nn.BatchNorm1d) for module in head.mlp)
+    assert not any(isinstance(module, nn.BatchNorm1d) for module in model.temporal_mlp)

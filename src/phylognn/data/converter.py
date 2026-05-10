@@ -277,7 +277,8 @@ class TreeToGraphConverter:
         Save a PyG Data object to disk using `torch.save`.
 
     - `load_data(path)`:
-        Load a previously saved PyG Data object from disk using `torch.load`.
+        Load a previously saved PyG Data object from a trusted project output
+        using explicit complete-object `torch.load` semantics.
 
     - `convert_and_save(tree, path, graph_attrs=None)`:
         Convert a tree to `Data`, save it, and return the saved object.
@@ -675,9 +676,14 @@ class TreeToGraphConverter:
         ------
         TypeError
             If the loaded object is not a PyG `Data` instance.
+
+        Notes
+        -----
+        This method loads complete PyTorch objects with `weights_only=False`.
+        Only load files produced by trusted project workflows.
         """
         path = Path(path)
-        data = torch.load(path, map_location=map_location)
+        data = torch.load(path, map_location=map_location, weights_only=False)
 
         if not isinstance(data, Data):
             raise TypeError(

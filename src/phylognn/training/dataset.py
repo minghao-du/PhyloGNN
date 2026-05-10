@@ -156,6 +156,8 @@ Engineering notes
 - Subsets are lightweight views over a base dataset
 - Graphs are cloned before labels/transforms are attached
 - Optional caching is supported for disk-backed loading
+- Disk-backed `.pt` graph and label files are loaded as complete objects and
+  must come from trusted project workflows.
 """
 
 from __future__ import annotations
@@ -1197,15 +1199,21 @@ class SplitPhyloDiskDataset(_BaseSplitAwareDataset):
     def _load_graph_file(self, path: Path) -> Data:
         """
         Load and validate a graph file.
+
+        The file is loaded with `weights_only=False` because disk datasets store
+        complete PyG `Data` objects. Only use trusted project outputs here.
         """
-        obj = torch.load(path, map_location=self._map_location)
+        obj = torch.load(path, map_location=self._map_location, weights_only=False)
         return _ensure_data_instance(obj, source=str(path))
 
     def _load_label_file(self, path: Path) -> LoadedLabelObject:
         """
         Load and normalize a label file.
+
+        The file is loaded with `weights_only=False` because labels may be
+        complete trusted project objects, not tensor-only weight files.
         """
-        obj = torch.load(path, map_location=self._map_location)
+        obj = torch.load(path, map_location=self._map_location, weights_only=False)
         return _normalize_label_object(obj)
 
     def _get_graph(self, idx: int) -> Data:

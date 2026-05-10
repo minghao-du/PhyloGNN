@@ -34,7 +34,8 @@ Outputs
 
 Training writes checkpoints and `history.json` under `save_dir`. The final
 checkpoint is always saved; best-checkpoint behavior is controlled by
-`save_best_only`.
+`save_best_only`. Checkpoints are complete PyTorch project artifacts, so resume
+only from trusted checkpoint files produced by your own training runs.
 
 Related pages
 -------------

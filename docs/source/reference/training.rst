@@ -40,7 +40,8 @@ Configuration and trainer
 
    .. py:method:: load_checkpoint(filename)
 
-      Restore model, optimizer, scheduler, and history state.
+      Restore model, optimizer, scheduler, and history state from a trusted
+      checkpoint file.
 
    .. py:method:: save_history(filename="history.json")
 
@@ -85,7 +86,7 @@ Datasets and splits
 
 .. py:class:: SplitPhyloDiskDataset(graph_dir, label_dir=None, sample_ids=None, recursive=False, cache=True, transform=None, pre_transform=None)
 
-   Disk-backed dataset for mirrored graph and label `.pt` files.
+   Disk-backed dataset for trusted mirrored graph and label `.pt` files.
 
 TOML helpers
 ------------

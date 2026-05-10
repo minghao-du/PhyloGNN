@@ -706,8 +706,11 @@ class MLPHead(nn.Module):
     Flexible MLP prediction head.
 
     Architecture:
-        [Linear -> ReLU -> BatchNorm1d -> Dropout] * num_hidden_layers
+        [Linear -> ReLU -> LayerNorm -> Dropout] * num_hidden_layers
         -> Linear(output)
+
+    LayerNorm keeps graph-level prediction heads valid for training batches
+    containing a single graph.
 
     Optional output activation can be applied at the final layer.
 
@@ -783,7 +786,7 @@ class MLPHead(nn.Module):
                 [
                     nn.Linear(current_dim, hidden_dim),
                     nn.ReLU(),
-                    nn.BatchNorm1d(hidden_dim),
+                    nn.LayerNorm(hidden_dim),
                     nn.Dropout(dropout_prob),
                 ]
             )

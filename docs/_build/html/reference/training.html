@@ -150,7 +150,8 @@ and loader options.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="Trainer.load_checkpoint">
 <span class="sig-name descname"><span class="pre">load_checkpoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Trainer.load_checkpoint" title="Link to this definition"></a></dt>
-<dd><p>Restore model, optimizer, scheduler, and history state.</p>
+<dd><p>Restore model, optimizer, scheduler, and history state from a trusted
+checkpoint file.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -217,7 +218,7 @@ metadata.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="SplitPhyloDiskDataset">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">SplitPhyloDiskDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">graph_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_ids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recursive</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SplitPhyloDiskDataset" title="Link to this definition"></a></dt>
-<dd><p>Disk-backed dataset for mirrored graph and label <code class="docutils literal notranslate"><span class="pre">.pt</span></code> files.</p>
+<dd><p>Disk-backed dataset for trusted mirrored graph and label <code class="docutils literal notranslate"><span class="pre">.pt</span></code> files.</p>
 </dd></dl>
 
 </section>
@@ -244,36 +245,35 @@ metadata.</p>
 </section>
 <section id="metrics">
 <h2>Metrics<a class="headerlink" href="#metrics" title="Link to this heading"></a></h2>
-<dl class="py function">
-<dt class="sig sig-object py" id="mse_metric">
-<span class="sig-name descname"><span class="pre">mse_metric</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pred</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mse_metric" title="Link to this definition"></a></dt>
-<dd><p>Mean squared error.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="mae_metric">
-<span class="sig-name descname"><span class="pre">mae_metric</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pred</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mae_metric" title="Link to this definition"></a></dt>
-<dd><p>Mean absolute error.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="rmse_metric">
-<span class="sig-name descname"><span class="pre">rmse_metric</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pred</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#rmse_metric" title="Link to this definition"></a></dt>
-<dd><p>Root mean squared error.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="r2_metric">
-<span class="sig-name descname"><span class="pre">r2_metric</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pred</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#r2_metric" title="Link to this definition"></a></dt>
-<dd><p>R-squared score.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="relative_error_metric">
-<span class="sig-name descname"><span class="pre">relative_error_metric</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pred</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#relative_error_metric" title="Link to this definition"></a></dt>
-<dd><p>Mean relative error.</p>
-</dd></dl>
-
+<p>Trainer metrics are configured with supported string keys or direct
+<code class="docutils literal notranslate"><span class="pre">torchmetrics.Metric</span></code> instances. Built-in keys are:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Metric</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mse</span></code></p></td>
+<td><p>Mean squared error</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mae</span></code></p></td>
+<td><p>Mean absolute error</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rmse</span></code></p></td>
+<td><p>Root mean squared error</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">r2</span></code></p></td>
+<td><p>R-squared score for scalar outputs by default</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mape</span></code></p></td>
+<td><p>Mean absolute percentage error</p></td>
+</tr>
+</tbody>
+</table>
+<p>The legacy helper functions <code class="docutils literal notranslate"><span class="pre">mse_metric</span></code>, <code class="docutils literal notranslate"><span class="pre">mae_metric</span></code>, <code class="docutils literal notranslate"><span class="pre">rmse_metric</span></code>,
+<code class="docutils literal notranslate"><span class="pre">r2_metric</span></code>, and <code class="docutils literal notranslate"><span class="pre">relative_error_metric</span></code> are no longer part of the public API.
+Use the keys above or instantiate TorchMetrics classes directly.</p>
 </section>
 <section id="tracking">
 <h2>Tracking<a class="headerlink" href="#tracking" title="Link to this heading"></a></h2>

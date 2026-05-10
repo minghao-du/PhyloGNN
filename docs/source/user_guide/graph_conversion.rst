@@ -90,7 +90,8 @@ Saving and loading
 
 Use `convert_and_save()` for preprocessing pipelines, `save_data()` to store a
 PyTorch Geometric `Data` object, and `load_data()` to restore it with
-`torch.load`.
+`torch.load`. Saved graph files are complete PyTorch objects; load them only
+from trusted PhyloGNN project outputs.
 
 Related pages
 -------------

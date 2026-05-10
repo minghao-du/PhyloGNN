@@ -7,6 +7,7 @@ torch = pytest.importorskip("torch")
 pytest.importorskip("torch_geometric")
 
 from ete3 import Tree  # noqa: E402
+from torch_geometric.data import Data  # noqa: E402
 
 from phylognn.data import TreeFeatureEngineer, TreeToGraphConverter  # noqa: E402
 
@@ -84,6 +85,27 @@ def test_convert_and_save_preserves_generated_time_bin(tmp_path):
     loaded = TreeToGraphConverter.load_data(path)
 
     assert torch.equal(loaded.time_bin, saved.time_bin)
+
+
+def test_load_data_uses_explicit_trusted_complete_object_load(tmp_path, monkeypatch):
+    """Saved graph artifacts should opt into complete-object loading explicitly."""
+    path = tmp_path / "graph.pt"
+    graph = Data(
+        x=torch.ones((1, 1)),
+        edge_index=torch.empty((2, 0), dtype=torch.long),
+    )
+    calls = []
+
+    def fake_load(load_path, *, map_location=None, weights_only=None):
+        calls.append((load_path, map_location, weights_only))
+        return graph
+
+    monkeypatch.setattr(torch, "load", fake_load)
+
+    loaded = TreeToGraphConverter.load_data(path, map_location="cpu")
+
+    assert loaded is graph
+    assert calls == [(path, "cpu", False)]
 
 
 def test_convert_does_not_generate_time_bin_when_feature_is_absent():

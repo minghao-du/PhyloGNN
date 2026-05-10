@@ -70,7 +70,7 @@ Graph conversion
 
    .. py:staticmethod:: load_data(path, map_location=None)
 
-      Load a saved PyG `Data` object.
+      Load a saved PyG `Data` object from a trusted project output.
 
 Related guide
 -------------

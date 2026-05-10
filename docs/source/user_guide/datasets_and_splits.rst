@@ -44,6 +44,10 @@ Each supervised sample must expose `data.y`. Keep label dtype and shape aligned
 with the selected loss and model output. For graph-level regression, a common
 shape is one float target per graph.
 
+Disk-backed `.pt` graph and label files are loaded as complete PyTorch
+objects. Use this path only for trusted artifacts produced by your PhyloGNN
+preprocessing workflow.
+
 Determinism
 -----------
 

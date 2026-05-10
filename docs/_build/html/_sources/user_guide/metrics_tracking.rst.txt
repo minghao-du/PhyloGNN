@@ -7,10 +7,19 @@ training runs.
 Metrics
 -------
 
-Metric helpers accept `(pred, target)` tensors and return scalar tensors.
-Available helpers are `mse_metric`, `mae_metric`, `rmse_metric`, `r2_metric`,
-and `relative_error_metric`. `TOML` configuration can select these by name in
-the `[metrics]` section.
+Trainer metrics use TorchMetrics stateful objects. Pass built-in string keys
+such as `mse`, `mae`, `rmse`, `r2`, and `mape`, or pass an instantiated
+`torchmetrics.Metric` object. `TOML` configuration selects the same built-in
+keys in the `[metrics]` section.
+
+.. code-block:: python
+
+   trainer = Trainer(model=model, config=config, metrics={"rmse": "rmse"})
+
+Multi-output R2 requires a TorchMetrics `R2Score` instance configured for the
+model output shape, or an explicit internal configuration path that sets a
+positive output count. Direct custom metrics must inherit from
+`torchmetrics.Metric`.
 
 Local-first behavior
 --------------------
