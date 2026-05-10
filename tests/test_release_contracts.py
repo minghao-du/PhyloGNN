@@ -25,7 +25,6 @@ PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
                 "TrainingConfigError",
                 "create_trainer_from_config",
                 "load_training_config",
-                "rmse_metric",
             },
         ),
         ("phylognn.io", {"TreeReadConfig", "read_tree_as_ete3"}),
@@ -71,7 +70,15 @@ def test_dependency_profiles_match_release_metadata_contract():
         for profile, requirements in project["optional-dependencies"].items()
     }
 
-    assert dependencies == {"ete3", "numpy", "torch", "torch-geometric", "torch-scatter", "tqdm"}
+    assert dependencies == {
+        "ete3",
+        "numpy",
+        "torch",
+        "torch-geometric",
+        "torch-scatter",
+        "torchmetrics",
+        "tqdm",
+    }
     assert optional["beast"] == {"dendropy"}
     assert optional["wandb"] == {"wandb"}
     assert optional["docs"] == {"sphinx", "sphinx-rtd-theme"}

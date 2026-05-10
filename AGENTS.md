@@ -180,5 +180,6 @@ python -m build
 - reStructuredText, Python 3.x + Sphinx, PhyloGNN package (001-docs-restructure)
 - Documentation files (.rst) (001-docs-restructure)
 - Python 3.11, Sphinx + sphinx, github-actions (001-host-sphinx-docs-github)
+- Python 3.11 + `torchmetrics`, `torch`, `torch_geometric` (002-torchmetrics-migration)
 
 ## Recent Changes

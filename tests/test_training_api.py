@@ -23,31 +23,34 @@ def test_training_package_uses_canonical_all_exports():
         "create_default_trainer",
         "create_trainer_from_config",
         "load_training_config",
-        "mse_metric",
-        "mae_metric",
-        "r2_metric",
-        "rmse_metric",
-        "relative_error_metric",
     ]
     assert not hasattr(training, "all")
 
 
 def test_training_package_exports_intended_metrics_and_factory_names():
-    """The curated public contract should include metrics and the trainer factory."""
+    """The curated public contract should include trainer factories and tracking helpers."""
     training = importlib.import_module("phylognn.training")
 
     for export_name in {
         "create_default_trainer",
         "create_trainer_from_config",
         "load_training_config",
-        "rmse_metric",
-        "relative_error_metric",
         "TrackingConfig",
         "TrackingError",
         "TrackingRunInfo",
         "WandbTracker",
     }:
         assert export_name in training.__all__
+
+    for removed_name in {
+        "mse_metric",
+        "mae_metric",
+        "r2_metric",
+        "rmse_metric",
+        "relative_error_metric",
+        "MetricRegistry",
+    }:
+        assert removed_name not in training.__all__
 
 
 def test_training_package_dir_matches_curated_api():

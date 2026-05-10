@@ -105,25 +105,28 @@ TOML helpers
 Metrics
 -------
 
-.. py:function:: mse_metric(pred, target)
+Trainer metrics are configured with supported string keys or direct
+`torchmetrics.Metric` instances. Built-in keys are:
 
-   Mean squared error.
+.. list-table::
+   :header-rows: 1
 
-.. py:function:: mae_metric(pred, target)
+   * - Key
+     - Metric
+   * - `mse`
+     - Mean squared error
+   * - `mae`
+     - Mean absolute error
+   * - `rmse`
+     - Root mean squared error
+   * - `r2`
+     - R-squared score for scalar outputs by default
+   * - `mape`
+     - Mean absolute percentage error
 
-   Mean absolute error.
-
-.. py:function:: rmse_metric(pred, target)
-
-   Root mean squared error.
-
-.. py:function:: r2_metric(pred, target)
-
-   R-squared score.
-
-.. py:function:: relative_error_metric(pred, target)
-
-   Mean relative error.
+The legacy helper functions `mse_metric`, `mae_metric`, `rmse_metric`,
+`r2_metric`, and `relative_error_metric` are no longer part of the public API.
+Use the keys above or instantiate TorchMetrics classes directly.
 
 Tracking
 --------

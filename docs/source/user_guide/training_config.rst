@@ -31,7 +31,7 @@ Optional sections
 
 `[metrics]`
    Selects built-in metrics by `names`, including `mse`, `mae`, `rmse`, `r2`,
-   and `relative_error`.
+   and `mape`.
 
 `[tracking]`
    Enables optional experiment tracking. When `enabled=true`, `project` is

@@ -22,13 +22,7 @@ except ModuleNotFoundError:  # pragma: no cover - project runtime is Python >=3.
 import torch.nn as nn
 
 from phylognn.models import GATBiLSTMNet
-from phylognn.training.metrics import (
-    mae_metric,
-    mse_metric,
-    r2_metric,
-    relative_error_metric,
-    rmse_metric,
-)
+from phylognn.training.metrics import MetricRegistry
 from phylognn.training.trainer import LossFn, MetricsMap, Trainer, TrainingConfig
 from phylognn.training.tracking import (
     TrackingConfig,
@@ -126,13 +120,7 @@ LOSS_REGISTRY: Mapping[str, type[nn.Module]] = {
     "mse": nn.MSELoss,
     "mae": nn.L1Loss,
 }
-METRIC_REGISTRY = {
-    "mse": mse_metric,
-    "mae": mae_metric,
-    "rmse": rmse_metric,
-    "r2": r2_metric,
-    "relative_error": relative_error_metric,
-}
+METRIC_REGISTRY = frozenset(MetricRegistry.names())
 
 
 def load_training_config(
@@ -207,7 +195,7 @@ def load_training_config(
         model=model,
         training_config=training_config,
         loss_fn=LOSS_REGISTRY[loss_name](),
-        metrics={name: METRIC_REGISTRY[name] for name in metric_names},
+        metrics={name: name for name in metric_names},
         tracking_config=tracking_config,
         tracking_metadata=tracking_metadata,
     )
@@ -455,7 +443,7 @@ def _resolve_metric_names(
     if len(set(names)) != len(names):
         raise TrainingConfigError(f"{config_path}: metrics.names must not contain duplicates.")
 
-    unknown = sorted(set(names) - set(METRIC_REGISTRY))
+    unknown = sorted(set(names) - METRIC_REGISTRY)
     if unknown:
         valid = ", ".join(sorted(METRIC_REGISTRY))
         raise TrainingConfigError(

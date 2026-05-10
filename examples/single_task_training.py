@@ -19,7 +19,7 @@ from torch_geometric.data import Data
 from torch_geometric.nn import global_mean_pool
 
 from phylognn import Trainer, TrainingConfig, TreeFeatureEngineer, TreeToGraphConverter
-from phylognn.training import DatasetSplit, SplitPhyloDataset, rmse_metric
+from phylognn.training import DatasetSplit, SplitPhyloDataset
 
 ROOT = Path(__file__).resolve().parents[1]
 FEATURE_NAMES = ["node_time", "time_bin", "branch_length", "is_tip"]
@@ -112,7 +112,7 @@ def main() -> None:
             save_dir=str(output_dir),
             verbose=False,
         )
-        trainer = Trainer(model=model, config=config, metrics={"rmse": rmse_metric})
+        trainer = Trainer(model=model, config=config, metrics={"rmse": "rmse"})
 
         history = trainer.fit(
             train_dataset=subsets["train"],

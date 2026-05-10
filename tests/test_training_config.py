@@ -315,14 +315,25 @@ def test_explicit_overrides_win_over_toml_values(tmp_path: Path):
         model_overrides={"input_dim": 7},
         training_overrides={"epochs": 2, "save_dir": str(tmp_path / "run")},
         loss="mae",
-        metrics=["rmse", "relative_error"],
+        metrics=["rmse", "mape"],
     )
 
     assert setup.model.input_dim == 7
     assert setup.training_config.epochs == 2
     assert setup.training_config.save_dir == str(tmp_path / "run")
     assert type(setup.loss_fn).__name__ == "L1Loss"
-    assert list(setup.metrics) == ["rmse", "relative_error"]
+    assert list(setup.metrics) == ["rmse", "mape"]
+    assert setup.metrics == {"rmse": "rmse", "mape": "mape"}
+
+
+def test_legacy_metric_helper_names_are_not_registered(tmp_path: Path):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace('names = ["mse", "mae"]', 'names = ["relative_error"]'),
+    )
+
+    with pytest.raises(TrainingConfigError, match="unsupported metric"):
+        load_training_config(config_path)
 
 
 def test_tracking_section_builds_enabled_tracking_setup(tmp_path: Path):

@@ -28,8 +28,10 @@ IMPORT_TO_DISTRIBUTION = {
     "pytest": "pytest",
     "ruff": "ruff",
     "sphinx": "sphinx",
+    "sphinx_rtd_theme": "sphinx-rtd-theme",
     "torch": "torch",
     "torch_geometric": "torch-geometric",
+    "torchmetrics": "torchmetrics",
     "torch_scatter": "torch-scatter",
     "tqdm": "tqdm",
     "wandb": "wandb",
@@ -79,8 +81,20 @@ AUDIT_CLASSIFICATIONS = {
     "sphinx": AuditClassification(
         "sphinx", "documentation", "docs", "Documentation builder advertised by the docs extra."
     ),
+    "sphinx-rtd-theme": AuditClassification(
+        "sphinx-rtd-theme",
+        "documentation",
+        "docs",
+        "Documentation theme advertised by the docs extra.",
+    ),
     "torch": AuditClassification("torch", "core", "default"),
     "torch-geometric": AuditClassification("torch-geometric", "core", "default"),
+    "torchmetrics": AuditClassification(
+        "torchmetrics",
+        "core",
+        "default",
+        "Trainer metric lifecycle depends on TorchMetrics Metric objects.",
+    ),
     "torch-scatter": AuditClassification(
         "torch-scatter",
         "core",
@@ -96,16 +110,25 @@ AUDIT_CLASSIFICATIONS = {
 }
 
 EXPECTED_PROFILES = {
-    "default": {"ete3", "numpy", "torch", "torch-geometric", "torch-scatter", "tqdm"},
+    "default": {
+        "ete3",
+        "numpy",
+        "torch",
+        "torch-geometric",
+        "torch-scatter",
+        "torchmetrics",
+        "tqdm",
+    },
     "beast": {"dendropy"},
     "wandb": {"wandb"},
-    "docs": {"sphinx"},
+    "docs": {"sphinx", "sphinx-rtd-theme"},
     "dev": {"black", "pytest", "ruff"},
     "all": {"dendropy", "pandas", "wandb"},
 }
 
 NEW_DEPENDENCY_VERSION_BOUNDS = {
     "torch-scatter": ">=2.1.0",
+    "torchmetrics": ">=1.0.0",
     "tqdm": ">=4.65.0",
 }
 
@@ -233,9 +256,15 @@ def _text_workflow_evidence() -> set[str]:
 
 def test_default_dependencies_cover_public_runtime_import_contract():
     assert _profile_distributions("default") == EXPECTED_PROFILES["default"]
-    assert {"torch", "torch-geometric", "torch-scatter", "ete3", "tqdm", "numpy"}.issubset(
-        _profile_distributions("default")
-    )
+    assert {
+        "torch",
+        "torch-geometric",
+        "torch-scatter",
+        "torchmetrics",
+        "ete3",
+        "tqdm",
+        "numpy",
+    }.issubset(_profile_distributions("default"))
 
     for import_name, distribution_name in IMPORT_TO_DISTRIBUTION.items():
         classification = AUDIT_CLASSIFICATIONS.get(distribution_name)

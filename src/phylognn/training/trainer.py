@@ -46,7 +46,9 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, ReduceLROnPlateau, StepL
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from tqdm import tqdm
+from torchmetrics import Metric, R2Score
 
+from phylognn.training.metrics import MetricRegistry
 from phylognn.training.tracking import (
     TrackerProtocol,
     TrackingConfig,
@@ -61,8 +63,8 @@ from phylognn.training.tracking import (
 # Typing aliases
 # ---------------------------------------------------------------------
 LossFn = Callable[[Tensor, Tensor], Tensor]
-MetricFn = Callable[[Tensor, Tensor], Union[Tensor, float]]
-MetricsMap = Dict[str, MetricFn]
+MetricSpec = Union[str, Metric]
+MetricsMap = Dict[str, MetricSpec]
 
 
 # ---------------------------------------------------------------------
@@ -211,6 +213,20 @@ def _detach_item(x: Union[Tensor, float, int]) -> float:
     return float(x)
 
 
+def _metric_compute_to_float(x: Union[Tensor, float, int]) -> float:
+    """
+    Convert a computed metric value to a float for history and logging.
+    """
+    if isinstance(x, Tensor):
+        value = x.detach().float()
+        if value.numel() == 0:
+            raise ValueError("Metric compute returned an empty tensor.")
+        if value.numel() > 1:
+            value = value.mean()
+        return float(value.cpu().item())
+    return float(x)
+
+
 def _safe_mean(total: float, count: int) -> float:
     """
     Mean with explicit empty-check.
@@ -248,9 +264,9 @@ class Trainer:
         Loss function(s). If omitted, defaults to `nn.MSELoss()` for
         standard regression.
 
-    metrics : dict[str, callable], optional
-        Each metric must accept `(pred, target)` and return a scalar tensor or
-        numeric value.
+    metrics : dict[str, str | torchmetrics.Metric], optional
+        Each value must be a supported built-in metric key or an instantiated
+        `torchmetrics.Metric`.
 
     tracking_config : TrackingConfig, optional
         Optional experiment tracking settings. Disabled or omitted tracking
@@ -281,8 +297,9 @@ class Trainer:
 
         self.loss_fn: LossFn = nn.MSELoss() if loss_fn is None else loss_fn
 
-        self.metrics: MetricsMap = metrics or {}
+        self.metrics = self._resolve_metrics(metrics or {})
         self._validate_loss_and_metrics()
+        self._move_metrics_to_device()
 
         self.tracking_config = tracking_config or TrackingConfig(enabled=False)
         self.tracking_config.validate()
@@ -320,11 +337,90 @@ class Trainer:
             raise TypeError("loss_fn must be callable.")
 
         if not isinstance(self.metrics, dict):
-            raise TypeError("metrics must be a dict[str, callable] or None.")
+            raise TypeError("metrics must be a dict[str, str | torchmetrics.Metric] or None.")
         if not all(isinstance(k, str) for k in self.metrics.keys()):
             raise TypeError("All metric names must be strings.")
-        if not all(callable(v) for v in self.metrics.values()):
-            raise TypeError("All metric functions must be callable.")
+        for name, metric in self.metrics.items():
+            self._validate_metric(name, metric)
+
+    def _resolve_metrics(self, metrics: MetricsMap) -> Dict[str, Metric]:
+        """
+        Resolve configured metric keys to fresh TorchMetrics instances.
+        """
+        if not isinstance(metrics, dict):
+            raise TypeError("metrics must be a dict[str, str | torchmetrics.Metric] or None.")
+
+        resolved: Dict[str, Metric] = {}
+        for display_name, metric_spec in metrics.items():
+            if not isinstance(display_name, str):
+                raise TypeError("All metric names must be strings.")
+            if isinstance(metric_spec, str):
+                resolved[display_name] = MetricRegistry.create(metric_spec)
+            else:
+                resolved[display_name] = metric_spec
+        return resolved
+
+    def _validate_metric(self, name: str, metric: Metric) -> None:
+        if not isinstance(metric, Metric):
+            raise TypeError(
+                f"Metric {name!r} must be a torchmetrics.Metric instance or supported metric key."
+            )
+        if self._distributed_training_active() and getattr(metric, "dist_sync_on_step", None):
+            raise ValueError(
+                f"Metric {name!r} must use dist_sync_on_step=False for distributed training."
+            )
+
+    def _distributed_training_active(self) -> bool:
+        return (
+            torch.distributed.is_available()
+            and torch.distributed.is_initialized()
+            and torch.distributed.get_world_size() > 1
+        )
+
+    def _move_metrics_to_device(self) -> None:
+        """
+        Move all metric state to the trainer device.
+        """
+        for metric in self.metrics.values():
+            metric.to(self.device)
+
+    def _validate_metric_inputs(
+        self, name: str, metric: Metric, pred: Tensor, target: Tensor
+    ) -> None:
+        if pred.size(0) != target.size(0):
+            raise ValueError(
+                f"Metric {name!r} expected prediction and target batch dimensions to match, "
+                f"got {pred.size(0)} and {target.size(0)}."
+            )
+        if not pred.is_floating_point() or not target.is_floating_point():
+            raise TypeError(f"Metric {name!r} expects floating point predictions and targets.")
+
+        expected_outputs = getattr(metric, "num_outputs", None)
+        if isinstance(metric, R2Score) and expected_outputs is not None:
+            observed_outputs = 1 if pred.ndim == 1 else pred.size(-1)
+            target_outputs = 1 if target.ndim == 1 else target.size(-1)
+            if observed_outputs != target_outputs:
+                raise ValueError(
+                    f"Metric {name!r} expected prediction and target output dimensions to match, "
+                    f"got {observed_outputs} and {target_outputs}."
+                )
+            if observed_outputs != expected_outputs:
+                raise ValueError(
+                    f"Metric {name!r} was configured for {expected_outputs} output(s), "
+                    f"but received {observed_outputs}."
+                )
+
+    def _update_metrics(self, pred: Tensor, target: Tensor) -> None:
+        for name, metric in self.metrics.items():
+            self._validate_metric_inputs(name, metric, pred, target)
+            metric.update(pred, target)
+
+    def _compute_metrics(self) -> Dict[str, float]:
+        results = {}
+        for name, metric in self.metrics.items():
+            results[name] = _metric_compute_to_float(metric.compute())
+            metric.reset()
+        return results
 
     def _init_history(self) -> Dict[str, List[float]]:
         """
@@ -518,7 +614,8 @@ class Trainer:
         Train one epoch in single-task mode.
         """
         total_loss = 0.0
-        metric_totals = {name: 0.0 for name in self.metrics.keys()}
+        for metric in self.metrics.values():
+            metric.reset()
 
         pbar = tqdm(
             train_loader,
@@ -555,15 +652,13 @@ class Trainer:
             total_loss += _detach_item(loss)
 
             with torch.no_grad():
-                for name, metric_fn in self.metrics.items():
-                    metric_totals[name] += _detach_item(metric_fn(pred, target))
+                self._update_metrics(pred.detach(), target.detach())
 
             pbar.set_postfix(loss=f"{_detach_item(loss):.4f}", lr=f"{self._get_current_lr():.2e}")
 
         num_batches = len(train_loader)
         results = {"loss": _safe_mean(total_loss, num_batches)}
-        for name, total in metric_totals.items():
-            results[name] = _safe_mean(total, num_batches)
+        results.update(self._compute_metrics())
         return results
 
     @torch.no_grad()
@@ -592,7 +687,8 @@ class Trainer:
         Validate one epoch in single-task mode.
         """
         total_loss = 0.0
-        metric_totals = {name: 0.0 for name in self.metrics.keys()}
+        for metric in self.metrics.values():
+            metric.reset()
 
         for batch in val_loader:
             batch = self._move_batch_to_device(batch)
@@ -606,13 +702,11 @@ class Trainer:
 
             total_loss += _detach_item(loss)
 
-            for name, metric_fn in self.metrics.items():
-                metric_totals[name] += _detach_item(metric_fn(pred, target))
+            self._update_metrics(pred.detach(), target.detach())
 
         num_batches = len(val_loader)
         results = {"loss": _safe_mean(total_loss, num_batches)}
-        for name, total in metric_totals.items():
-            results[name] = _safe_mean(total, num_batches)
+        results.update(self._compute_metrics())
         return results
 
     # -----------------------------------------------------------------

@@ -1,8 +1,8 @@
 """
 Curated training-facing API for PhyloGNN.
 
-This package exposes split-aware dataset types, trainer utilities, and public
-metric helpers intended for end-user workflows.
+This package exposes split-aware dataset types, trainer utilities, and
+configuration helpers intended for end-user workflows.
 """
 
 from importlib import import_module
@@ -24,11 +24,6 @@ _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
     "create_default_trainer": ("phylognn.training.trainer", "create_default_trainer"),
     "create_trainer_from_config": ("phylognn.training.config", "create_trainer_from_config"),
     "load_training_config": ("phylognn.training.config", "load_training_config"),
-    "mse_metric": ("phylognn.training.metrics", "mse_metric"),
-    "mae_metric": ("phylognn.training.metrics", "mae_metric"),
-    "r2_metric": ("phylognn.training.metrics", "r2_metric"),
-    "rmse_metric": ("phylognn.training.metrics", "rmse_metric"),
-    "relative_error_metric": ("phylognn.training.metrics", "relative_error_metric"),
 }
 
 __all__ = [
@@ -47,11 +42,6 @@ __all__ = [
     "create_default_trainer",
     "create_trainer_from_config",
     "load_training_config",
-    "mse_metric",
-    "mae_metric",
-    "r2_metric",
-    "rmse_metric",
-    "relative_error_metric",
 ]
 
 
