@@ -70,6 +70,20 @@ def _loader_with_target(target: torch.Tensor) -> DataLoader:
     )
 
 
+def _train_loader(num_samples: int = 1) -> DataLoader:
+    return DataLoader(
+        [
+            Data(
+                x=torch.ones((1, 1)),
+                edge_index=torch.empty((2, 0), dtype=torch.long),
+                y=torch.ones(1),
+            )
+            for _ in range(num_samples)
+        ],
+        batch_size=1,
+    )
+
+
 def test_dataset_split_from_dict_preserves_names_and_membership():
     """Explicit split construction should preserve insertion order."""
     split = DatasetSplit.from_dict({"train": ["a", "b"], "val": ["c"]})
@@ -305,3 +319,50 @@ def test_trainer_load_checkpoint_uses_explicit_trusted_load(tmp_path, monkeypatc
 
     assert trainer.current_epoch == 1
     assert calls == [(trainer.save_dir / "model.pt", trainer.device, False)]
+
+
+def test_save_best_only_without_validation_saves_latest_checkpoint(tmp_path):
+    trainer = Trainer(
+        model=TinyRegressor(),
+        config=TrainingConfig(
+            epochs=1,
+            batch_size=1,
+            scheduler=None,
+            save_dir=str(tmp_path / "checkpoints"),
+            save_best_only=True,
+            verbose=False,
+        ),
+    )
+
+    with pytest.warns(UserWarning, match="checkpoint_latest.pt"):
+        trainer.fit(train_loader=_train_loader())
+
+    assert (trainer.save_dir / "checkpoint_latest.pt").is_file()
+    assert not (trainer.save_dir / "best_model.pt").exists()
+    assert not list(trainer.save_dir.glob("checkpoint_epoch_*.pt"))
+
+
+def test_save_best_only_without_validation_overwrites_latest_checkpoint(tmp_path):
+    trainer = Trainer(
+        model=TinyRegressor(),
+        config=TrainingConfig(
+            epochs=2,
+            batch_size=1,
+            scheduler=None,
+            save_dir=str(tmp_path / "checkpoints"),
+            save_best_only=True,
+            verbose=False,
+        ),
+    )
+
+    with pytest.warns(UserWarning, match="checkpoint_latest.pt"):
+        trainer.fit(train_loader=_train_loader())
+
+    checkpoint_files = sorted(path.name for path in trainer.save_dir.glob("*.pt"))
+    assert checkpoint_files == ["checkpoint_latest.pt", "final_model.pt"]
+    checkpoint = torch.load(
+        trainer.save_dir / "checkpoint_latest.pt",
+        map_location=trainer.device,
+        weights_only=False,
+    )
+    assert checkpoint["current_epoch"] == 2

@@ -94,9 +94,64 @@ epochs = 1
     assert setup.training_config.batch_size == TrainingConfig().batch_size
     assert setup.training_config.optimizer == TrainingConfig().optimizer
     assert setup.training_config.scheduler == TrainingConfig().scheduler
+    assert setup.training_config.early_stopping_patience is None
     assert type(setup.loss_fn).__name__ == "MSELoss"
     assert setup.metrics == {}
     assert setup.tracking_config.enabled is False
+
+
+@pytest.mark.parametrize("value", ['"none"', "0", "-1"])
+def test_load_training_config_maps_disabled_early_stopping_to_none(
+    tmp_path: Path,
+    value: str,
+):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace(
+            "learning_rate = 0.001",
+            f"learning_rate = 0.001\nearly_stopping_patience = {value}",
+        ),
+    )
+
+    setup = load_training_config(config_path)
+
+    assert setup.training_config.early_stopping_patience is None
+
+
+def test_load_training_config_preserves_positive_early_stopping_patience(tmp_path: Path):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace(
+            "learning_rate = 0.001",
+            "learning_rate = 0.001\nearly_stopping_patience = 3",
+        ),
+    )
+
+    setup = load_training_config(config_path)
+
+    assert setup.training_config.early_stopping_patience == 3
+
+
+def test_load_training_config_configures_r2_for_output_dim(tmp_path: Path):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config(output_dim=2).replace('names = ["mse", "mae"]', 'names = ["r2"]'),
+    )
+
+    setup = load_training_config(config_path)
+
+    assert setup.metrics["r2"].num_outputs == 2
+
+
+def test_load_training_config_configures_r2_with_default_num_outputs(tmp_path: Path):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace('names = ["mse", "mae"]', 'names = ["r2"]'),
+    )
+
+    setup = load_training_config(config_path)
+
+    assert setup.metrics["r2"].num_outputs == 1
 
 
 def test_create_trainer_from_config_leaves_data_to_caller(tmp_path: Path):

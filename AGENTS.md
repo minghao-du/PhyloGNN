@@ -183,5 +183,7 @@ python -m build
 - Python 3.11 + `torchmetrics`, `torch`, `torch_geometric` (002-torchmetrics-migration)
 - Python >=3.12 + PyTorch, PyTorch Geometric, torch-scatter, torchmetrics, ete3, numpy, pytest (003-fix-training-stability)
 - Local `.pt` graph files and trainer checkpoint/history files; no storage format migration (003-fix-training-stability)
+- Python 3 + PyTorch, PyTorch Geometric, torchmetrics (001-fix-training-module-bugs)
+- Checkpoint `.pt` files (001-fix-training-module-bugs)
 
 ## Recent Changes

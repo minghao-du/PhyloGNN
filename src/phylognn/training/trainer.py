@@ -37,6 +37,7 @@ from typing import Any, Callable, Dict, List, Literal, Mapping, Optional, Tuple,
 
 import json
 import time
+import warnings
 
 import torch
 import torch.nn as nn
@@ -108,7 +109,9 @@ class TrainingConfig:
 
     early_stopping_patience : int or None, default=20
         Stop training when validation loss does not improve for this many
-        epochs. If None, early stopping is disabled.
+        epochs. If None, early stopping is disabled. TOML configuration values
+        `"none"`, `0`, `-1`, and omitted keys are normalized to None by the
+        TOML loader.
 
     device : str, default=auto
         Device string, e.g. "cuda", "cpu", or "mps".
@@ -118,7 +121,9 @@ class TrainingConfig:
 
     save_best_only : bool, default=True
         If True, only the best validation checkpoint is saved during training.
-        The final checkpoint is always saved at the end.
+        Without validation data, training instead overwrites
+        `checkpoint_latest.pt` after each epoch and emits a UserWarning. The
+        final checkpoint is always saved at the end.
 
     verbose : bool, default=True
         Whether to print progress.
@@ -972,9 +977,17 @@ class Trainer:
         epoch_num: int,
     ) -> None:
         """
-        Handle best-model tracking and early stopping counters.
+        Handle best-model tracking, latest-checkpoint fallback, and early stopping counters.
         """
         if current_val_loss is None:
+            if self.config.save_best_only:
+                warnings.warn(
+                    "save_best_only=True requires validation data to identify the best "
+                    "checkpoint; saving checkpoint_latest.pt instead.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                self.save_checkpoint("checkpoint_latest.pt")
             return
 
         if current_val_loss < self.best_val_loss:

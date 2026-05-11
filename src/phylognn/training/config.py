@@ -195,7 +195,7 @@ def load_training_config(
         model=model,
         training_config=training_config,
         loss_fn=LOSS_REGISTRY[loss_name](),
-        metrics={name: name for name in metric_names},
+        metrics=_resolve_metric_specs(metric_names, output_dim=model_params.get("output_dim")),
         tracking_config=tracking_config,
         tracking_metadata=tracking_metadata,
     )
@@ -354,6 +354,10 @@ def _validate_required_model_params(model_params: Mapping[str, Any], *, config_p
 def _validate_training_values(training_values: dict[str, Any], *, config_path: Path) -> None:
     if "scheduler" in training_values and training_values["scheduler"] == "none":
         training_values["scheduler"] = None
+    if "early_stopping_patience" not in training_values:
+        training_values["early_stopping_patience"] = None
+    elif training_values["early_stopping_patience"] in {"none", 0, -1}:
+        training_values["early_stopping_patience"] = None
 
     for key in sorted(TRAINING_INT_KEYS):
         if key in training_values and (
@@ -381,7 +385,7 @@ def _validate_training_values(training_values: dict[str, Any], *, config_path: P
             )
         ):
             _raise_type_error(
-                f"training.{key}", "an integer or null", training_values[key], config_path
+                f"training.{key}", "an integer, 'none', or null", training_values[key], config_path
             )
 
     for key in sorted(TRAINING_STR_KEYS):
@@ -450,6 +454,16 @@ def _resolve_metric_names(
             f"{config_path}: unsupported metric name(s) {unknown!r}; expected one of ({valid})."
         )
     return names
+
+
+def _resolve_metric_specs(metric_names: Sequence[str], *, output_dim: object) -> MetricsMap:
+    resolved: MetricsMap = {}
+    for name in metric_names:
+        if name == "r2":
+            resolved[name] = MetricRegistry.create("r2", num_outputs=output_dim or 1)
+        else:
+            resolved[name] = name
+    return resolved
 
 
 def _resolve_tracking_config(
