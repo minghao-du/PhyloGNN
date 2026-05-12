@@ -154,7 +154,7 @@ Engineering notes
 -----------------
 - All indexing is deterministic
 - Subsets are lightweight views over a base dataset
-- Graphs are cloned before labels/transforms are attached
+   - Graphs are cloned before labels are attached and before PyG applies transforms
 - Optional caching is supported for disk-backed loading
 - Disk-backed `.pt` graph and label files are loaded as complete objects and
   must come from trusted project workflows.
@@ -625,8 +625,8 @@ class SplitDatasetView(Dataset):
         Base-dataset indices belonging to this split.
 
     transform : Optional[Callable], default=None
-        Optional transform applied after retrieving a sample from the base
-        dataset.
+        Optional view-level transform. PyG applies it once after this view
+        retrieves the base-prepared sample.
     """
 
     def __init__(
@@ -693,8 +693,8 @@ class SplitDatasetView(Dataset):
         Returns
         -------
         Data
-            The sample returned by the base dataset, optionally followed by
-            a view-specific transform.
+            The sample returned by the base dataset. PyG applies any
+            view-specific transform once after `get()` returns.
 
         Notes
         -----
@@ -702,21 +702,17 @@ class SplitDatasetView(Dataset):
 
         split-local index -> base dataset index -> base dataset sample
 
-        If `transform` was given when constructing the view, it is applied after
-        the base dataset retrieval.
+        If `transform` was given when constructing the view, PyG applies it
+        after the base dataset retrieval.
 
         Engineering note
         ----------------
-        If the base dataset itself already has a transform, and this view also
-        has a transform, then both may be applied in sequence.
+        If the base dataset itself has a transform and this view also has a
+        transform, PyG applies them exactly once each in base-first,
+        view-second order.
         """
         base_idx = self._view_indices[idx]
-        data = self.base_dataset[base_idx]
-
-        if self._override_transform is not None:
-            data = self._override_transform(data)
-
-        return data
+        return self.base_dataset[base_idx]
 
     @property
     def sample_ids(self) -> List[str]:
@@ -975,7 +971,7 @@ class SplitPhyloDataset(_BaseSplitAwareDataset):
 
     def get(self, idx: int) -> Data:
         """
-        Retrieve one sample by index.
+        Retrieve one sample by index before PyG applies the dataset transform.
         """
         data = _clone_data(self._data_list[idx])
 
@@ -983,9 +979,6 @@ class SplitPhyloDataset(_BaseSplitAwareDataset):
             data.y = self._labels[idx]
 
         data.sample_id = self.sample_ids[idx]
-
-        if self.transform is not None:
-            data = self.transform(data)
 
         return data
 
@@ -1256,7 +1249,7 @@ class SplitPhyloDiskDataset(_BaseSplitAwareDataset):
 
     def get(self, idx: int) -> Data:
         """
-        Retrieve one dataset sample.
+        Retrieve one dataset sample before PyG applies the dataset transform.
 
         Returns
         -------
@@ -1270,9 +1263,6 @@ class SplitPhyloDiskDataset(_BaseSplitAwareDataset):
             data = _attach_label_to_data(data, label_obj)
 
         data.sample_id = self.sample_ids[idx]
-
-        if self.transform is not None:
-            data = self.transform(data)
 
         return data
 

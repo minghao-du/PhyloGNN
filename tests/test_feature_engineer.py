@@ -61,6 +61,25 @@ def test_custom_features_extend_public_metadata_consistently():
     assert "dummy_feature" in engineer.available_features
 
 
+@pytest.mark.parametrize("num_time_bins", [True, False, 5.0, "5", None])
+def test_tree_feature_engineer_rejects_non_int_num_time_bins(num_time_bins):
+    with pytest.raises(TypeError, match="num_time_bins"):
+        TreeFeatureEngineer(num_time_bins=num_time_bins)
+
+
+@pytest.mark.parametrize("num_time_bins", [0, -1])
+def test_tree_feature_engineer_rejects_non_positive_num_time_bins(num_time_bins):
+    with pytest.raises(ValueError, match="num_time_bins"):
+        TreeFeatureEngineer(num_time_bins=num_time_bins)
+
+
+@pytest.mark.parametrize("num_time_bins", [1, 2, 5])
+def test_tree_feature_engineer_accepts_positive_int_num_time_bins(num_time_bins):
+    engineer = TreeFeatureEngineer(num_time_bins=num_time_bins)
+
+    assert engineer.num_time_bins == num_time_bins
+
+
 def test_add_features_accepts_read_only_feature_metadata():
     """Public feature metadata should work directly as converter input."""
     engineer = TreeFeatureEngineer(num_time_bins=5)

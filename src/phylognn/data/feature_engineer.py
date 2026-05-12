@@ -119,7 +119,8 @@ class TreeFeatureEngineer:
         Number of time bins used to discretize continuous node times.
 
         Constraints:
-        - Must be at least 2.
+        - Must be a Python `int`, excluding `bool`.
+        - Must be at least 1.
 
         Semantic meaning:
         - The discrete time bin range is always:
@@ -830,8 +831,13 @@ class TreeFeatureEngineer:
         time_tolerance: float,
     ) -> None:
         """Validate initialization parameters."""
-        if num_time_bins < 2:
-            raise ValueError(f"num_time_bins must be at least 2, got {num_time_bins}")
+        if not isinstance(num_time_bins, int) or isinstance(num_time_bins, bool):
+            raise TypeError(
+                "num_time_bins must be a Python int greater than or equal to 1, "
+                f"got {type(num_time_bins).__name__}."
+            )
+        if num_time_bins < 1:
+            raise ValueError(f"num_time_bins must be at least 1, got {num_time_bins}")
 
         if not 0.0 <= extant_sampling_probability <= 1.0:
             raise ValueError(

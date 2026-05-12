@@ -783,6 +783,12 @@ class Trainer:
         ------
         ValueError
             If no training data source is provided.
+
+        Notes
+        -----
+        If training fails after tracking has started, tracking finalization is
+        attempted but any cleanup failure is emitted as a warning so the
+        original training exception remains primary.
         """
         if train_loader is None:
             if train_dataset is None:
@@ -851,10 +857,10 @@ class Trainer:
             self._finish_tracking("completed")
             return self.history
         except KeyboardInterrupt:
-            self._finish_tracking("interrupted")
+            self._finish_tracking_after_failure("interrupted")
             raise
         except Exception:
-            self._finish_tracking("failed")
+            self._finish_tracking_after_failure("failed")
             raise
 
     def _start_tracking(self) -> None:
@@ -907,6 +913,19 @@ class Trainer:
             self.tracker.log_metrics(final_metrics, step=step)
         self.tracker.log_metrics(build_status_metrics(status), step=step)
         self.tracker.finish(status)
+
+    def _finish_tracking_after_failure(
+        self,
+        status: Literal["failed", "interrupted"],
+    ) -> None:
+        try:
+            self._finish_tracking(status)
+        except Exception as exc:
+            warnings.warn(
+                f"Tracking cleanup failed after training {status}: {exc}",
+                UserWarning,
+                stacklevel=2,
+            )
 
     def _append_train_history(self, train_metrics: Dict[str, float]) -> None:
         """

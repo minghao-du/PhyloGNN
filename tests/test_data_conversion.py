@@ -51,6 +51,47 @@ def test_converter_rejects_duplicate_feature_names():
         TreeToGraphConverter(feature_names=("time_bin", "time_bin"))
 
 
+@pytest.mark.parametrize("num_time_bins", [True, False, 5.0, "5"])
+def test_converter_rejects_non_int_explicit_num_time_bins(num_time_bins):
+    with pytest.raises(TypeError, match="num_time_bins"):
+        TreeToGraphConverter(
+            feature_names=("node_time", "time_bin"),
+            add_virtual_nodes=True,
+            num_time_bins=num_time_bins,
+        )
+
+
+@pytest.mark.parametrize("num_time_bins", [0, -1])
+def test_converter_rejects_non_positive_explicit_num_time_bins(num_time_bins):
+    with pytest.raises(ValueError, match="num_time_bins"):
+        TreeToGraphConverter(
+            feature_names=("node_time", "time_bin"),
+            add_virtual_nodes=True,
+            num_time_bins=num_time_bins,
+        )
+
+
+@pytest.mark.parametrize("num_time_bins", [1, 2, 5])
+def test_converter_accepts_positive_int_explicit_num_time_bins(num_time_bins):
+    converter = TreeToGraphConverter(
+        feature_names=("node_time", "time_bin"),
+        add_virtual_nodes=True,
+        num_time_bins=num_time_bins,
+    )
+
+    assert converter.num_time_bins == num_time_bins
+
+
+def test_converter_preserves_num_time_bins_inference_when_explicit_count_is_none():
+    converter = TreeToGraphConverter(
+        feature_names=("node_time", "time_bin"),
+        add_virtual_nodes=True,
+        num_time_bins=None,
+    )
+
+    assert converter.num_time_bins is None
+
+
 def test_convert_generates_node_aligned_time_bin_field():
     """Requested time-bin features should also be exposed as node labels."""
     tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)

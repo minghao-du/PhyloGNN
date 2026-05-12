@@ -3,6 +3,7 @@
 # ruff: noqa: E402
 
 from pathlib import Path
+import warnings
 
 import pytest
 
@@ -31,8 +32,14 @@ from phylognn.training.trainer import Trainer
 
 
 class FakeTracker:
-    def __init__(self, *, start_error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        start_error: Exception | None = None,
+        finish_error: Exception | None = None,
+    ) -> None:
         self.start_error = start_error
+        self.finish_error = finish_error
         self.started = False
         self.start_payloads = []
         self.metric_calls = []
@@ -50,6 +57,8 @@ class FakeTracker:
 
     def finish(self, status):
         self.finish_calls.append(status)
+        if self.finish_error is not None:
+            raise self.finish_error
 
 
 class FakeRun:
@@ -305,6 +314,42 @@ def test_failure_and_keyboard_interrupt_finish_statuses(tmp_path: Path):
         interrupted.fit(train_loader=_loader())
     assert interrupted_tracker.finish_calls == ["interrupted"]
     assert interrupted_tracker.metric_calls[-1] == (0, {"status/state": "interrupted"})
+
+
+def test_training_failure_remains_primary_when_tracking_finish_fails(tmp_path: Path):
+    tracker = FakeTracker(finish_error=TrackingError("cleanup failed"))
+    trainer = _trainer(
+        tmp_path,
+        tracker=tracker,
+        tracking_config=TrackingConfig(enabled=True, project="phylognn"),
+        cls=ExplodingTrainer,
+    )
+
+    with pytest.warns(UserWarning, match="cleanup failed"):
+        with pytest.raises(RuntimeError, match="boom"):
+            trainer.fit(train_loader=_loader())
+
+    assert tracker.finish_calls == ["failed"]
+
+
+def test_training_failure_with_successful_tracking_cleanup_emits_no_cleanup_warning(
+    tmp_path: Path,
+):
+    tracker = FakeTracker()
+    trainer = _trainer(
+        tmp_path,
+        tracker=tracker,
+        tracking_config=TrackingConfig(enabled=True, project="phylognn"),
+        cls=ExplodingTrainer,
+    )
+
+    with warnings.catch_warnings(record=True) as warnings_record:
+        warnings.simplefilter("always")
+        with pytest.raises(RuntimeError, match="boom"):
+            trainer.fit(train_loader=_loader())
+
+    assert warnings_record == []
+    assert tracker.finish_calls == ["failed"]
 
 
 def test_secret_metadata_rejected_and_paths_are_sanitized():

@@ -185,5 +185,7 @@ python -m build
 - Local `.pt` graph files and trainer checkpoint/history files; no storage format migration (003-fix-training-stability)
 - Python 3 + PyTorch, PyTorch Geometric, torchmetrics (001-fix-training-module-bugs)
 - Checkpoint `.pt` files (001-fix-training-module-bugs)
+- Python >=3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy, torchmetrics, pytest, optional wandb tracking through existing `TrackingConfig`/`WandbTracker` boundary (001-fix-training-bugs)
+- In-memory PyG `Data` objects, trusted local `.pt` graph/label files loaded with `torch.load`, existing checkpoint/history files unchanged (001-fix-training-bugs)
 
 ## Recent Changes

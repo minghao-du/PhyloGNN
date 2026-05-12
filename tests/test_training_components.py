@@ -13,7 +13,7 @@ from torch_geometric.loader import DataLoader
 from torch_geometric.data import Data
 from torchmetrics import MeanAbsolutePercentageError, MeanSquaredError, Metric, R2Score
 
-from phylognn.training.dataset import DatasetSplit, SplitPhyloDiskDataset
+from phylognn.training.dataset import DatasetSplit, SplitPhyloDataset, SplitPhyloDiskDataset
 from phylognn.training.metrics import MetricRegistry
 from phylognn.training.trainer import Trainer, TrainingConfig, _detach_item, _safe_mean
 
@@ -82,6 +82,16 @@ def _train_loader(num_samples: int = 1) -> DataLoader:
         ],
         batch_size=1,
     )
+
+
+def _counting_transform(name: str, calls: list[str]):
+    def transform(data: Data) -> Data:
+        calls.append(name)
+        existing = list(getattr(data, "transform_log", []))
+        data.transform_log = existing + [name]
+        return data
+
+    return transform
 
 
 def test_dataset_split_from_dict_preserves_names_and_membership():
@@ -300,6 +310,79 @@ def test_split_phylo_disk_dataset_loaders_use_explicit_trusted_load(tmp_path, mo
         (graph_path, "cpu", False),
         (label_path, "cpu", False),
     ]
+
+
+def test_split_phylo_dataset_applies_transform_exactly_once_and_preserves_plain_retrieval():
+    graph = Data(x=torch.ones((1, 1)), edge_index=torch.empty((2, 0), dtype=torch.long))
+    calls = []
+
+    transformed = SplitPhyloDataset(
+        data_list=[graph],
+        labels=torch.tensor([[2.0]]),
+        sample_ids=["sample-1"],
+        transform=_counting_transform("base", calls),
+    )[0]
+    plain = SplitPhyloDataset(
+        data_list=[graph],
+        labels=torch.tensor([[2.0]]),
+        sample_ids=["sample-1"],
+    )[0]
+
+    assert calls == ["base"]
+    assert transformed.transform_log == ["base"]
+    assert transformed.sample_id == "sample-1"
+    assert torch.equal(transformed.y, torch.tensor([2.0]))
+    assert not hasattr(plain, "transform_log")
+    assert plain.sample_id == "sample-1"
+    assert torch.equal(plain.x, graph.x)
+
+
+def test_split_phylo_disk_dataset_applies_transform_exactly_once(tmp_path):
+    graph_dir = tmp_path / "graphs"
+    label_dir = tmp_path / "labels"
+    graph_dir.mkdir()
+    label_dir.mkdir()
+    torch.save(
+        Data(x=torch.ones((1, 1)), edge_index=torch.empty((2, 0), dtype=torch.long)),
+        graph_dir / "sample.pt",
+    )
+    torch.save(torch.tensor([3.0]), label_dir / "sample.pt")
+    calls = []
+
+    dataset = SplitPhyloDiskDataset(
+        graph_dir=graph_dir,
+        label_dir=label_dir,
+        transform=_counting_transform("disk", calls),
+    )
+
+    loaded = dataset[0]
+
+    assert calls == ["disk"]
+    assert loaded.transform_log == ["disk"]
+    assert loaded.sample_id == "sample"
+    assert torch.equal(loaded.y, torch.tensor([3.0]))
+
+
+def test_split_dataset_view_applies_base_then_view_transform_once_each():
+    graph = Data(x=torch.ones((1, 1)), edge_index=torch.empty((2, 0), dtype=torch.long))
+    calls = []
+    base_dataset = SplitPhyloDataset(
+        data_list=[graph],
+        sample_ids=["sample-1"],
+        transform=_counting_transform("base", calls),
+    )
+    split = DatasetSplit.from_dict({"train": ["sample-1"]})
+    view = base_dataset.subset(
+        "train",
+        split,
+        transform=_counting_transform("view", calls),
+    )
+
+    loaded = view[0]
+
+    assert calls == ["base", "view"]
+    assert loaded.transform_log == ["base", "view"]
+    assert loaded.sample_id == "sample-1"
 
 
 def test_trainer_load_checkpoint_uses_explicit_trusted_load(tmp_path, monkeypatch):

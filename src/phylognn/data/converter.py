@@ -173,7 +173,8 @@ class TreeToGraphConverter:
         Behavior:
         - If `add_virtual_nodes=False`, this argument is ignored.
         - If `add_virtual_nodes=True` and `num_time_bins` is provided:
-              it must be at least 2 and is authoritative
+              it must be a Python `int`, excluding `bool`, at least 1, and is
+              authoritative
         - If `add_virtual_nodes=True` and `num_time_bins` is None:
               it is inferred from the maximum observed original-node `time_bin`
               as `max(time_bin) + 1`
@@ -1015,6 +1016,15 @@ class TreeToGraphConverter:
         if len(set(self.feature_names)) != len(self.feature_names):
             raise ValueError("feature_names must not contain duplicates")
 
+        if self.num_time_bins is not None:
+            if not isinstance(self.num_time_bins, int) or isinstance(self.num_time_bins, bool):
+                raise TypeError(
+                    "num_time_bins must be a Python int greater than or equal to 1, "
+                    f"got {type(self.num_time_bins).__name__}."
+                )
+            if self.num_time_bins < 1:
+                raise ValueError(f"num_time_bins must be at least 1, got {self.num_time_bins}")
+
         if self.traversal_strategy not in self.VALID_TRAVERSALS:
             raise ValueError(
                 f"Invalid traversal_strategy='{self.traversal_strategy}'. "
@@ -1026,8 +1036,6 @@ class TreeToGraphConverter:
                 raise ValueError(
                     "feature_names must include 'time_bin' when add_virtual_nodes=True"
                 )
-            if self.num_time_bins is not None and self.num_time_bins < 2:
-                raise ValueError(f"num_time_bins must be at least 2, got {self.num_time_bins}")
 
     def __repr__(self) -> str:
         return (
