@@ -343,6 +343,67 @@ def test_invalid_types_and_numeric_ranges_fail(tmp_path: Path, text: str, patter
         load_training_config(config_path)
 
 
+@pytest.mark.parametrize(
+    "replacement, pattern",
+    [
+        ('temporal_mode = "none"\nnum_gat_layers = true', "num_gat_layers"),
+        ('temporal_mode = "none"\nnum_gat_layers = 1.0', "num_gat_layers"),
+        ('temporal_mode = "none"\nnum_gat_layers = "1"', "num_gat_layers"),
+        ('temporal_mode = "none"\nnum_gat_layers = 0', "num_gat_layers"),
+        ('temporal_mode = "none"\nnum_gat_layers = -1', "num_gat_layers"),
+        ('temporal_mode = "lstm"\nnum_time_bins = true', "num_time_bins"),
+        ('temporal_mode = "lstm"\nnum_time_bins = 1.0', "num_time_bins"),
+        ('temporal_mode = "lstm"\nnum_time_bins = "1"', "num_time_bins"),
+        ('temporal_mode = "lstm"\nnum_time_bins = 0', "num_time_bins"),
+        ('temporal_mode = "lstm"\nnum_time_bins = -1', "num_time_bins"),
+        ('temporal_mode = "none"\nnum_lstm_layers = true', "num_lstm_layers"),
+        ('temporal_mode = "none"\nnum_lstm_layers = 1.0', "num_lstm_layers"),
+        ('temporal_mode = "none"\nnum_lstm_layers = "1"', "num_lstm_layers"),
+        ('temporal_mode = "none"\nnum_lstm_layers = 0', "num_lstm_layers"),
+        ('temporal_mode = "none"\nnum_lstm_layers = -1', "num_lstm_layers"),
+    ],
+)
+def test_invalid_model_counter_values_fail_as_training_config_error(
+    tmp_path: Path,
+    replacement: str,
+    pattern: str,
+):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace('temporal_mode = "none"', replacement),
+    )
+
+    with pytest.raises(TrainingConfigError, match=pattern):
+        load_training_config(config_path)
+
+
+def test_model_counter_override_none_fails_as_training_config_error(tmp_path: Path):
+    """Explicit Python None overrides should preserve constructor validation."""
+    config_path = _write_config(tmp_path, _minimal_config())
+
+    with pytest.raises(TrainingConfigError, match="num_gat_layers"):
+        load_training_config(config_path, model_overrides={"num_gat_layers": None})
+
+
+def test_training_config_reports_all_invalid_model_counter_fields(tmp_path: Path):
+    """Wrapped constructor errors should keep all invalid counter names."""
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace(
+            'temporal_mode = "none"',
+            'temporal_mode = "lstm"\nnum_gat_layers = true\nnum_time_bins = 0',
+        ),
+    )
+
+    with pytest.raises(TrainingConfigError) as exc_info:
+        load_training_config(config_path, model_overrides={"num_lstm_layers": "2"})
+
+    message = str(exc_info.value)
+    assert "num_gat_layers" in message
+    assert "num_time_bins" in message
+    assert "num_lstm_layers" in message
+
+
 def test_two_config_files_return_distinct_effective_setups(tmp_path: Path):
     first_path = _write_config(tmp_path, _minimal_config(input_dim=4, epochs=1), name="first.toml")
     second_path = _write_config(

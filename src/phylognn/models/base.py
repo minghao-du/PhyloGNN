@@ -29,7 +29,7 @@ import torch
 import torch.nn as nn
 from torch_geometric.data import Data
 
-from .layers import build_gat_encoder
+from .layers import build_gat_encoder, validate_positive_int_counters
 
 GATEncoderType = Literal["gat", "res_gat"]
 
@@ -309,7 +309,8 @@ class BaseGATNet(BasePhyloGNN):
         gat_heads:
             Number of attention heads.
         num_gat_layers:
-            Number of GAT blocks in the encoder stack.
+            Number of GAT blocks in the encoder stack. Must be a positive
+            non-bool Python integer.
         dropout_prob:
             Dropout probability used in the encoder pipeline.
         use_preprocessing:
@@ -401,8 +402,7 @@ class BaseGATNet(BasePhyloGNN):
             raise ValueError(f"`gat_hidden_dim` must be > 0, got {gat_hidden_dim}.")
         if gat_heads <= 0:
             raise ValueError(f"`gat_heads` must be > 0, got {gat_heads}.")
-        if num_gat_layers <= 0:
-            raise ValueError(f"`num_gat_layers` must be > 0, got {num_gat_layers}.")
+        validate_positive_int_counters(num_gat_layers=num_gat_layers)
         if not (0.0 <= dropout_prob < 1.0):
             raise ValueError(f"`dropout_prob` must be in [0, 1), got {dropout_prob}.")
         if use_preprocessing:

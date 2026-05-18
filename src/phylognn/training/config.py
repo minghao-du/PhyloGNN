@@ -137,8 +137,10 @@ def load_training_config(
     The TOML file must contain `[model]`, `[model.params]`, and `[training]`
     sections. It may also contain `[loss]` and `[metrics]`. Explicit keyword
     overrides are applied after TOML values and must satisfy the same validation
-    rules. Dataset construction, splits, and data loaders are intentionally out
-    of scope for this helper.
+    rules, including model counters being positive non-bool Python integers.
+    Direct constructor `TypeError` and `ValueError` failures are wrapped as
+    `TrainingConfigError` with path context. Dataset construction, splits, and
+    data loaders are intentionally out of scope for this helper.
 
     Raises:
         TrainingConfigError: If the file cannot be read, TOML is malformed,

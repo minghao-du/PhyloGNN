@@ -187,5 +187,7 @@ python -m build
 - Checkpoint `.pt` files (001-fix-training-module-bugs)
 - Python >=3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy, torchmetrics, pytest, optional wandb tracking through existing `TrackingConfig`/`WandbTracker` boundary (001-fix-training-bugs)
 - In-memory PyG `Data` objects, trusted local `.pt` graph/label files loaded with `torch.load`, existing checkpoint/history files unchanged (001-fix-training-bugs)
+- Python >=3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy, torch-scatter, pytest (002-harden-generated-fields)
+- N/A; changes operate on in-memory ETE trees, PyTorch Geometric `Data` objects, and trusted local TOML training configuration input (002-harden-generated-fields)
 
 ## Recent Changes

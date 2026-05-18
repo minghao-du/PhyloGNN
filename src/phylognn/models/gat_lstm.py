@@ -30,7 +30,12 @@ from torch_geometric.nn import global_add_pool, global_max_pool, global_mean_poo
 from torch_scatter import scatter
 
 from .base import BaseGATNet, GATEncoderType, _reset_module_parameters
-from .layers import MLPHead, TemporalAggregation, TemporalBiLSTMEncoder
+from .layers import (
+    MLPHead,
+    TemporalAggregation,
+    TemporalBiLSTMEncoder,
+    validate_positive_int_counters,
+)
 
 TemporalMode = Literal["none", "fc", "lstm"]
 GraphPooling = Literal["sum", "mean", "max"]
@@ -70,7 +75,8 @@ class GATBiLSTMNet(BaseGATNet):
         gat_heads:
             Number of attention heads.
         num_gat_layers:
-            Number of GAT blocks in the encoder.
+            Number of GAT blocks in the encoder. Must be a positive non-bool
+            Python integer.
         dropout_prob:
             Dropout probability used across encoder and temporal modules.
         use_preprocessing:
@@ -82,7 +88,8 @@ class GATBiLSTMNet(BaseGATNet):
         temporal_mode:
             Temporal aggregation strategy: "none", "fc", or "lstm".
         num_time_bins:
-            Total number of time bins. Required if temporal_mode != "none".
+            Total number of time bins. Required if temporal_mode != "none" and
+            must then be a positive non-bool Python integer.
         temporal_hidden_dim:
             Hidden dimension used by the FC or LSTM temporal encoder.
         temporal_fc_hidden_dims:
@@ -93,7 +100,8 @@ class GATBiLSTMNet(BaseGATNet):
             integers; each item creates one FC temporal layer.
         num_lstm_layers:
             Number of stacked recurrent layers in the BiLSTM encoder.
-            Used only when `temporal_mode="lstm"`.
+            Used only when `temporal_mode="lstm"`. Must be a positive non-bool
+            Python integer.
         temporal_aggregation:
             Recurrent sequence aggregation used by `temporal_mode="lstm"`:
             "mean", "last", or "max". Defaults to "mean" to preserve the
@@ -137,6 +145,7 @@ class GATBiLSTMNet(BaseGATNet):
             output_dim=output_dim,
             temporal_mode=temporal_mode,
             num_time_bins=num_time_bins,
+            num_gat_layers=num_gat_layers,
             temporal_hidden_dim=temporal_hidden_dim,
             temporal_fc_hidden_dims=temporal_fc_hidden_dims,
             num_lstm_layers=num_lstm_layers,
@@ -215,6 +224,7 @@ class GATBiLSTMNet(BaseGATNet):
         output_dim: int,
         temporal_mode: TemporalMode,
         num_time_bins: Optional[int],
+        num_gat_layers: int,
         temporal_hidden_dim: int,
         temporal_fc_hidden_dims: Optional[Sequence[int]],
         num_lstm_layers: int,
@@ -238,18 +248,29 @@ class GATBiLSTMNet(BaseGATNet):
             )
 
         if temporal_mode != "none":
-            if num_time_bins is None:
+            if (
+                num_time_bins is None
+                and type(num_gat_layers) is int
+                and num_gat_layers >= 1
+                and type(num_lstm_layers) is int
+                and num_lstm_layers >= 1
+            ):
                 raise ValueError("`num_time_bins` must be provided when `temporal_mode != 'none'`.")
-            if num_time_bins <= 0:
-                raise ValueError(f"`num_time_bins` must be > 0, got {num_time_bins}.")
+            validate_positive_int_counters(
+                num_gat_layers=num_gat_layers,
+                num_lstm_layers=num_lstm_layers,
+                num_time_bins=num_time_bins,
+            )
+        else:
+            validate_positive_int_counters(
+                num_gat_layers=num_gat_layers,
+                num_lstm_layers=num_lstm_layers,
+            )
 
         if temporal_hidden_dim <= 0:
             raise ValueError(f"`temporal_hidden_dim` must be > 0, got {temporal_hidden_dim}.")
 
         GATBiLSTMNet._validate_temporal_fc_hidden_dims(temporal_fc_hidden_dims)
-
-        if num_lstm_layers <= 0:
-            raise ValueError(f"`num_lstm_layers` must be > 0, got {num_lstm_layers}.")
 
         if temporal_aggregation not in {"mean", "last", "max"}:
             raise ValueError(

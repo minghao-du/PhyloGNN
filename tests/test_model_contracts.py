@@ -12,7 +12,13 @@ from torch_geometric.data import Data  # noqa: E402
 
 from phylognn.models.base import BaseGATNet, BasePhyloGNN  # noqa: E402
 from phylognn.models.gat_lstm import GATBiLSTMNet  # noqa: E402
-from phylognn.models.layers import GATBlock, MLPHead, TemporalBiLSTMEncoder  # noqa: E402
+from phylognn.models.layers import (  # noqa: E402
+    GATBlock,
+    GATStack,
+    MLPHead,
+    ResidualGATStack,
+    TemporalBiLSTMEncoder,
+)
 
 
 class _DummyPhyloModel(BasePhyloGNN):
@@ -148,6 +154,115 @@ def test_gat_bilstm_requires_num_time_bins_for_temporal_modes():
     """Temporal models must require explicit time-bin configuration."""
     with pytest.raises(ValueError, match="num_time_bins"):
         GATBiLSTMNet(input_dim=4, output_dim=1, temporal_mode="fc", num_time_bins=None)
+
+
+@pytest.mark.parametrize("value", [True, False, 1.0, "1", None])
+def test_direct_model_counters_reject_non_int_values(value):
+    """Model and layer counters should reject bools and non-int values."""
+    constructors = [
+        lambda: BaseGATNet._validate_init_args(
+            input_dim=4,
+            preprocess_dim=8,
+            gat_hidden_dim=3,
+            gat_heads=1,
+            num_gat_layers=value,
+            dropout_prob=0.1,
+            use_preprocessing=True,
+            encoder_type="res_gat",
+        ),
+        lambda: GATBiLSTMNet(
+            input_dim=4,
+            output_dim=1,
+            temporal_mode="none",
+            num_lstm_layers=value,
+        ),
+        lambda: GATStack(in_channels=4, hidden_channels=3, num_layers=value, heads=1),
+        lambda: ResidualGATStack(in_channels=4, hidden_channels=3, num_layers=value, heads=1),
+        lambda: TemporalBiLSTMEncoder(input_dim=3, hidden_dim=4, num_layers=value),
+    ]
+    if value is not None:
+        constructors.append(
+            lambda: GATBiLSTMNet(
+                input_dim=4,
+                output_dim=1,
+                temporal_mode="lstm",
+                num_time_bins=value,
+            )
+        )
+
+    for construct in constructors:
+        with pytest.raises(TypeError, match="positive non-bool Python integers"):
+            construct()
+
+
+@pytest.mark.parametrize("value", [0, -1])
+def test_direct_model_counters_reject_non_positive_values(value):
+    """Model and layer counters should reject zero and negative integers."""
+    constructors = [
+        lambda: BaseGATNet._validate_init_args(
+            input_dim=4,
+            preprocess_dim=8,
+            gat_hidden_dim=3,
+            gat_heads=1,
+            num_gat_layers=value,
+            dropout_prob=0.1,
+            use_preprocessing=True,
+            encoder_type="res_gat",
+        ),
+        lambda: GATBiLSTMNet(
+            input_dim=4,
+            output_dim=1,
+            temporal_mode="lstm",
+            num_time_bins=value,
+        ),
+        lambda: GATBiLSTMNet(
+            input_dim=4,
+            output_dim=1,
+            temporal_mode="none",
+            num_lstm_layers=value,
+        ),
+        lambda: GATStack(in_channels=4, hidden_channels=3, num_layers=value, heads=1),
+        lambda: ResidualGATStack(in_channels=4, hidden_channels=3, num_layers=value, heads=1),
+        lambda: TemporalBiLSTMEncoder(input_dim=3, hidden_dim=4, num_layers=value),
+    ]
+
+    for construct in constructors:
+        with pytest.raises(ValueError, match="positive non-bool Python integers"):
+            construct()
+
+
+def test_gat_bilstm_counter_validation_reports_all_invalid_fields():
+    """One constructor failure should name every invalid counter it received."""
+    with pytest.raises(TypeError) as exc_info:
+        GATBiLSTMNet(
+            input_dim=4,
+            output_dim=1,
+            temporal_mode="lstm",
+            num_gat_layers=True,
+            num_time_bins=0,
+            num_lstm_layers="2",
+        )
+
+    message = str(exc_info.value)
+    assert "num_gat_layers" in message
+    assert "num_time_bins" in message
+    assert "num_lstm_layers" in message
+
+
+def test_valid_positive_counter_values_are_preserved_for_temporal_model():
+    """Valid positive non-bool integers should construct the temporal model."""
+    model = GATBiLSTMNet(
+        input_dim=4,
+        output_dim=1,
+        temporal_mode="lstm",
+        num_gat_layers=1,
+        num_time_bins=2,
+        num_lstm_layers=1,
+    )
+
+    assert model.num_gat_layers == 1
+    assert model.num_time_bins == 2
+    assert model.num_lstm_layers == 1
 
 
 def test_temporal_bilstm_encoder_rejects_invalid_constructor_args():

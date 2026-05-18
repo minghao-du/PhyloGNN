@@ -153,17 +153,28 @@ def test_converter_rejects_invalid_requested_time_bin_labels(bad_value, match):
         converter.convert(tree)
 
 
-@pytest.mark.parametrize("feature_names", [("time_bin",), ("node_time",)])
-def test_converter_rejects_reserved_time_bin_graph_attrs(feature_names):
+def test_converter_rejects_generated_time_bin_graph_attrs():
     """The generated time-bin field name should not be caller metadata."""
     tree = Tree("(A:1,B:1)Root:0;", format=1)
     for node in tree.traverse("preorder"):
         node.time_bin = 0
         node.node_time = 0.0
-    converter = TreeToGraphConverter(feature_names=feature_names)
+    converter = TreeToGraphConverter(feature_names=("time_bin",))
 
-    with pytest.raises(ValueError, match=r'graph_attrs\["time_bin"\].*reserved'):
+    with pytest.raises(ValueError, match=r'graph_attrs\["time_bin"\].*generated graph fields'):
         converter.convert(tree, graph_attrs={"time_bin": "manual"})
+
+
+def test_converter_allows_time_bin_graph_attrs_when_field_is_not_generated():
+    """Caller metadata may use time_bin only when conversion does not generate it."""
+    tree = Tree("(A:1,B:1)Root:0;", format=1)
+    for node in tree.traverse("preorder"):
+        node.node_time = 0.0
+    converter = TreeToGraphConverter(feature_names=("node_time",))
+
+    data = converter.convert(tree, graph_attrs={"time_bin": "manual"})
+
+    assert data.time_bin == "manual"
 
 
 def test_converter_missing_requested_time_bin_uses_required_feature_error():

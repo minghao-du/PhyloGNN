@@ -111,6 +111,62 @@ def test_convert_generates_node_aligned_time_bin_field():
     assert data.time_bin.tolist() == data.x[:, time_bin_idx].long().tolist()
 
 
+def test_convert_rejects_graph_attrs_conflicting_with_base_generated_fields():
+    """Caller metadata should not overwrite authoritative PyG fields."""
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = engineer.add_features(tree, origin_time=5.0, rescale=False)
+    converter = TreeToGraphConverter(feature_names=engineer.feature_names)
+
+    with pytest.raises(ValueError) as exc_info:
+        converter.convert(tree, graph_attrs={"edge_index": "bad", "x": "bad"})
+
+    message = str(exc_info.value)
+    assert 'graph_attrs["edge_index"]' in message
+    assert 'graph_attrs["x"]' in message
+
+
+def test_convert_preserves_safe_graph_attrs_without_changing_generated_fields():
+    """Non-conflicting metadata should be attached unchanged."""
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = engineer.add_features(tree, origin_time=5.0, rescale=False)
+    converter = TreeToGraphConverter(
+        feature_names=engineer.feature_names,
+        add_virtual_nodes=True,
+        num_time_bins=engineer.num_time_bins,
+    )
+
+    data = converter.convert(tree, graph_attrs={"dataset_id": "sim-001", "fold": 3})
+
+    assert data.dataset_id == "sim-001"
+    assert data.fold == 3
+    assert torch.is_tensor(data.x)
+    assert torch.is_tensor(data.edge_index)
+    assert torch.is_tensor(data.edge_type)
+    assert data.original_num_nodes == 5
+
+
+@pytest.mark.parametrize(
+    "generated_key",
+    ["node_names", "num_time_bins", "time_bin", "virtual_node_mask", "node_type"],
+)
+def test_convert_rejects_graph_attrs_conflicting_with_optional_generated_fields(generated_key):
+    """Dynamic conversion fields should be protected, not just base fields."""
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = engineer.add_features(tree, origin_time=5.0, rescale=False)
+    converter = TreeToGraphConverter(
+        feature_names=engineer.feature_names,
+        add_virtual_nodes=True,
+        num_time_bins=engineer.num_time_bins,
+        preserve_node_names=True,
+    )
+
+    with pytest.raises(ValueError, match=generated_key):
+        converter.convert(tree, graph_attrs={generated_key: "bad"})
+
+
 def test_convert_and_save_preserves_generated_time_bin(tmp_path):
     """Generated node labels should survive the existing PyG Data persistence path."""
     tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)

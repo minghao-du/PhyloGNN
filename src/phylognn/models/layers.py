@@ -28,6 +28,33 @@ GATEncoderType = Literal["gat", "res_gat"]
 TemporalAggregation = Literal["mean", "last", "max"]
 
 
+def validate_positive_int_counters(**counters: object) -> None:
+    """Require model counters to be positive Python ints, excluding bool."""
+    invalid_type_names = sorted(name for name, value in counters.items() if type(value) is not int)
+    invalid_range_names = sorted(
+        name for name, value in counters.items() if type(value) is int and value < 1
+    )
+
+    if invalid_type_names:
+        details = ["invalid type for " + ", ".join(f"`{name}`" for name in invalid_type_names)]
+        if invalid_range_names:
+            details.append(
+                "non-positive value for " + ", ".join(f"`{name}`" for name in invalid_range_names)
+            )
+        raise TypeError(
+            "Counter settings must be positive non-bool Python integers; "
+            + "; ".join(details)
+            + "."
+        )
+
+    if invalid_range_names:
+        raise ValueError(
+            "Counter settings must be positive non-bool Python integers; non-positive value for "
+            + ", ".join(f"`{name}`" for name in invalid_range_names)
+            + "."
+        )
+
+
 class GATBlock(nn.Module):
     """
     Graph Attention block with activation, normalization, and dropout.
@@ -157,7 +184,8 @@ class GATStack(nn.Module):
         hidden_channels:
             Output dimension per attention head.
         num_layers:
-            Number of stacked GAT blocks.
+            Number of stacked GAT blocks. Must be a positive non-bool Python
+            integer.
         heads:
             Number of attention heads per block.
         dropout_prob:
@@ -181,8 +209,7 @@ class GATStack(nn.Module):
             raise ValueError(f"`in_channels` must be > 0, got {in_channels}.")
         if hidden_channels <= 0:
             raise ValueError(f"`hidden_channels` must be > 0, got {hidden_channels}.")
-        if num_layers <= 0:
-            raise ValueError(f"`num_layers` must be > 0, got {num_layers}.")
+        validate_positive_int_counters(num_layers=num_layers)
         if heads <= 0:
             raise ValueError(f"`heads` must be > 0, got {heads}.")
 
@@ -337,7 +364,8 @@ class ResidualGATStack(nn.Module):
         hidden_channels:
             Hidden dimension per attention head.
         num_layers:
-            Number of residual GAT blocks.
+            Number of residual GAT blocks. Must be a positive non-bool Python
+            integer.
         heads:
             Number of attention heads.
         dropout_prob:
@@ -361,8 +389,7 @@ class ResidualGATStack(nn.Module):
             raise ValueError(f"`in_channels` must be > 0, got {in_channels}.")
         if hidden_channels <= 0:
             raise ValueError(f"`hidden_channels` must be > 0, got {hidden_channels}.")
-        if num_layers <= 0:
-            raise ValueError(f"`num_layers` must be > 0, got {num_layers}.")
+        validate_positive_int_counters(num_layers=num_layers)
         if heads <= 0:
             raise ValueError(f"`heads` must be > 0, got {heads}.")
 
@@ -575,7 +602,8 @@ class TemporalBiLSTMEncoder(nn.Module):
         hidden_dim:
             Hidden dimension for one LSTM direction.
         num_layers:
-            Number of stacked recurrent layers.
+            Number of stacked recurrent layers. Must be a positive non-bool
+            Python integer.
         dropout_prob:
             Dropout probability applied to recurrent outputs. The LSTM-internal
             dropout follows PyTorch semantics and is active only when
@@ -607,8 +635,7 @@ class TemporalBiLSTMEncoder(nn.Module):
             raise ValueError(f"`input_dim` must be > 0, got {input_dim}.")
         if hidden_dim <= 0:
             raise ValueError(f"`hidden_dim` must be > 0, got {hidden_dim}.")
-        if num_layers <= 0:
-            raise ValueError(f"`num_layers` must be > 0, got {num_layers}.")
+        validate_positive_int_counters(num_layers=num_layers)
         if not (0.0 <= dropout_prob < 1.0):
             raise ValueError(f"`dropout_prob` must be in [0, 1), got {dropout_prob}.")
         if aggregation not in {"mean", "last", "max"}:
