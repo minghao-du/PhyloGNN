@@ -9,7 +9,6 @@ the extra dependency chain at import time.
 from importlib import import_module
 from typing import Any, Dict, Tuple
 
-
 _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
     "TreeReadConfig": ("phylognn.data.tree_io", "TreeReadConfig"),
     "read_tree_as_ete3": ("phylognn.data.tree_io", "read_tree_as_ete3"),

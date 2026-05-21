@@ -17,6 +17,8 @@ FEATURE_NAMES = ["node_time", "time_bin", "branch_length", "is_tip"]
 # [START build_tree]
 def build_tree() -> Tree:
     return Tree("((A:1.0,B:1.5)C:0.5,D:2.0)root:0.0;", format=1)
+
+
 # [END build_tree]
 
 
@@ -39,6 +41,8 @@ def make_graph() -> Data:
     data = converter.convert(tree, graph_attrs={"sample_id": "quickstart"})
     data.y = torch.tensor([1.0], dtype=torch.float32)
     return data
+
+
 # [END make_graph]
 
 
@@ -73,6 +77,8 @@ def validate_graph(data: Data) -> None:
     assert data.edge_index.dtype == torch.long
     assert data.y.shape == (1,)
     assert data.y.dtype == torch.float32
+
+
 # [END validate_graph]
 
 
@@ -95,6 +101,8 @@ def train_and_predict(data: Data) -> float:
         trainer.fit(train_dataset=[data])
         prediction = trainer.predict(dataset=[data])
     return float(prediction[0].detach().cpu().item())
+
+
 # [END train_and_predict]
 
 

@@ -10,7 +10,6 @@ still curated APIs remain available in `phylognn.data`, `phylognn.models`, and
 from importlib import import_module
 from typing import Any, Dict, Tuple
 
-
 __version__ = "0.1.0"
 
 _EXPORT_MAP: Dict[str, Tuple[str, str]] = {

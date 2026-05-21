@@ -189,5 +189,7 @@ python -m build
 - In-memory PyG `Data` objects, trusted local `.pt` graph/label files loaded with `torch.load`, existing checkpoint/history files unchanged (001-fix-training-bugs)
 - Python >=3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy, torch-scatter, pytest (002-harden-generated-fields)
 - N/A; changes operate on in-memory ETE trees, PyTorch Geometric `Data` objects, and trusted local TOML training configuration input (002-harden-generated-fields)
+- Python 3.12+ + PyTorch, PyTorch Geometric, ete3, numpy, torch-scatter, tqdm (002-refactor-examples-reuse)
+- N/A (operates on in-memory ETE trees and PyG `Data` objects, with existing `torch.save` persistence) (002-refactor-examples-reuse)
 
 ## Recent Changes
