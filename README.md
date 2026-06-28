@@ -4,6 +4,8 @@ PhyloGNN converts phylogenetic trees into PyTorch Geometric graph data and
 provides model and training utilities for graph neural network workflows on
 those data.
 
+You can find the complete online documentation  [here](https://minghao-du.github.io/PhyloGNN/).
+
 The fastest first-use path is:
 
 1. Install the package in the existing project environment.
