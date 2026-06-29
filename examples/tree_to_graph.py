@@ -12,16 +12,11 @@ FEATURE_NAMES = [
 ]
 
 
-# [START build_demo_tree]
 def build_demo_tree() -> Tree:
     return Tree("((A:1.0,B:1.5)C:0.5,D:2.0)root:0.0;", format=1)
 
 
-# [END build_demo_tree]
-
-
-# [START feature_engineering]
-def build_featured_tree() -> tuple[Tree, TreeFeatureEngineer]:
+def main() -> None:
     engineer = TreeFeatureEngineer(num_time_bins=6)
     tree = engineer.add_features(
         build_demo_tree(),
@@ -30,14 +25,7 @@ def build_featured_tree() -> tuple[Tree, TreeFeatureEngineer]:
         rescale=False,
         inplace=True,
     )
-    return tree, engineer
 
-
-# [END feature_engineering]
-
-
-# [START tree_to_graph_conversion]
-def convert_tree_to_graph(tree: Tree, engineer: TreeFeatureEngineer):
     converter = TreeToGraphConverter(
         feature_names=FEATURE_NAMES,
         add_virtual_nodes=False,
@@ -45,15 +33,6 @@ def convert_tree_to_graph(tree: Tree, engineer: TreeFeatureEngineer):
         traversal_strategy=engineer.traversal_strategy,
     )
     data = converter.convert(tree, graph_attrs={"example_name": "tree_to_graph"})
-    return data, converter
-
-
-# [END tree_to_graph_conversion]
-
-
-def main() -> None:
-    tree, engineer = build_featured_tree()
-    data, converter = convert_tree_to_graph(tree, engineer)
 
     virtual_converter = TreeToGraphConverter(
         feature_names=FEATURE_NAMES,

@@ -27,8 +27,12 @@ def _build_tree(scale: float) -> Tree:
     )
 
 
-def _make_graph(scale: float, index: int):
-    engineer = TreeFeatureEngineer(num_time_bins=6)
+def _make_graph(
+    scale: float,
+    index: int,
+    engineer: TreeFeatureEngineer,
+    converter: TreeToGraphConverter,
+):
     tree = engineer.add_features(
         _build_tree(scale),
         origin_time=3.5 + scale,
@@ -36,18 +40,19 @@ def _make_graph(scale: float, index: int):
         rescale=False,
         inplace=True,
     )
+    return converter.convert(tree, graph_attrs={"sample_id": f"toml_sample_{index:02d}"})
+
+
+def _build_dataset() -> SplitPhyloDataset:
+    engineer = TreeFeatureEngineer(num_time_bins=6)
     converter = TreeToGraphConverter(
         feature_names=FEATURE_NAMES,
         add_virtual_nodes=False,
         append_is_virtual_feature=False,
         traversal_strategy=engineer.traversal_strategy,
     )
-    return converter.convert(tree, graph_attrs={"sample_id": f"toml_sample_{index:02d}"})
-
-
-def _build_dataset() -> SplitPhyloDataset:
     scales = [0.80, 0.95, 1.10, 1.25, 1.40, 1.55, 1.70, 1.85]
-    graphs = [_make_graph(scale, index) for index, scale in enumerate(scales)]
+    graphs = [_make_graph(scale, index, engineer, converter) for index, scale in enumerate(scales)]
     labels = torch.tensor([[[scale]] for scale in scales], dtype=torch.float32)
     sample_ids = [graph.sample_id for graph in graphs]
     return SplitPhyloDataset(data_list=graphs, labels=labels, sample_ids=sample_ids)

@@ -57,8 +57,12 @@ class ToyGraphRegressor(nn.Module):
         return self.readout(graph_embeddings).squeeze(-1)
 
 
-def make_graph(scale: float, index: int) -> Data:
-    engineer = TreeFeatureEngineer(num_time_bins=6)
+def make_graph(
+    scale: float,
+    index: int,
+    engineer: TreeFeatureEngineer,
+    converter: TreeToGraphConverter,
+) -> Data:
     tree = engineer.add_features(
         build_demo_tree(scale),
         origin_time=4.0 + scale,
@@ -66,21 +70,21 @@ def make_graph(scale: float, index: int) -> Data:
         rescale=False,
         inplace=True,
     )
-
-    converter = TreeToGraphConverter(
-        feature_names=FEATURE_NAMES,
-        add_virtual_nodes=False,
-        append_is_virtual_feature=False,
-        traversal_strategy=engineer.traversal_strategy,
-    )
     data = converter.convert(tree, graph_attrs={"sample_id": f"sample_{index:02d}"})
     data.y = torch.tensor([scale], dtype=torch.float32)
     return data
 
 
 def build_dataset() -> SplitPhyloDataset:
+    engineer = TreeFeatureEngineer(num_time_bins=6)
+    converter = TreeToGraphConverter(
+        feature_names=FEATURE_NAMES,
+        add_virtual_nodes=False,
+        append_is_virtual_feature=False,
+        traversal_strategy=engineer.traversal_strategy,
+    )
     scales = [0.8, 0.95, 1.1, 1.25, 1.4, 1.55, 1.7, 1.85]
-    graphs = [make_graph(scale, index) for index, scale in enumerate(scales)]
+    graphs = [make_graph(scale, index, engineer, converter) for index, scale in enumerate(scales)]
     labels = torch.tensor([[scale] for scale in scales], dtype=torch.float32)
     sample_ids = [graph.sample_id for graph in graphs]
     return SplitPhyloDataset(data_list=graphs, labels=labels, sample_ids=sample_ids)

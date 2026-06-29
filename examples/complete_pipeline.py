@@ -21,20 +21,13 @@ def _build_tree() -> Tree:
     return Tree("((A:0.92,B:1.18)C:0.42,D:1.36)root:0.0;", format=1)
 
 
-def _build_graph():
-    engineer = TreeFeatureEngineer(num_time_bins=6)
+def _build_graph(engineer: TreeFeatureEngineer, converter: TreeToGraphConverter):
     tree = engineer.add_features(
         _build_tree(),
         origin_time=4.2,
         feature_names=FEATURE_NAMES,
         rescale=False,
         inplace=True,
-    )
-    converter = TreeToGraphConverter(
-        feature_names=FEATURE_NAMES,
-        add_virtual_nodes=False,
-        append_is_virtual_feature=False,
-        traversal_strategy=engineer.traversal_strategy,
     )
     return converter.convert(tree, graph_attrs={"sample_id": "pipeline_tree"})
 
@@ -63,7 +56,14 @@ def _predict_with_temporary_checkpoint(graph) -> tuple[float, Path]:
 
 def main() -> None:
     torch.manual_seed(7)
-    graph = _build_graph()
+    engineer = TreeFeatureEngineer(num_time_bins=6)
+    converter = TreeToGraphConverter(
+        feature_names=FEATURE_NAMES,
+        add_virtual_nodes=False,
+        append_is_virtual_feature=False,
+        traversal_strategy=engineer.traversal_strategy,
+    )
+    graph = _build_graph(engineer, converter)
 
     if CHECKPOINT_PATH.is_file():
         value = _predict_with_checkpoint(graph, OUTPUT_DIR, "final_model.pt")

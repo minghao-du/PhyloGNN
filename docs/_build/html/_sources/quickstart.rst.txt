@@ -13,23 +13,23 @@ Create a small tree
    :start-after: [START build_tree]
    :end-before: [END build_tree]
 
-Attach node features
---------------------
+Build graph data
+----------------
 
-`TreeFeatureEngineer` writes numeric attributes to each tree node. Use
-`feature_names` as the stable column order for graph conversion.
+Create a `TreeFeatureEngineer` and a `TreeToGraphConverter` once, then pass
+them to the helper that attaches features and converts the tree. This
+"create once, pass everywhere" pattern avoids rebuilding stateless objects on
+every call.
 
 .. literalinclude:: ../../examples/quickstart_training.py
    :language: python
    :start-after: [START make_graph]
    :end-before: [END make_graph]
 
-Convert the tree to graph data
-------------------------------
-
-`TreeToGraphConverter` reads node attributes into graph tensors. The same
-snippet above also adds a dummy graph-level target label as `data.y`, which is
-the field the trainer expects during supervised training.
+`TreeFeatureEngineer` writes numeric attributes to each tree node, and
+`TreeToGraphConverter` reads those attributes into graph tensors. The helper
+also adds a dummy graph-level target label as `data.y`, which is the field
+the trainer expects during supervised training.
 
 Add a target label
 ------------------
