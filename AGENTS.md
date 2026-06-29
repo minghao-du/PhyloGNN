@@ -191,5 +191,8 @@ python -m build
 - N/A; changes operate on in-memory ETE trees, PyTorch Geometric `Data` objects, and trusted local TOML training configuration input (002-harden-generated-fields)
 - Python 3.12+ + PyTorch, PyTorch Geometric, ete3, numpy, torch-scatter, tqdm (002-refactor-examples-reuse)
 - N/A (operates on in-memory ETE trees and PyG `Data` objects, with existing `torch.save` persistence) (002-refactor-examples-reuse)
+- Python ≥3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy, torch-scatter, tqdm (002-refactor-examples-reuse)
+- Python ≥3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy (all existing) (003-example-object-hoisting)
+- N/A (in-memory objects and example stdout only) (003-example-object-hoisting)
 
 ## Recent Changes

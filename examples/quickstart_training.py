@@ -22,9 +22,7 @@ def build_tree() -> Tree:
 # [END build_tree]
 
 
-# [START make_graph]
-def make_graph() -> Data:
-    engineer = TreeFeatureEngineer(num_time_bins=6)
+def make_graph(engineer: TreeFeatureEngineer, converter: TreeToGraphConverter) -> Data:
     tree = engineer.add_features(
         build_tree(),
         origin_time=4.0,
@@ -32,18 +30,9 @@ def make_graph() -> Data:
         rescale=False,
         inplace=True,
     )
-    converter = TreeToGraphConverter(
-        feature_names=FEATURE_NAMES,
-        add_virtual_nodes=False,
-        append_is_virtual_feature=False,
-        traversal_strategy=engineer.traversal_strategy,
-    )
     data = converter.convert(tree, graph_attrs={"sample_id": "quickstart"})
     data.y = torch.tensor([1.0], dtype=torch.float32)
     return data
-
-
-# [END make_graph]
 
 
 class TinyGraphRegressor(nn.Module):
@@ -108,7 +97,16 @@ def train_and_predict(data: Data) -> float:
 
 def main() -> None:
     torch.manual_seed(11)
-    data = make_graph()
+    # [START make_graph]
+    engineer = TreeFeatureEngineer(num_time_bins=6)
+    converter = TreeToGraphConverter(
+        feature_names=FEATURE_NAMES,
+        add_virtual_nodes=False,
+        append_is_virtual_feature=False,
+        traversal_strategy=engineer.traversal_strategy,
+    )
+    data = make_graph(engineer, converter)
+    # [END make_graph]
     validate_graph(data)
     prediction = train_and_predict(data)
 
