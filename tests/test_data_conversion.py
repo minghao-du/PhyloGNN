@@ -273,3 +273,62 @@ def test_convert_creates_configured_virtual_nodes_for_rescaled_empty_bins():
     assert data.x[
         virtual_slice, _feature_index(converter, "is_virtual_node")
     ].tolist() == pytest.approx([1.0] * engineer.num_time_bins)
+
+
+# ---------------------------------------------------------------------------
+# Per-tree extant_sampling_probability converter pipeline tests (US2)
+# ---------------------------------------------------------------------------
+
+
+def test_converter_pipeline_with_per_tree_sampling_probability():
+    """End-to-end: per-call extant_sampling_probability=0.7 flows into Data.x."""
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = engineer.add_features(
+        tree, origin_time=5.0, rescale=False, extant_sampling_probability=0.7
+    )
+
+    converter = TreeToGraphConverter(
+        feature_names=engineer.feature_names,
+        add_virtual_nodes=False,
+    )
+    data = converter.convert(tree)
+
+    prob_idx = _feature_index(converter, "extant_sampling_probability")
+    for i in range(data.num_nodes):
+        assert data.x[i, prob_idx].item() == pytest.approx(0.7)
+
+
+def test_converter_virtual_nodes_copy_per_tree_sampling_probability():
+    """Virtual nodes receive the per-call value, not a stale constructor default."""
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+    engineer = TreeFeatureEngineer(
+        num_time_bins=5,
+        extant_sampling_probability=0.3,  # constructor default
+    )
+    tree = engineer.add_features(
+        tree,
+        origin_time=5.0,
+        rescale=True,
+        extant_sampling_probability=0.7,  # per-call override
+    )
+
+    converter = TreeToGraphConverter(
+        feature_names=engineer.feature_names,
+        add_virtual_nodes=True,
+        num_time_bins=engineer.num_time_bins,
+        append_is_virtual_feature=True,
+        copy_sampling_prob_to_virtual=True,
+    )
+    data = converter.convert(tree)
+
+    prob_idx = _feature_index(converter, "extant_sampling_probability")
+
+    # All original nodes should have 0.7
+    for i in range(data.original_num_nodes):
+        assert data.x[i, prob_idx].item() == pytest.approx(0.7)
+
+    # Virtual nodes should also have 0.7 (copied from first original node)
+    virtual_slice = slice(data.original_num_nodes, None)
+    for val in data.x[virtual_slice, prob_idx].tolist():
+        assert val == pytest.approx(0.7)

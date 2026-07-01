@@ -40,6 +40,28 @@ def main() -> None:
             f"is_internal={int(node.is_internal)}"
         )
 
+    # --- Per-tree extant_sampling_probability ---
+    print("\n--- Per-tree extant_sampling_probability ---")
+    tree_a = build_demo_tree()
+    tree_b = build_demo_tree()
+
+    tree_a = engineer.add_features(
+        tree_a,
+        origin_time=4.0,
+        extant_sampling_probability=0.8,
+        rescale=False,
+    )
+    tree_b = engineer.add_features(
+        tree_b,
+        origin_time=4.0,
+        extant_sampling_probability=0.5,
+        rescale=False,
+    )
+
+    for label, t, expected in [("Tree A", tree_a, 0.8), ("Tree B", tree_b, 0.5)]:
+        root = t.get_tree_root()
+        print(f"{label}: extant_sampling_probability = {root.extant_sampling_probability}")
+
 
 if __name__ == "__main__":
     main()

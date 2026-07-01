@@ -27,9 +27,11 @@ Feature engineering
    `origin_time`, duplicate feature requests, unknown feature names, and
    rescaling trees with no non-zero branch lengths.
 
-   .. py:method:: add_features(tree, origin_time, feature_names=None, rescale=True, inplace=True)
+   .. py:method:: add_features(tree, origin_time, feature_names=None, rescale=True, inplace=True, extant_sampling_probability=None)
 
       Compute requested node features and attach them to each node.
+      ``extant_sampling_probability`` overrides the constructor default for this
+      call. When ``None``, the constructor value is used.
 
    .. py:method:: rescale_tree(tree, inplace=True)
 

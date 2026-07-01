@@ -355,6 +355,7 @@ class TreeFeatureEngineer:
         feature_names: Optional[Sequence[str]] = None,
         rescale: bool = True,
         inplace: bool = True,
+        extant_sampling_probability: float | None = None,
     ) -> Tree:
         """
         Compute and attach requested features to every node in a tree.
@@ -406,6 +407,16 @@ class TreeFeatureEngineer:
             If True, modify the input tree in place.
             If False, compute features on a copy and return the copy.
 
+        extant_sampling_probability : float | None, default=None
+            Optional per-call override for the constructor-level
+            ``extant_sampling_probability``.
+
+            - When ``None`` (default), the constructor value is used.
+            - When provided, must be numeric (``int`` or ``float``, excluding
+              ``bool``) and in the range ``[0, 1]``.
+            - The per-call value does **not** modify
+              ``self.extant_sampling_probability``.
+
         Returns
         -------
         ete3.Tree
@@ -422,6 +433,12 @@ class TreeFeatureEngineer:
         ValueError
             If duplicate feature names are requested.
 
+        ValueError
+            If ``extant_sampling_probability`` is not in ``[0, 1]``.
+
+        TypeError
+            If ``extant_sampling_probability`` is not numeric.
+
         Notes
         -----
         Dependency features are computed automatically when needed. For example:
@@ -433,6 +450,20 @@ class TreeFeatureEngineer:
         """
         if origin_time <= 0:
             raise ValueError(f"origin_time must be positive, got {origin_time}")
+
+        if extant_sampling_probability is not None:
+            if not isinstance(extant_sampling_probability, (int, float)) or isinstance(
+                extant_sampling_probability, bool
+            ):
+                raise TypeError(
+                    "extant_sampling_probability must be a numeric value, "
+                    f"got {type(extant_sampling_probability).__name__}"
+                )
+            if not 0.0 <= extant_sampling_probability <= 1.0:
+                raise ValueError(
+                    f"extant_sampling_probability must be in [0, 1], "
+                    f"got {extant_sampling_probability}"
+                )
 
         if not inplace:
             tree = tree.copy()
@@ -461,12 +492,19 @@ class TreeFeatureEngineer:
 
         root = tree.get_tree_root()
 
+        effective_sampling_prob = (
+            extant_sampling_probability
+            if extant_sampling_probability is not None
+            else self.extant_sampling_probability
+        )
+
         for node in tree.traverse(self.traversal_strategy):
             context = {
                 "node": node,
                 "root": root,
                 "origin_time": effective_origin_time,
                 "rescale_factor": scale_factor,
+                "extant_sampling_probability": effective_sampling_prob,
             }
             for feature_name in features_to_add:
                 self._feature_registry[feature_name](context)
@@ -644,13 +682,14 @@ class TreeFeatureEngineer:
 
         Current definition
         ------------------
-        A constant scalar equal to `self.extant_sampling_probability`, assigned
-        uniformly to all nodes.
+        A constant scalar read from ``context["extant_sampling_probability"]``,
+        which is the effective value resolved from the per-call override or the
+        constructor default. Assigned uniformly to all nodes.
         """
         node = context["node"]
         node.add_feature(
             "extant_sampling_probability",
-            float(self.extant_sampling_probability),
+            float(context["extant_sampling_probability"]),
         )
 
     def _add_is_fossil(self, context: dict) -> None:

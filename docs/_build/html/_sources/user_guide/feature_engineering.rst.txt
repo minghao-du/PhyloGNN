@@ -19,6 +19,26 @@ Built-in features include `node_time`, `time_bin`, tip/internal indicators,
 fossil/extant indicators, sampled-ancestor indicators, `branch_length`,
 `rescale_factor`, and `extant_sampling_probability`.
 
+Per-tree sampling probability
+-----------------------------
+
+``extant_sampling_probability`` can be set per tree at call time, overriding
+the constructor default. This lets a single engineer process trees with
+different sampling probabilities:
+
+.. code-block:: python
+
+   engineer = TreeFeatureEngineer(num_time_bins=6)
+
+   # Different sampling probability per tree
+   tree_a = engineer.add_features(tree_a, origin_time=10.0,
+                                  extant_sampling_probability=0.8)
+   tree_b = engineer.add_features(tree_b, origin_time=5.0,
+                                  extant_sampling_probability=0.5)
+
+When omitted, the constructor default (``1.0``) applies. The per-call value
+must be numeric and in ``[0, 1]``.
+
 When to use it
 --------------
 

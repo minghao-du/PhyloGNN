@@ -52,6 +52,7 @@
 <li class="toctree-l3"><a class="reference internal" href="tree_input.html">Tree Input</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Feature Engineering</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#basic-workflow">Basic workflow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#per-tree-sampling-probability">Per-tree sampling probability</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#when-to-use-it">When to use it</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#feature-order-and-determinism">Feature order and determinism</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#validation">Validation</a></li>
@@ -115,6 +116,23 @@ converter later reads those attributes into graph feature columns.</p>
 <p>Built-in features include <code class="docutils literal notranslate"><span class="pre">node_time</span></code>, <code class="docutils literal notranslate"><span class="pre">time_bin</span></code>, tip/internal indicators,
 fossil/extant indicators, sampled-ancestor indicators, <code class="docutils literal notranslate"><span class="pre">branch_length</span></code>,
 <code class="docutils literal notranslate"><span class="pre">rescale_factor</span></code>, and <code class="docutils literal notranslate"><span class="pre">extant_sampling_probability</span></code>.</p>
+</section>
+<section id="per-tree-sampling-probability">
+<h2>Per-tree sampling probability<a class="headerlink" href="#per-tree-sampling-probability" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">extant_sampling_probability</span></code> can be set per tree at call time, overriding
+the constructor default. This lets a single engineer process trees with
+different sampling probabilities:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">engineer</span> <span class="o">=</span> <span class="n">TreeFeatureEngineer</span><span class="p">(</span><span class="n">num_time_bins</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+
+<span class="c1"># Different sampling probability per tree</span>
+<span class="n">tree_a</span> <span class="o">=</span> <span class="n">engineer</span><span class="o">.</span><span class="n">add_features</span><span class="p">(</span><span class="n">tree_a</span><span class="p">,</span> <span class="n">origin_time</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
+                               <span class="n">extant_sampling_probability</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
+<span class="n">tree_b</span> <span class="o">=</span> <span class="n">engineer</span><span class="o">.</span><span class="n">add_features</span><span class="p">(</span><span class="n">tree_b</span><span class="p">,</span> <span class="n">origin_time</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span>
+                               <span class="n">extant_sampling_probability</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>When omitted, the constructor default (<code class="docutils literal notranslate"><span class="pre">1.0</span></code>) applies. The per-call value
+must be numeric and in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1]</span></code>.</p>
 </section>
 <section id="when-to-use-it">
 <h2>When to use it<a class="headerlink" href="#when-to-use-it" title="Link to this heading"></a></h2>

@@ -299,3 +299,123 @@ def test_non_rescaled_temporal_features_keep_original_origin_time():
         is_fossil=1,
         is_extant=0,
     )
+
+
+# ---------------------------------------------------------------------------
+# Per-call extant_sampling_probability tests (US1)
+# ---------------------------------------------------------------------------
+
+
+def test_add_features_per_call_extant_sampling_probability():
+    """Passing extant_sampling_probability to add_features() sets that value on all nodes."""
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+
+    tree = engineer.add_features(
+        tree,
+        origin_time=5.0,
+        rescale=False,
+        extant_sampling_probability=0.7,
+    )
+
+    for node in tree.traverse():
+        assert node.extant_sampling_probability == pytest.approx(0.7)
+
+
+def test_add_features_extant_sampling_probability_constructor_fallback():
+    """Omitting per-call extant_sampling_probability uses the constructor default."""
+    engineer = TreeFeatureEngineer(num_time_bins=5, extant_sampling_probability=0.6)
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+
+    tree = engineer.add_features(tree, origin_time=5.0, rescale=False)
+
+    for node in tree.traverse():
+        assert node.extant_sampling_probability == pytest.approx(0.6)
+
+
+def test_add_features_extant_sampling_probability_overrides_constructor():
+    """Per-call value of 0.9 overrides a constructor value of 0.6."""
+    engineer = TreeFeatureEngineer(num_time_bins=5, extant_sampling_probability=0.6)
+    tree = Tree("((A:1,B:2)C:3,D:4)Root:0;", format=1)
+
+    tree = engineer.add_features(
+        tree,
+        origin_time=5.0,
+        rescale=False,
+        extant_sampling_probability=0.9,
+    )
+
+    for node in tree.traverse():
+        assert node.extant_sampling_probability == pytest.approx(0.9)
+
+
+def test_add_features_extant_sampling_probability_different_per_tree():
+    """Two consecutive calls with different values produce correct distinct results."""
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree_a = Tree("(A:1,B:1)Root:0;", format=1)
+    tree_b = Tree("(C:2,D:2)Root:0;", format=1)
+
+    tree_a = engineer.add_features(
+        tree_a,
+        origin_time=2.0,
+        rescale=False,
+        extant_sampling_probability=0.8,
+    )
+    tree_b = engineer.add_features(
+        tree_b,
+        origin_time=3.0,
+        rescale=False,
+        extant_sampling_probability=0.5,
+    )
+
+    for node in tree_a.traverse():
+        assert node.extant_sampling_probability == pytest.approx(0.8)
+    for node in tree_b.traverse():
+        assert node.extant_sampling_probability == pytest.approx(0.5)
+
+
+@pytest.mark.parametrize("bad_value", [-0.1, 1.1, 2.0])
+def test_add_features_extant_sampling_probability_invalid_range(bad_value):
+    """ValueError for per-call values outside [0, 1]."""
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = Tree("(A:1,B:1)Root:0;", format=1)
+
+    with pytest.raises(ValueError, match="extant_sampling_probability"):
+        engineer.add_features(
+            tree,
+            origin_time=2.0,
+            rescale=False,
+            extant_sampling_probability=bad_value,
+        )
+
+
+@pytest.mark.parametrize("bad_value", ["abc", True, [0.5]])
+def test_add_features_extant_sampling_probability_invalid_type(bad_value):
+    """TypeError for per-call values of non-numeric types."""
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = Tree("(A:1,B:1)Root:0;", format=1)
+
+    with pytest.raises(TypeError, match="extant_sampling_probability"):
+        engineer.add_features(
+            tree,
+            origin_time=2.0,
+            rescale=False,
+            extant_sampling_probability=bad_value,
+        )
+
+
+def test_add_features_extant_sampling_probability_not_requested():
+    """Passing the parameter when feature is not in feature_names is accepted without error."""
+    engineer = TreeFeatureEngineer(num_time_bins=5)
+    tree = Tree("(A:1,B:1)Root:0;", format=1)
+
+    tree = engineer.add_features(
+        tree,
+        origin_time=2.0,
+        feature_names=["node_time", "is_tip"],
+        rescale=False,
+        extant_sampling_probability=0.7,
+    )
+
+    for node in tree.traverse():
+        assert not hasattr(node, "extant_sampling_probability")
