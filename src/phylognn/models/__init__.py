@@ -12,6 +12,7 @@ _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
     "BasePhyloGNN": ("phylognn.models.base", "BasePhyloGNN"),
     "BaseGATNet": ("phylognn.models.base", "BaseGATNet"),
     "GATBiLSTMNet": ("phylognn.models.gat_lstm", "GATBiLSTMNet"),
+    "GATNodeRegressor": ("phylognn.models.gat_node", "GATNodeRegressor"),
     "TemporalBiLSTMEncoder": ("phylognn.models.layers", "TemporalBiLSTMEncoder"),
 }
 
@@ -19,6 +20,7 @@ __all__ = [
     "BasePhyloGNN",
     "BaseGATNet",
     "GATBiLSTMNet",
+    "GATNodeRegressor",
     "TemporalBiLSTMEncoder",
 ]
 

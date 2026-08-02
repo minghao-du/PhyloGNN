@@ -41,7 +41,7 @@ class ConfiguredTrainingSetup:
     Effective setup produced from a TOML training configuration.
 
     Attributes:
-        model: Configured `GATBiLSTMNet` instance. The model keeps its existing
+        model: Configured `nn.Module` instance. The model keeps its existing
             graph contract: `data.x`, `data.edge_index`, `data.batch`, and
             `data.time_bin` when temporal mode is not `none`.
         training_config: Existing `TrainingConfig` built from effective values.
@@ -53,7 +53,7 @@ class ConfiguredTrainingSetup:
             `Trainer` when tracking is enabled.
     """
 
-    model: GATBiLSTMNet
+    model: nn.Module
     training_config: TrainingConfig
     loss_fn: LossFn
     metrics: MetricsMap
@@ -63,7 +63,7 @@ class ConfiguredTrainingSetup:
 
 PathLike = Union[str, Path]
 
-SUPPORTED_MODEL_TYPES = frozenset({"GATBiLSTMNet"})
+SUPPORTED_MODEL_TYPES = frozenset({"GATBiLSTMNet", "GATNodeRegressor"})
 
 TOP_LEVEL_KEYS = frozenset({"model", "training", "loss", "metrics", "tracking"})
 MODEL_KEYS = frozenset({"type", "params"})
@@ -87,6 +87,20 @@ MODEL_PARAM_KEYS = frozenset(
         "graph_pool",
         "head_hidden_dim",
         "output_positive",
+    }
+)
+GAT_NODE_PARAM_KEYS = frozenset(
+    {
+        "input_dim",
+        "output_dim",
+        "preprocess_dim",
+        "gat_hidden_dim",
+        "gat_heads",
+        "num_gat_layers",
+        "dropout_prob",
+        "use_preprocessing",
+        "encoder_type",
+        "head_hidden_dim",
     }
 )
 REQUIRED_MODEL_PARAM_KEYS = frozenset({"input_dim", "output_dim"})
@@ -155,11 +169,13 @@ def load_training_config(
     model_params = _copy_mapping(model_config["params"], "model.params", config_path)
     training_values = _copy_mapping(raw_config["training"], "training", config_path)
 
+    model_type = model_config["type"]
+    param_keys = GAT_NODE_PARAM_KEYS if model_type == "GATNodeRegressor" else MODEL_PARAM_KEYS
     model_params = _merge_overrides(
         model_params,
         model_overrides,
         section="model.params",
-        allowed_keys=MODEL_PARAM_KEYS,
+        allowed_keys=param_keys,
         config_path=config_path,
     )
     training_values = _merge_overrides(
@@ -177,7 +193,13 @@ def load_training_config(
     _validate_training_values(training_values, config_path=config_path)
 
     try:
-        model = GATBiLSTMNet(**model_params)
+        model_type = model_config["type"]
+        if model_type == "GATNodeRegressor":
+            from phylognn.models import GATNodeRegressor
+
+            model = GATNodeRegressor(**model_params)
+        else:
+            model = GATBiLSTMNet(**model_params)
         training_config = TrainingConfig(**training_values)
         training_config.validate()
         tracking_config = _resolve_tracking_config(raw_config, config_path=config_path)
@@ -264,17 +286,18 @@ def _validate_config_document(raw_config: Mapping[str, Any], *, config_path: Pat
     _reject_unknown_keys(model_config, MODEL_KEYS, section="model", config_path=config_path)
     if "type" not in model_config:
         _raise_missing("model.type", config_path)
-    if model_config["type"] != "GATBiLSTMNet":
+    if model_config["type"] not in SUPPORTED_MODEL_TYPES:
+        supported = ", ".join(sorted(SUPPORTED_MODEL_TYPES))
         raise TrainingConfigError(
-            f"{config_path}: model.type must be 'GATBiLSTMNet', got {model_config['type']!r}."
+            f"{config_path}: model.type must be one of ({supported}), got {model_config['type']!r}."
         )
     if "params" not in model_config:
         _raise_missing("model.params", config_path)
 
+    model_type = model_config["type"]
+    param_keys = GAT_NODE_PARAM_KEYS if model_type == "GATNodeRegressor" else MODEL_PARAM_KEYS
     model_params = _require_mapping(model_config["params"], "model.params", config_path)
-    _reject_unknown_keys(
-        model_params, MODEL_PARAM_KEYS, section="model.params", config_path=config_path
-    )
+    _reject_unknown_keys(model_params, param_keys, section="model.params", config_path=config_path)
 
     _reject_unknown_keys(
         training_config, TRAINING_KEYS, section="training", config_path=config_path

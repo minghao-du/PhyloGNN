@@ -13,6 +13,7 @@ def test_models_package_exports_supported_model_surface():
         "BasePhyloGNN",
         "BaseGATNet",
         "GATBiLSTMNet",
+        "GATNodeRegressor",
         "TemporalBiLSTMEncoder",
     ]
 

@@ -14,6 +14,7 @@ def test_root_package_exposes_curated_public_names():
         "TrainingConfig",
         "Trainer",
         "GATBiLSTMNet",
+        "GATNodeRegressor",
         "TemporalBiLSTMEncoder",
         "__version__",
     ]
@@ -36,6 +37,7 @@ def test_models_subpackage_hides_low_level_layers():
         "BasePhyloGNN",
         "BaseGATNet",
         "GATBiLSTMNet",
+        "GATNodeRegressor",
         "TemporalBiLSTMEncoder",
     ]
     assert models.TemporalBiLSTMEncoder.__name__ == "TemporalBiLSTMEncoder"

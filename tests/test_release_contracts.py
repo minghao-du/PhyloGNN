@@ -84,7 +84,7 @@ def test_dependency_profiles_match_release_metadata_contract():
     assert optional["docs"] == {"sphinx", "sphinx-rtd-theme"}
     assert "furo" not in optional["docs"]
     assert optional["dev"] == {"black", "pytest", "ruff"}
-    assert optional["all"] == {"dendropy", "pandas", "wandb"}
+    assert optional["all"] == {"dendropy", "matplotlib", "pandas", "wandb"}
 
 
 def test_release_metadata_rejects_installer_specific_dependency_assumptions():

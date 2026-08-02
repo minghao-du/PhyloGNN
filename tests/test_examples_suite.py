@@ -27,6 +27,7 @@ EXPECTED_FILES = {
     "toml_training_config.py",
     "toml_training_config.toml",
     "complete_pipeline.py",
+    "extant_trait_regression.py",
 }
 
 REMOVED_FILES = {
@@ -258,3 +259,18 @@ def test_complete_pipeline_example_runs_without_existing_checkpoint():
     assert "checkpoint:" in completed.stdout
     assert "graph x shape:" in completed.stdout
     assert "prediction:" in completed.stdout
+
+
+def test_extant_trait_regression_example_runs():
+    completed = _run_example("extant_trait_regression.py")
+
+    assert completed.returncode == 0, completed.stderr
+    assert "Extant trait regression summary" in completed.stdout
+    assert "test MSE:" in completed.stdout
+    assert "test R2:" in completed.stdout
+    for filename in (
+        "extant_trait_regression_best.pt",
+        "extant_trait_regression_loss.png",
+        "extant_trait_regression_scatter.png",
+    ):
+        assert (ROOT / "example_outputs" / filename).is_file()

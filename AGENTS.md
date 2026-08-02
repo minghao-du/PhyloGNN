@@ -194,5 +194,7 @@ python -m build
 - Python ≥3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy, torch-scatter, tqdm (002-refactor-examples-reuse)
 - Python ≥3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy (all existing) (003-example-object-hoisting)
 - N/A (in-memory objects and example stdout only) (003-example-object-hoisting)
+- Python ≥3.12 + PyTorch, PyTorch Geometric, ETE3, NumPy, torchmetrics, matplotlib (for plots) (002-extant-trait-regression)
+- In-memory ETE3 trees and PyG `Data` objects; PNG plots and `.pt` checkpoint to `example_outputs/` (002-extant-trait-regression)
 
 ## Recent Changes

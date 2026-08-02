@@ -15,6 +15,7 @@ outputs under ``example_outputs/``.
    single_task_training
    toml_training_config
    complete_pipeline
+   extant_trait_regression
 
 Recommended order
 -----------------
@@ -36,6 +37,9 @@ Recommended order
 6. :doc:`complete_pipeline`
    Builds a tree, attaches features, converts it to graph data, loads a
    checkpoint or creates a temporary one, and prints a prediction.
+7. :doc:`extant_trait_regression`
+   Trains a node-level regressor on extant carnivore traits and writes loss,
+   scatter, and checkpoint outputs.
 
 Each page is a script launcher with inputs, run command, stable stdout markers,
 files written, optional dependencies, failure modes, and source.

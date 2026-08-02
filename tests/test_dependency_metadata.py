@@ -24,6 +24,7 @@ IMPORT_TO_DISTRIBUTION = {
     "black": "black",
     "dendropy": "dendropy",
     "ete3": "ete3",
+    "matplotlib": "matplotlib",
     "numpy": "numpy",
     "pytest": "pytest",
     "ruff": "ruff",
@@ -37,7 +38,7 @@ IMPORT_TO_DISTRIBUTION = {
     "wandb": "wandb",
 }
 
-LOCAL_IMPORT_ROOTS = {"phylognn", "tests"}
+LOCAL_IMPORT_ROOTS = {"examples", "phylognn", "tests"}
 OUT_OF_SCOPE_IMPORTS = {"setuptools"}
 
 
@@ -60,6 +61,12 @@ AUDIT_CLASSIFICATIONS = {
         "Lazy tree I/O dependency for BEAST/NEXUS file workflows.",
     ),
     "ete3": AuditClassification("ete3", "core", "default"),
+    "matplotlib": AuditClassification(
+        "matplotlib",
+        "optional",
+        "examples",
+        "Plotting dependency for the extant trait regression example.",
+    ),
     "numpy": AuditClassification(
         "numpy",
         "core",
@@ -123,7 +130,8 @@ EXPECTED_PROFILES = {
     "wandb": {"wandb"},
     "docs": {"sphinx", "sphinx-rtd-theme"},
     "dev": {"black", "pytest", "ruff"},
-    "all": {"dendropy", "pandas", "wandb"},
+    "examples": {"matplotlib"},
+    "all": {"dendropy", "matplotlib", "pandas", "wandb"},
 }
 
 NEW_DEPENDENCY_VERSION_BOUNDS = {

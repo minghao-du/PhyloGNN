@@ -128,6 +128,7 @@ def test_examples_docs_are_discoverable_from_toctrees():
         "single_task_training",
         "toml_training_config",
         "complete_pipeline",
+        "extant_trait_regression",
     ]
     for name in _toctree_entries(DOCS_EXAMPLES / "index.rst"):
         assert (DOCS_EXAMPLES / f"{name}.rst").is_file()
@@ -145,6 +146,7 @@ def test_examples_docs_map_to_runnable_files():
         "single_task_training",
         "toml_training_config",
         "complete_pipeline",
+        "extant_trait_regression",
     ):
         assert f"examples/{name}.py" in pages[name]
         assert ".. literalinclude::" in pages[name]
@@ -187,6 +189,7 @@ def test_generated_examples_pages_are_reachable():
         "single_task_training",
         "toml_training_config",
         "complete_pipeline",
+        "extant_trait_regression",
     ):
         assert f"{name}.html" in examples_index
 
@@ -201,6 +204,7 @@ def test_generated_examples_pages_include_runtime_markers():
             "single_task_training.html",
             "toml_training_config.html",
             "complete_pipeline.html",
+            "extant_trait_regression.html",
         )
     )
 

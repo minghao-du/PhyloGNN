@@ -34,11 +34,15 @@ docs = [
 beast = [
 "dendropy>=4.6.0",
 ]
+examples = [
+"matplotlib>=3.5.0",
+]
 wandb = [
 "wandb>=0.16.0",
 ]
 all = [
 "dendropy>=4.6.0",
+"matplotlib>=3.5.0",
 "pandas>=2.0.0",
 "wandb>=0.16.0",
 ]

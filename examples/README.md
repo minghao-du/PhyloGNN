@@ -27,12 +27,18 @@ It is intentionally separate from the six example launchers below.
 6. `complete_pipeline.py`
    Complete tree-to-prediction example that uses the standard TOML checkpoint
    when present and creates a temporary checkpoint when it is absent.
+7. `extant_trait_regression.py`
+   Single-tree node-level regression using the carni70 phylogeny and extant
+   size/range traits. It writes a checkpoint and two plots under
+   `example_outputs/`.
 
 ## Requirements
 
 - Install the package and core runtime dependencies before running the
   self-contained examples. The core install includes model and training runtime
   packages such as torch-scatter and tqdm.
+- Install `python -m pip install -e ".[examples]"` before running
+  `extant_trait_regression.py` to provide matplotlib.
 - The examples are intended to be run from the repository root after an
   editable install such as `python -m pip install -e ".[dev]"`.
 - `feature_engineering.py` and `tree_to_graph.py` are self-contained and do not
@@ -63,6 +69,7 @@ python examples/tree_io.py
 python examples/single_task_training.py
 python examples/toml_training_config.py
 python examples/complete_pipeline.py
+python examples/extant_trait_regression.py
 ```
 
 ## Expected Outputs
@@ -84,6 +91,8 @@ python examples/complete_pipeline.py
 - `complete_pipeline.py` prints a `Complete pipeline summary`, graph tensor
   shapes, and a prediction value after loading the TOML training checkpoint or
   a temporary checkpoint created internally.
+- `extant_trait_regression.py` prints progress every 10 epochs, an `Extant trait
+  regression summary`, final metrics, and the three generated output paths.
 
 ## Notes
 
