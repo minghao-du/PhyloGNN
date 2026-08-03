@@ -12,7 +12,14 @@ from ete3 import Tree  # noqa: E402
 from torch_geometric.data import Data  # noqa: E402
 
 import examples.extant_trait_regression as extant_example  # noqa: E402
-from examples.extant_trait_regression import build_graph, create_masks  # noqa: E402
+from examples.extant_trait_regression import (  # noqa: E402
+    MaskedNodeRegressor,
+    build_graph,
+    create_masked_graph_view,
+    create_masks,
+    create_training_config,
+    validate_graph_data,
+)
 from phylognn.models.gat_node import GATNodeRegressor  # noqa: E402
 from phylognn.training.config import SUPPORTED_MODEL_TYPES  # noqa: E402
 
@@ -199,6 +206,18 @@ class TestEdgeCases:
         with pytest.raises(ValueError, match="zero valid"):
             create_masks(data.prediction_mask)
 
+    @pytest.mark.parametrize("size", [float("nan"), float("inf"), float("-inf")])
+    def test_nonfinite_sizes_are_excluded_from_prediction_mask(self, size):
+        tree = Tree("(A:1.0,B:1.0)root:1.0;", format=1)
+        data = build_graph(
+            tree,
+            {"A": {"size": size, "range": 3.0}, "B": {"size": 2.0, "range": 3.0}},
+        )
+
+        index = data.node_names.index("A")
+        assert not bool(data.prediction_mask[index])
+        assert torch.isfinite(data.y[data.prediction_mask]).all()
+
     def test_unmatched_leaf_range_is_nan(self):
         """Missing leaf traits use NaN while internal range uses the sentinel."""
         tree = Tree("(A:1.0,B:1.0)root:1.0;", format=1)
@@ -280,3 +299,61 @@ class TestEdgeCases:
         )
 
         assert calls == [(2, 2), (2, 2)]
+
+
+class TestTrainerIntegrationContracts:
+    """Regression tests for the example's graph and Trainer adapters."""
+
+    def _valid_data(self) -> Data:
+        return Data(
+            x=torch.ones(4, 3),
+            edge_index=torch.tensor([[0, 1, 2, 3], [1, 2, 3, 0]], dtype=torch.long),
+            y=torch.tensor([1.0, 1.1, 2.0, float("inf")]),
+            prediction_mask=torch.tensor([True, True, True, False]),
+            train_mask=torch.tensor([True, False, False, False]),
+            val_mask=torch.tensor([False, True, False, False]),
+            test_mask=torch.tensor([False, False, True, False]),
+        )
+
+    def test_validation_rejects_nonfinite_prediction_nodes_and_bad_splits(self):
+        data = self._valid_data()
+        data.prediction_mask = torch.tensor([True, True, True, True])
+        with pytest.raises(ValueError, match="prediction_mask"):
+            validate_graph_data(data)
+
+        data = self._valid_data()
+        data.test_mask = torch.tensor([False, False, False, False])
+        with pytest.raises(ValueError, match="test_mask"):
+            validate_graph_data(data)
+
+    def test_masked_view_and_adapter_keep_full_graph_and_align_targets(self):
+        data = Data(
+            x=torch.tensor([[1.0, 0.0], [2.0, 0.0], [3.0, 0.0], [4.0, 0.0]]),
+            edge_index=torch.tensor([[0, 1, 2], [1, 2, 3]], dtype=torch.long),
+            y=torch.tensor([1.0, 2.0, 3.0, 4.0]),
+        )
+        node_mask = torch.tensor([True, False, True, False])
+        view = create_masked_graph_view(data, node_mask)
+        assert view.x.shape == data.x.shape
+        assert torch.equal(view.edge_index, data.edge_index)
+        assert view.y.shape == (2,)
+
+        class BaseModel(nn.Module):
+            def forward(self, graph: Data) -> torch.Tensor:
+                return graph.x[:, :1]
+
+        predictions = MaskedNodeRegressor(BaseModel())(view)
+        assert predictions.shape == (2, 1)
+        assert torch.equal(predictions[:, 0], view.y)
+
+    @pytest.mark.parametrize(
+        "kwargs, message",
+        [
+            ({"epochs": 0}, "epochs"),
+            ({"learning_rate": 0.0}, "learning_rate"),
+            ({"save_dir": ""}, "save_dir"),
+        ],
+    )
+    def test_training_config_rejects_invalid_values(self, kwargs, message):
+        with pytest.raises((TypeError, ValueError), match=message):
+            create_training_config(**kwargs)

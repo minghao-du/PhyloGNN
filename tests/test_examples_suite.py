@@ -274,3 +274,29 @@ def test_extant_trait_regression_example_runs():
         "extant_trait_regression_scatter.png",
     ):
         assert (ROOT / "example_outputs" / filename).is_file()
+
+
+def test_extant_trait_regression_uses_public_trainer_lifecycle():
+    """The example source must use Trainer for training and checkpoint restore."""
+    script = (EXAMPLES_DIR / "extant_trait_regression.py").read_text(encoding="utf-8")
+
+    assert "TrainingConfig" in script
+    assert "Trainer(" in script
+    assert "trainer.fit(" in script
+    assert 'trainer.load_checkpoint("best_model.pt")' in script
+    assert "torch.save(model.state_dict(), checkpoint_path)" in script
+    assert 'OUTPUT_DIR = "example_outputs"' in script
+    assert "epochs: int = EPOCHS" in script
+    assert "batch_size: int = 1" in script
+    assert "learning_rate: float = LR" in script
+    assert 'optimizer: str = "adam"' in script
+    for marker in (
+        "Extant trait regression summary",
+        "train/val/test nodes:",
+        "test MSE:",
+        "test R2:",
+        "checkpoint:",
+        "loss plot:",
+        "scatter plot:",
+    ):
+        assert marker in script

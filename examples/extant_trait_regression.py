@@ -22,10 +22,12 @@ import torch
 from ete3 import Tree
 from torch import nn
 from torch_geometric.data import Data
+from torch_geometric.loader import DataLoader
 from torchmetrics import MeanSquaredError, R2Score
 
 from phylognn import TreeFeatureEngineer, TreeToGraphConverter
 from phylognn.models import GATNodeRegressor
+from phylognn.training import Trainer, TrainingConfig
 
 HIDDEN_DIM = 64
 NUM_LAYERS = 2
@@ -46,6 +48,192 @@ TREE_PATH = ROOT / "examples_data" / "carni70" / "carni70_tree.nwk"
 CSV_PATH = ROOT / "examples_data" / "carni70" / "carni70_data.csv"
 
 MetricPostprocessFn = Callable[[torch.Tensor, torch.Tensor], tuple[torch.Tensor, torch.Tensor]]
+
+
+def _is_integer_dtype(dtype: torch.dtype) -> bool:
+    """Return whether ``dtype`` is one of PyTorch's integer tensor dtypes."""
+    return dtype in {torch.uint8, torch.int8, torch.int16, torch.int32, torch.int64}
+
+
+def validate_graph_data(data: Data) -> None:
+    """Validate graph tensors, finite targets, and non-empty disjoint splits."""
+    if not isinstance(data, Data):
+        raise TypeError(
+            f"data must be a torch_geometric.data.Data object, got {type(data).__name__}."
+        )
+    required_fields = (
+        "x",
+        "edge_index",
+        "y",
+        "prediction_mask",
+        "train_mask",
+        "val_mask",
+        "test_mask",
+    )
+    for field in required_fields:
+        if not hasattr(data, field) or getattr(data, field) is None:
+            raise ValueError(f"Graph field '{field}' is required before training.")
+
+    x = data.x
+    if not isinstance(x, torch.Tensor):
+        raise TypeError(f"x must be a Tensor, got {type(x).__name__}.")
+    if x.ndim != 2 or not x.is_floating_point() or x.size(0) == 0:
+        raise ValueError(
+            "x must be a non-empty two-dimensional floating tensor; "
+            f"got dtype={x.dtype}, shape={tuple(x.shape)}."
+        )
+
+    edge_index = data.edge_index
+    if not isinstance(edge_index, torch.Tensor):
+        raise TypeError(f"edge_index must be a Tensor, got {type(edge_index).__name__}.")
+    if edge_index.ndim != 2 or edge_index.size(0) != 2 or not _is_integer_dtype(edge_index.dtype):
+        raise ValueError(
+            "edge_index must have integer dtype and shape [2, E]; "
+            f"got dtype={edge_index.dtype}, shape={tuple(edge_index.shape)}."
+        )
+
+    y = data.y
+    if not isinstance(y, torch.Tensor):
+        raise TypeError(f"y must be a Tensor, got {type(y).__name__}.")
+    if y.ndim != 1 or y.size(0) != x.size(0) or not y.is_floating_point():
+        raise ValueError(
+            "y must be a one-dimensional floating tensor with one value per node; "
+            f"got dtype={y.dtype}, shape={tuple(y.shape)}, num_nodes={x.size(0)}."
+        )
+
+    masks: dict[str, torch.Tensor] = {}
+    for field in ("prediction_mask", "train_mask", "val_mask", "test_mask"):
+        mask = getattr(data, field)
+        if not isinstance(mask, torch.Tensor):
+            raise TypeError(f"{field} must be a Tensor, got {type(mask).__name__}.")
+        if mask.ndim != 1 or mask.dtype != torch.bool or mask.size(0) != x.size(0):
+            raise ValueError(
+                f"{field} must be a boolean tensor with shape [{x.size(0)}]; "
+                f"got dtype={mask.dtype}, shape={tuple(mask.shape)}."
+            )
+        masks[field] = mask
+
+    finite_targets = torch.isfinite(y)
+    if not torch.equal(masks["prediction_mask"], finite_targets):
+        raise ValueError(
+            "prediction_mask must identify exactly finite y values; "
+            f"finite target count={int(finite_targets.sum())}, "
+            f"prediction count={int(masks['prediction_mask'].sum())}."
+        )
+
+    train_mask = masks["train_mask"]
+    val_mask = masks["val_mask"]
+    test_mask = masks["test_mask"]
+    if (
+        bool((train_mask & val_mask).any())
+        or bool((train_mask & test_mask).any())
+        or bool((val_mask & test_mask).any())
+    ):
+        raise ValueError("train_mask, val_mask, and test_mask must be pairwise disjoint.")
+    if not torch.equal(train_mask | val_mask | test_mask, masks["prediction_mask"]):
+        raise ValueError("train_mask, val_mask, and test_mask must cover prediction_mask exactly.")
+    for field, mask in (
+        ("train_mask", train_mask),
+        ("val_mask", val_mask),
+        ("test_mask", test_mask),
+    ):
+        if not bool(mask.any()):
+            raise ValueError(f"{field} must contain at least one prediction node.")
+
+
+def create_masked_graph_view(data: Data, node_mask: torch.Tensor) -> Data:
+    """Keep full graph inputs while narrowing ``y`` to selected finite nodes."""
+    if not isinstance(node_mask, torch.Tensor):
+        raise TypeError(f"node_mask must be a Tensor, got {type(node_mask).__name__}.")
+    if node_mask.ndim != 1 or node_mask.dtype != torch.bool or node_mask.size(0) != data.num_nodes:
+        raise ValueError(
+            "node_mask must be a one-dimensional boolean tensor with one entry per node; "
+            f"got dtype={node_mask.dtype}, shape={tuple(node_mask.shape)}, num_nodes={data.num_nodes}."
+        )
+    if not bool(node_mask.any()):
+        raise ValueError("node_mask must select at least one node.")
+    if not hasattr(data, "y") or not isinstance(data.y, torch.Tensor) or data.y.ndim != 1:
+        raise ValueError("data.y must be a one-dimensional tensor before creating a graph view.")
+    selected_targets = data.y[node_mask]
+    if not torch.isfinite(selected_targets).all():
+        raise ValueError("node_mask selects non-finite target values.")
+
+    view = data.clone()
+    view.node_mask = node_mask.clone()
+    view.y = selected_targets.clone()
+    return view
+
+
+class MaskedNodeRegressor(nn.Module):
+    """Adapt a full-graph node regressor to a selected target subset."""
+
+    def __init__(self, model: nn.Module) -> None:
+        super().__init__()
+        self.model = model
+
+    def forward(self, data: Data) -> torch.Tensor:
+        """Return selected predictions with shape ``[K, 1]``."""
+        if not hasattr(data, "node_mask"):
+            raise ValueError("MaskedNodeRegressor requires data.node_mask.")
+        node_mask = data.node_mask
+        if (
+            node_mask.ndim != 1
+            or node_mask.dtype != torch.bool
+            or node_mask.size(0) != data.x.size(0)
+        ):
+            raise ValueError(
+                "data.node_mask must be a one-dimensional boolean tensor matching data.x; "
+                f"got dtype={node_mask.dtype}, shape={tuple(node_mask.shape)}, x={tuple(data.x.shape)}."
+            )
+        predictions = self.model(data)
+        if not isinstance(predictions, torch.Tensor):
+            raise TypeError(f"base model must return a Tensor, got {type(predictions).__name__}.")
+        if predictions.ndim == 1:
+            predictions = predictions.unsqueeze(-1)
+        if (
+            predictions.ndim != 2
+            or predictions.size(0) != data.x.size(0)
+            or predictions.size(1) != 1
+        ):
+            raise ValueError(
+                "base model must return [num_nodes, 1]; "
+                f"got shape={tuple(predictions.shape)}, num_nodes={data.x.size(0)}."
+            )
+        selected = predictions[node_mask]
+        if selected.ndim != 2 or selected.size(1) != 1:
+            raise ValueError(
+                f"selected predictions must have shape [K, 1], got {tuple(selected.shape)}."
+            )
+        return selected
+
+
+def create_training_config(
+    *,
+    epochs: int = EPOCHS,
+    batch_size: int = 1,
+    learning_rate: float = LR,
+    optimizer: str = "adam",
+    save_dir: str | Path | None = None,
+) -> TrainingConfig:
+    """Build and validate the fixed-default configuration used by the example."""
+    if save_dir is None:
+        save_dir = OUTPUT_DIR
+    if not isinstance(save_dir, (str, Path)):
+        raise TypeError(f"save_dir must be a path string or Path, got {type(save_dir).__name__}.")
+    if not str(save_dir):
+        raise ValueError("save_dir must not be empty.")
+    save_path = Path(save_dir)
+    if save_path.exists() and not save_path.is_dir():
+        raise ValueError(f"save_dir must be a directory path, got existing file {save_path}.")
+    config = TrainingConfig(
+        epochs=epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        optimizer=optimizer,
+        save_dir=str(save_dir),
+    )
+    config.validate()
+    return config
 
 
 # [START load_data]
@@ -123,7 +311,7 @@ def build_graph(tree: Tree, trait_dict: dict[str, dict[str, float]]) -> Data:
         target_values.append(math.log1p(size) if math.isfinite(size) else float("nan"))
 
     data.y = torch.tensor(target_values, dtype=torch.float32)
-    data.prediction_mask = ~torch.isnan(data.y)
+    data.prediction_mask = torch.isfinite(data.y)
     return data
 
 
@@ -135,8 +323,13 @@ def create_masks(
     seed: int = SEED,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Split valid prediction nodes into deterministic train/validation/test masks."""
+    if not isinstance(prediction_mask, torch.Tensor):
+        raise TypeError(f"prediction_mask must be a Tensor, got {type(prediction_mask).__name__}.")
     if prediction_mask.dim() != 1 or prediction_mask.dtype != torch.bool:
-        raise ValueError("prediction_mask must be a one-dimensional boolean tensor.")
+        raise ValueError(
+            "prediction_mask must be a one-dimensional boolean tensor; "
+            f"got dtype={prediction_mask.dtype}, shape={tuple(prediction_mask.shape)}."
+        )
 
     torch.manual_seed(seed)
     valid_indices = torch.where(prediction_mask)[0]
@@ -158,8 +351,13 @@ def create_masks(
     val_mask[val_indices] = True
     test_mask[test_indices] = True
 
+    if not bool(train_mask.any()) or not bool(val_mask.any()) or not bool(test_mask.any()):
+        raise ValueError(
+            "Generated train/val/test masks must all be non-empty; "
+            f"counts={int(train_mask.sum())}/{int(val_mask.sum())}/{int(test_mask.sum())}."
+        )
     if not torch.equal(train_mask | val_mask | test_mask, prediction_mask):
-        raise RuntimeError("Generated train/val/test masks do not cover prediction_mask.")
+        raise ValueError("Generated train/val/test masks do not cover prediction_mask.")
     return train_mask, val_mask, test_mask
 
 
@@ -432,6 +630,12 @@ def main() -> None:
     data.train_mask = train_mask
     data.val_mask = val_mask
     data.test_mask = test_mask
+    validate_graph_data(data)
+
+    train_view = create_masked_graph_view(data, train_mask)
+    val_view = create_masked_graph_view(data, val_mask)
+    train_loader = DataLoader([train_view], batch_size=1, shuffle=False)
+    val_loader = DataLoader([val_view], batch_size=1, shuffle=False)
 
     model = GATNodeRegressor(
         input_dim=data.x.size(1),
@@ -443,13 +647,28 @@ def main() -> None:
         dropout_prob=DROPOUT_PROB,
         head_hidden_dim=HEAD_HIDDEN_DIM,
     )
-    history = train_model(model, data, EPOCHS, LR)
+    config = create_training_config()
+    trainer = Trainer(
+        model=MaskedNodeRegressor(model),
+        config=config,
+        loss_fn=nn.MSELoss(),
+        metrics={"mse": "mse"},
+    )
+    history = trainer.fit(train_loader=train_loader, val_loader=val_loader)
+    for field in ("train_loss", "val_loss"):
+        values = history.get(field)
+        if not isinstance(values, list) or not values:
+            raise ValueError(f"Training history field '{field}' must be a non-empty list.")
+    if len(history["train_loss"]) != len(history["val_loss"]):
+        raise ValueError("Training history train_loss and val_loss must have equal lengths.")
 
+    trainer.load_checkpoint("best_model.pt")
     checkpoint_path = Path(OUTPUT_DIR) / "extant_trait_regression_best.pt"
-    model.load_state_dict(torch.load(checkpoint_path, map_location="cpu", weights_only=True))
-    test_metrics = evaluate_model(model, data, "test_mask")
+    torch.save(model.state_dict(), checkpoint_path)
+    evaluation_data = data.to(trainer.device)
+    test_metrics = evaluate_model(model, evaluation_data, "test_mask")
     plot_loss_curves(history, OUTPUT_DIR)
-    plot_scatter(model, data, OUTPUT_DIR)
+    plot_scatter(model, evaluation_data, OUTPUT_DIR)
 
     print("Extant trait regression summary")
     print(f"valid species: {int(data.prediction_mask.sum().item())}")

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import re
+import subprocess
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -215,6 +217,54 @@ def test_generated_examples_pages_include_runtime_markers():
     assert re.search(r"TOML training run summary", text)
     assert re.search(r"Complete pipeline summary", text)
     assert "checkpoint: example_outputs/toml_training_config/final_model.pt" in text
+
+
+def test_extant_trait_regression_docs_match_trainer_workflow():
+    """Build the page and verify its source and generated contract details."""
+    completed = subprocess.run(
+        [
+            "sphinx-build",
+            "-b",
+            "html",
+            str(DOCS_SOURCE),
+            str(DOCS_BUILD_HTML),
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "LANG": "C", "LC_ALL": "C"},
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+    source = _read(DOCS_EXAMPLES / "extant_trait_regression.rst")
+    generated = _read(DOCS_BUILD_HTML / "examples" / "extant_trait_regression.html")
+    for text in (source, generated):
+        lowered = text.lower()
+        assert "trainingconfig" in lowered
+        assert "trainer" in lowered
+        for mask_name in ("train_mask", "val_mask", "test_mask"):
+            assert mask_name in lowered
+        assert "best_model.pt" in lowered
+        assert "torch.expm1" in lowered
+        assert "mse" in lowered
+        assert "r2" in lowered
+        for marker in (
+            "Extant trait regression summary",
+            "train/val/test nodes:",
+            "test MSE:",
+            "test R2:",
+            "checkpoint:",
+            "loss plot:",
+            "scatter plot:",
+        ):
+            assert marker.lower() in lowered
+        for output_path in (
+            "example_outputs/extant_trait_regression_best.pt",
+            "example_outputs/extant_trait_regression_loss.png",
+            "example_outputs/extant_trait_regression_scatter.png",
+        ):
+            assert output_path in text
 
 
 def test_quickstart_references_runnable_training_smoke_test():
