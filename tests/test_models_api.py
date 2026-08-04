@@ -14,6 +14,7 @@ def test_models_package_exports_supported_model_surface():
         "BaseGATNet",
         "GATBiLSTMNet",
         "GATNodeRegressor",
+        "MaskedAttentionPhyloRegressor",
         "TemporalBiLSTMEncoder",
     ]
 
@@ -31,6 +32,7 @@ def test_models_package_rejects_low_level_helpers_from_facade():
     models = importlib.import_module("phylognn.models")
 
     assert models.TemporalBiLSTMEncoder.__name__ == "TemporalBiLSTMEncoder"
+    assert models.MaskedAttentionPhyloRegressor.__name__ == "MaskedAttentionPhyloRegressor"
 
     for hidden_name in {"GATBlock", "ResidualGATBlock", "ResidualGATStack", "MLPHead"}:
         assert hidden_name not in models.__all__

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import warnings
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -65,7 +66,14 @@ nitpick_ignore = [
     ("py:class", "torch_geometric.data.Data"),
     ("py:class", "ete3.Tree"),
     ("py:class", "dendropy.Tree"),
+    ("py:class", "collections.abc.Mapping"),
+    ("py:class", "collections.abc.Sequence"),
+    ("py:class", "ete3.coretype.tree.TreeNode"),
+    ("py:class", "torch.nn.modules.module.Module"),
 ]
+
+# Imported dependency docstrings contain legacy invalid-escape sequences.
+warnings.filterwarnings("ignore", category=SyntaxWarning, message="invalid escape sequence")
 
 doctest_global_setup = """
 import os

@@ -10,6 +10,9 @@ Workflow pages
 :doc:`Tree input <tree_input>`
    Start from in-memory `ete3.Tree` objects or optional file readers.
 
+:doc:`Single-tree region association <region_association>`
+   Evaluate one masked leaf-aligned region with normalized tree constraints.
+
 :doc:`Feature engineering <feature_engineering>`
    Attach deterministic numeric attributes to tree nodes.
 
@@ -35,6 +38,7 @@ Workflow pages
    :maxdepth: 1
 
    tree_input
+   region_association
    feature_engineering
    graph_conversion
    datasets_and_splits

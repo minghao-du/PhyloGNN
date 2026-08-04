@@ -6,7 +6,7 @@ optional file-loading boundary, the lightweight training walkthrough, and the
 complete checkpoint-backed pipeline.
 
 `quickstart_training.py` is the tiny smoke test used by the Quickstart guide.
-It is intentionally separate from the six example launchers below.
+It is intentionally separate from the seven example launchers below.
 
 ## Recommended Order
 
@@ -31,6 +31,9 @@ It is intentionally separate from the six example launchers below.
    Single-tree node-level regression using the carni70 phylogeny and extant
    size/range traits. It writes a checkpoint and two plots under
    `example_outputs/`.
+8. `single_tree_region_association.py`
+   Evaluates one padded leaf-aligned region against a small in-memory tree with
+   transductive cross-validation and positional attention.
 
 ## Requirements
 
@@ -70,6 +73,7 @@ python examples/single_task_training.py
 python examples/toml_training_config.py
 python examples/complete_pipeline.py
 python examples/extant_trait_regression.py
+python examples/single_tree_region_association.py
 ```
 
 ## Expected Outputs
@@ -93,6 +97,9 @@ python examples/extant_trait_regression.py
   a temporary checkpoint created internally.
 - `extant_trait_regression.py` prints progress every 10 epochs, an `Extant trait
   regression summary`, final metrics, and the three generated output paths.
+- `single_tree_region_association.py` prints a `Single-tree region association
+  summary`, input shapes, fold and overall R-squared scores, and the maximum
+  mean-attention position without writing files.
 
 ## Notes
 

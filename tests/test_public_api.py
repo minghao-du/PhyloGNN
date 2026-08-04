@@ -20,7 +20,11 @@ def test_root_package_exposes_curated_public_names():
         "Trainer",
         "GATBiLSTMNet",
         "GATNodeRegressor",
+        "MaskedAttentionPhyloRegressor",
         "TemporalBiLSTMEncoder",
+        "RegionAssociationResult",
+        "build_leaf_laplacian",
+        "evaluate_region_association",
         "__version__",
     ]
     assert "read_tree_as_ete3" not in phylognn.__all__
@@ -43,9 +47,11 @@ def test_models_subpackage_hides_low_level_layers():
         "BaseGATNet",
         "GATBiLSTMNet",
         "GATNodeRegressor",
+        "MaskedAttentionPhyloRegressor",
         "TemporalBiLSTMEncoder",
     ]
     assert models.TemporalBiLSTMEncoder.__name__ == "TemporalBiLSTMEncoder"
+    assert models.MaskedAttentionPhyloRegressor.__name__ == "MaskedAttentionPhyloRegressor"
     for hidden_name in {
         "GATBlock",
         "ResidualGATStack",

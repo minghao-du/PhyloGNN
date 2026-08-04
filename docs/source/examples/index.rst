@@ -16,6 +16,7 @@ outputs under ``example_outputs/``.
    toml_training_config
    complete_pipeline
    extant_trait_regression
+   single_tree_region_association
 
 Recommended order
 -----------------
@@ -40,6 +41,9 @@ Recommended order
 7. :doc:`extant_trait_regression`
    Trains a node-level regressor on extant carnivore traits and writes loss,
    scatter, and checkpoint outputs.
+8. :doc:`single_tree_region_association`
+   Evaluates a padded leaf-aligned region against an in-memory tree with
+   transductive cross-validation and no files written.
 
 Each page is a script launcher with inputs, run command, stable stdout markers,
 files written, optional dependencies, failure modes, and source.

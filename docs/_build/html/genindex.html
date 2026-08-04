@@ -81,9 +81,11 @@
  | <a href="#B"><strong>B</strong></a>
  | <a href="#C"><strong>C</strong></a>
  | <a href="#D"><strong>D</strong></a>
+ | <a href="#E"><strong>E</strong></a>
  | <a href="#F"><strong>F</strong></a>
  | <a href="#G"><strong>G</strong></a>
  | <a href="#L"><strong>L</strong></a>
+ | <a href="#M"><strong>M</strong></a>
  | <a href="#P"><strong>P</strong></a>
  | <a href="#R"><strong>R</strong></a>
  | <a href="#S"><strong>S</strong></a>
@@ -99,6 +101,10 @@
       <li><a href="reference/data.html#TreeFeatureEngineer.add_features">add_features() (TreeFeatureEngineer method)</a>
 </li>
   </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="reference/association.html#phylognn.association.RegionAssociationResult.attention">attention (phylognn.association.RegionAssociationResult attribute)</a>
+</li>
+  </ul></td>
 </tr></table>
 
 <h2 id="B">B</h2>
@@ -107,6 +113,8 @@
       <li><a href="reference/models.html#BaseGATNet">BaseGATNet (built-in class)</a>
 </li>
       <li><a href="reference/models.html#BasePhyloGNN">BasePhyloGNN (built-in class)</a>
+</li>
+      <li><a href="reference/association.html#phylognn.association.build_leaf_laplacian">build_leaf_laplacian() (in module phylognn.association)</a>
 </li>
       <li>
     built-in function
@@ -139,8 +147,6 @@
 </li>
       <li><a href="reference/data.html#TreeToGraphConverter.convert_and_save">convert_and_save() (TreeToGraphConverter method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     create_default_trainer()
 
@@ -148,6 +154,8 @@
         <li><a href="reference/training.html#create_default_trainer">built-in function</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     create_trainer_from_config()
 
@@ -155,6 +163,8 @@
         <li><a href="reference/training.html#create_trainer_from_config">built-in function</a>
 </li>
       </ul></li>
+      <li><a href="reference/association.html#phylognn.association.RegionAssociationResult.cv_r2">cv_r2 (phylognn.association.RegionAssociationResult attribute)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -175,15 +185,27 @@
   </ul></td>
 </tr></table>
 
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="reference/association.html#phylognn.association.evaluate_region_association">evaluate_region_association() (in module phylognn.association)</a>
+</li>
+  </ul></td>
+</tr></table>
+
 <h2 id="F">F</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/training.html#Trainer.fit">fit() (Trainer method)</a>
 </li>
-      <li><a href="reference/models.html#BasePhyloGNN.freeze_encoder">freeze_encoder() (BasePhyloGNN method)</a>
+      <li><a href="reference/association.html#phylognn.association.RegionAssociationResult.fold_r2">fold_r2 (phylognn.association.RegionAssociationResult attribute)</a>
+</li>
+      <li><a href="reference/association.html#phylognn.models.masked_attention.MaskedAttentionPhyloRegressor.forward">forward() (phylognn.models.masked_attention.MaskedAttentionPhyloRegressor method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="reference/models.html#BasePhyloGNN.freeze_encoder">freeze_encoder() (BasePhyloGNN method)</a>
+</li>
       <li><a href="reference/training.html#DatasetSplit.from_dict">from_dict() (DatasetSplit class method)</a>
 </li>
       <li><a href="reference/training.html#DatasetSplit.from_manifest_dir">from_manifest_dir() (DatasetSplit class method)</a>
@@ -233,8 +255,36 @@
   </ul></td>
 </tr></table>
 
+<h2 id="M">M</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="reference/association.html#phylognn.models.masked_attention.MaskedAttentionPhyloRegressor">MaskedAttentionPhyloRegressor (class in phylognn.models.masked_attention)</a>
+</li>
+      <li><a href="reference/association.html#phylognn.association.RegionAssociationResult.mean_attention">mean_attention (phylognn.association.RegionAssociationResult attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    module
+
+      <ul>
+        <li><a href="reference/association.html#module-phylognn.association">phylognn.association</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
 <h2 id="P">P</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    phylognn.association
+
+      <ul>
+        <li><a href="reference/association.html#module-phylognn.association">module</a>
+</li>
+      </ul></li>
+  </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/training.html#Trainer.predict">predict() (Trainer method)</a>
 </li>
@@ -251,8 +301,6 @@
         <li><a href="reference/io.html#read_tree_as_ete3">built-in function</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     read_tree_with_dendropy()
 
@@ -260,6 +308,10 @@
         <li><a href="reference/io.html#read_tree_with_dendropy">built-in function</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="reference/association.html#phylognn.association.RegionAssociationResult">RegionAssociationResult (class in phylognn.association)</a>
+</li>
       <li><a href="reference/data.html#TreeFeatureEngineer.rescale_tree">rescale_tree() (TreeFeatureEngineer method)</a>
 </li>
   </ul></td>

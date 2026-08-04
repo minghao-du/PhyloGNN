@@ -21,6 +21,7 @@ TOML_HISTORY = ROOT / "example_outputs" / "toml_training_config" / "history.json
 
 USER_GUIDE_ENTRIES = [
     "tree_input",
+    "region_association",
     "feature_engineering",
     "graph_conversion",
     "datasets_and_splits",
@@ -121,6 +122,52 @@ def test_generated_user_guide_navigation_order_and_reachability():
     assert positions == sorted(positions)
 
 
+def test_region_association_documentation_contracts():
+    guide = _read(DOCS_SOURCE / "user_guide" / "region_association.rst")
+    reference = _read(DOCS_SOURCE / "reference" / "association.rst")
+    example = _read(DOCS_EXAMPLES / "single_tree_region_association.rst")
+
+    for text in (guide, reference, example):
+        assert "leaf" in text.lower()
+        assert "mask" in text.lower()
+        assert "transductive" in text.lower()
+
+    for symbol in (
+        "MaskedAttentionPhyloRegressor",
+        "RegionAssociationResult",
+        "build_leaf_laplacian",
+        "evaluate_region_association",
+    ):
+        assert symbol in reference
+
+    for term in (
+        "Inputs",
+        "Run command",
+        "Expected output",
+        "Files written",
+        "Optional dependencies",
+        "Failure modes",
+        "Source",
+    ):
+        assert term in example
+    assert "examples/single_tree_region_association.py" in example
+    assert ".. literalinclude::" in example
+    assert ":language: python" in example
+
+
+def test_generated_association_navigation_and_pages_are_reachable():
+    for index_path, page_name in (
+        (DOCS_BUILD_HTML / "user_guide" / "index.html", "region_association.html"),
+        (DOCS_BUILD_HTML / "reference" / "index.html", "association.html"),
+        (DOCS_BUILD_HTML / "examples" / "index.html", "single_tree_region_association.html"),
+    ):
+        html = _read(index_path)
+        assert page_name in html
+
+    generated = _read(DOCS_BUILD_HTML / "examples" / "single_tree_region_association.html")
+    assert "leaf count:" in generated
+
+
 def test_examples_docs_are_discoverable_from_toctrees():
     assert "examples/index" in _toctree_entries(TOP_LEVEL_INDEX)
     assert _toctree_entries(DOCS_EXAMPLES / "index.rst") == [
@@ -131,6 +178,7 @@ def test_examples_docs_are_discoverable_from_toctrees():
         "toml_training_config",
         "complete_pipeline",
         "extant_trait_regression",
+        "single_tree_region_association",
     ]
     for name in _toctree_entries(DOCS_EXAMPLES / "index.rst"):
         assert (DOCS_EXAMPLES / f"{name}.rst").is_file()

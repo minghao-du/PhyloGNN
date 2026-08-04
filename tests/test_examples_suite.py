@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 from typing import Dict, Optional
 
 import pytest
@@ -28,6 +29,7 @@ EXPECTED_FILES = {
     "toml_training_config.toml",
     "complete_pipeline.py",
     "extant_trait_regression.py",
+    "single_tree_region_association.py",
 }
 
 REMOVED_FILES = {
@@ -132,6 +134,8 @@ def _run_example(
     script_name: str,
     *,
     extra_env: Optional[Dict[str, str]] = None,
+    cwd: Optional[Path] = None,
+    timeout: Optional[float] = None,
 ) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT / "src")
@@ -140,10 +144,11 @@ def _run_example(
 
     return subprocess.run(
         [_selected_python_executable(), str(EXAMPLES_DIR / script_name)],
-        cwd=ROOT,
+        cwd=cwd or ROOT,
         text=True,
         capture_output=True,
         env=env,
+        timeout=timeout,
     )
 
 
@@ -313,3 +318,23 @@ def test_extant_trait_regression_uses_public_target_attachment():
     assert "return attach_node_targets(" in script
     assert "data.y =" not in script
     assert "data.prediction_mask =" not in script
+
+
+def test_single_tree_region_association_example_runs_in_memory_without_persistence():
+    with tempfile.TemporaryDirectory() as temporary_directory:
+        completed = _run_example(
+            "single_tree_region_association.py",
+            cwd=Path(temporary_directory),
+            timeout=30,
+        )
+        assert completed.returncode == 0, completed.stderr
+        for marker in (
+            "leaf count:",
+            "representations shape:",
+            "position mask shape:",
+            "fold R2:",
+            "cv R2:",
+            "maximum mean-attention position:",
+        ):
+            assert marker in completed.stdout
+        assert list(Path(temporary_directory).iterdir()) == []

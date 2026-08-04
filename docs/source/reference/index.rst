@@ -30,6 +30,9 @@ Reference areas
 :doc:`Models <models>`
    Public model classes and shared model base behavior.
 
+:doc:`Association <association>`
+   In-memory single-tree region association evaluation and masked attention.
+
 :doc:`Training <training>`
    Trainer, configuration, datasets, metrics, TOML helpers, and tracking.
 
@@ -44,6 +47,7 @@ Reference areas
 
    data
    models
+   association
    training
    io
    utils

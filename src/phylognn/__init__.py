@@ -20,7 +20,11 @@ _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
     "Trainer": ("phylognn.training", "Trainer"),
     "GATBiLSTMNet": ("phylognn.models", "GATBiLSTMNet"),
     "GATNodeRegressor": ("phylognn.models", "GATNodeRegressor"),
+    "MaskedAttentionPhyloRegressor": ("phylognn.models", "MaskedAttentionPhyloRegressor"),
     "TemporalBiLSTMEncoder": ("phylognn.models", "TemporalBiLSTMEncoder"),
+    "RegionAssociationResult": ("phylognn.association", "RegionAssociationResult"),
+    "build_leaf_laplacian": ("phylognn.association", "build_leaf_laplacian"),
+    "evaluate_region_association": ("phylognn.association", "evaluate_region_association"),
 }
 
 __all__ = [
@@ -31,7 +35,11 @@ __all__ = [
     "Trainer",
     "GATBiLSTMNet",
     "GATNodeRegressor",
+    "MaskedAttentionPhyloRegressor",
     "TemporalBiLSTMEncoder",
+    "RegionAssociationResult",
+    "build_leaf_laplacian",
+    "evaluate_region_association",
     "__version__",
 ]
 
