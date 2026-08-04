@@ -15,11 +15,12 @@ from importlib import import_module
 from typing import Any, Dict, Tuple
 
 _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
+    "attach_node_targets": ("phylognn.data.target_attachment", "attach_node_targets"),
     "TreeFeatureEngineer": ("phylognn.data.feature_engineer", "TreeFeatureEngineer"),
     "TreeToGraphConverter": ("phylognn.data.converter", "TreeToGraphConverter"),
 }
 
-__all__ = ["TreeFeatureEngineer", "TreeToGraphConverter"]
+__all__ = ["attach_node_targets", "TreeFeatureEngineer", "TreeToGraphConverter"]
 
 
 def __getattr__(name: str) -> Any:

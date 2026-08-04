@@ -300,3 +300,16 @@ def test_extant_trait_regression_uses_public_trainer_lifecycle():
         "scatter plot:",
     ):
         assert marker in script
+
+
+def test_extant_trait_regression_uses_public_target_attachment():
+    """The example should delegate graph target alignment to the package API."""
+    script = (EXAMPLES_DIR / "extant_trait_regression.py").read_text(encoding="utf-8")
+
+    assert (
+        "from phylognn import TreeFeatureEngineer, TreeToGraphConverter, attach_node_targets"
+        in script
+    )
+    assert "return attach_node_targets(" in script
+    assert "data.y =" not in script
+    assert "data.prediction_mask =" not in script

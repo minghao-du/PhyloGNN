@@ -218,6 +218,20 @@ class TestEdgeCases:
         assert not bool(data.prediction_mask[index])
         assert torch.isfinite(data.y[data.prediction_mask]).all()
 
+    def test_build_graph_attaches_log_size_only_to_finite_leaves(self):
+        tree = Tree("(A:1.0,B:1.0)root:1.0;", format=1)
+        data = build_graph(
+            tree,
+            {"A": {"size": 3.0, "range": 3.0}, "B": {"size": float("nan"), "range": 3.0}},
+        )
+
+        assert data.y[data.node_names.index("A")].item() == pytest.approx(
+            torch.log1p(torch.tensor(3.0)).item()
+        )
+        assert not bool(data.prediction_mask[data.node_names.index("B")])
+        assert not bool(data.prediction_mask[data.node_names.index("root")])
+        assert data.x[data.node_names.index("root"), 2].item() == -1.0
+
     def test_unmatched_leaf_range_is_nan(self):
         """Missing leaf traits use NaN while internal range uses the sentinel."""
         tree = Tree("(A:1.0,B:1.0)root:1.0;", format=1)

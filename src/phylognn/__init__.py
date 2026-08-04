@@ -13,6 +13,7 @@ from typing import Any, Dict, Tuple
 __version__ = "0.1.0"
 
 _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
+    "attach_node_targets": ("phylognn.data", "attach_node_targets"),
     "TreeFeatureEngineer": ("phylognn.data", "TreeFeatureEngineer"),
     "TreeToGraphConverter": ("phylognn.data", "TreeToGraphConverter"),
     "TrainingConfig": ("phylognn.training", "TrainingConfig"),
@@ -23,6 +24,7 @@ _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
 }
 
 __all__ = [
+    "attach_node_targets",
     "TreeFeatureEngineer",
     "TreeToGraphConverter",
     "TrainingConfig",

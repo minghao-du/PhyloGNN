@@ -2,6 +2,10 @@
 
 import importlib
 
+import pytest
+
+torch = pytest.importorskip("torch")
+
 
 def test_root_package_exposes_curated_public_names():
     """The root package should publish only the supported stable surface."""
@@ -9,6 +13,7 @@ def test_root_package_exposes_curated_public_names():
 
     assert phylognn.__version__ == "0.1.0"
     assert phylognn.__all__ == [
+        "attach_node_targets",
         "TreeFeatureEngineer",
         "TreeToGraphConverter",
         "TrainingConfig",
@@ -25,7 +30,7 @@ def test_data_subpackage_keeps_tree_io_off_default_surface():
     """The data package should expose only the core preprocessing pipeline."""
     data = importlib.import_module("phylognn.data")
 
-    assert data.__all__ == ["TreeFeatureEngineer", "TreeToGraphConverter"]
+    assert data.__all__ == ["attach_node_targets", "TreeFeatureEngineer", "TreeToGraphConverter"]
     assert "read_tree_as_ete3" not in data.__all__
 
 
@@ -66,6 +71,22 @@ def test_root_package_dir_matches_curated_surface():
         assert export_name in dir(phylognn)
 
     assert phylognn.TemporalBiLSTMEncoder.__name__ == "TemporalBiLSTMEncoder"
+
+
+def test_target_attachment_is_a_lazy_public_export():
+    """Target attachment should work from both curated public facades."""
+    from torch_geometric.data import Data
+
+    import phylognn
+    import phylognn.data
+
+    graph = Data(x=torch.ones((2, 1)), node_names=["A", "B"])
+    result = phylognn.attach_node_targets(graph, {"B": 2.0, "A": 1.0})
+
+    assert phylognn.attach_node_targets is phylognn.data.attach_node_targets
+    assert result.y.tolist() == [1.0, 2.0]
+    assert "attach_node_targets" in dir(phylognn)
+    assert "attach_node_targets" in dir(phylognn.data)
 
 
 def test_root_package_rejects_hidden_optional_tree_io_names():

@@ -25,7 +25,7 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from torchmetrics import MeanSquaredError, R2Score
 
-from phylognn import TreeFeatureEngineer, TreeToGraphConverter
+from phylognn import TreeFeatureEngineer, TreeToGraphConverter, attach_node_targets
 from phylognn.models import GATNodeRegressor
 from phylognn.training import Trainer, TrainingConfig
 
@@ -274,6 +274,17 @@ def build_graph(tree: Tree, trait_dict: dict[str, dict[str, float]]) -> Data:
     if not any(node.is_leaf() for node in nodes):
         raise ValueError("Cannot build an extant-trait graph: the tree has zero leaf nodes.")
 
+    used_names = {node.name for node in nodes if node.is_leaf()}
+    for index, node in enumerate(nodes):
+        if node.is_leaf() or (node.name and node.name not in used_names):
+            used_names.add(node.name)
+            continue
+        generated_name = f"__internal_node_{index}__"
+        while generated_name in used_names:
+            generated_name = f"_{generated_name}"
+        node.name = generated_name
+        used_names.add(generated_name)
+
     engineer = TreeFeatureEngineer()
     engineer.add_features(
         tree,
@@ -304,15 +315,18 @@ def build_graph(tree: Tree, trait_dict: dict[str, dict[str, float]]) -> Data:
     )
     data = converter.convert(tree)
 
-    target_values: list[float] = []
-    for node in nodes:
-        trait = trait_dict.get(node.name) if node.is_leaf() else None
-        size = trait["size"] if trait is not None else float("nan")
-        target_values.append(math.log1p(size) if math.isfinite(size) else float("nan"))
-
-    data.y = torch.tensor(target_values, dtype=torch.float32)
-    data.prediction_mask = torch.isfinite(data.y)
-    return data
+    leaf_names = {node.name for node in nodes if node.is_leaf()}
+    size_records = {
+        name: math.log1p(trait["size"]) if math.isfinite(trait["size"]) else float("nan")
+        for name, trait in trait_dict.items()
+        if name in leaf_names
+    }
+    return attach_node_targets(
+        data,
+        size_records,
+        node_selector=lambda _index, node_name: node_name in leaf_names,
+        missing="mask",
+    )
 
 
 # [END build_graph]
