@@ -66,10 +66,16 @@ nitpick_ignore = [
     ("py:class", "torch_geometric.data.Data"),
     ("py:class", "ete3.Tree"),
     ("py:class", "dendropy.Tree"),
+    ("py:class", "collections.abc.Callable"),
+    ("py:class", "collections.abc.Iterable"),
     ("py:class", "collections.abc.Mapping"),
     ("py:class", "collections.abc.Sequence"),
     ("py:class", "ete3.coretype.tree.TreeNode"),
+    ("py:class", "torch.device"),
+    ("py:class", "torch.nn.Module"),
     ("py:class", "torch.nn.modules.module.Module"),
+    ("py:class", "torch.nn.parameter.Parameter"),
+    ("py:class", "torch.optim.optimizer.Optimizer"),
 ]
 
 # Imported dependency docstrings contain legacy invalid-escape sequences.

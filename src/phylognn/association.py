@@ -624,7 +624,7 @@ def fit_region_association(
             A requested device receives fresh model and tensor copies.
         model_factory: Optional zero-argument factory returning a
             :class:`torch.nn.Module`. The default builds
-            :class:`MaskedAttentionPhyloRegressor`.
+            :class:`~phylognn.models.masked_attention.MaskedAttentionPhyloRegressor`.
         loss_factory: Optional zero-argument factory returning a callable that
             accepts selected predictions and targets. The default is MSE loss.
         optimizer_factory: Optional factory accepting ``model.parameters()``.
