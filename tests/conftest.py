@@ -44,6 +44,12 @@ def association_leaf_names():
 
 
 @pytest.fixture
+def association_permuted_leaf_names():
+    """Provide a complete non-traversal order for alignment tests."""
+    return ("F", "D", "A", "C", "E", "B")
+
+
+@pytest.fixture
 def association_representations():
     """Provide padded leaf-aligned position representations of shape [6, 4, 3]."""
     return torch.tensor(
@@ -78,3 +84,15 @@ def association_position_mask():
 def association_targets():
     """Provide finite, non-constant leaf-aligned regression targets."""
     return torch.tensor([-1.0, -0.4, 0.2, 0.9, 1.5, 2.1], dtype=torch.float32)
+
+
+@pytest.fixture
+def association_target_mapping(association_leaf_names, association_targets):
+    """Provide the association targets keyed by their traversal-order leaf names."""
+    return dict(zip(association_leaf_names, association_targets.tolist(), strict=True))
+
+
+@pytest.fixture
+def association_factory_probe():
+    """Provide call records for staged model, loss, and optimizer factory tests."""
+    return {"model": [], "loss": [], "optimizer": []}

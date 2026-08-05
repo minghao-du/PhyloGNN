@@ -3,7 +3,12 @@
 from ete3 import Tree
 import torch
 
-from phylognn import evaluate_region_association
+from phylognn import (
+    RegionFitConfig,
+    cross_validate_region_association,
+    evaluate_region_association,
+    prepare_region_association,
+)
 
 
 def main() -> None:
@@ -51,6 +56,22 @@ def main() -> None:
     print(f"fold R2: {[round(score, 4) for score in result.fold_r2]}")
     print(f"cv R2: {result.cv_r2:.4f}")
     print(f"maximum mean-attention position: {int(result.mean_attention.argmax())}")
+
+    prepared = prepare_region_association(tree, representations, position_mask, targets)
+    staged = cross_validate_region_association(
+        prepared,
+        n_splits=3,
+        config=RegionFitConfig(
+            epochs=20,
+            hidden_dim=8,
+            learning_rate=0.01,
+            seed=7,
+        ),
+        refit=True,
+    )
+    print(f"staged fold count: {len(staged.validation_folds)}")
+    print(f"staged OOF predictions shape: {tuple(staged.oof_predictions.shape)}")
+    print(f"staged final attention shape: {tuple(staged.final_fit.attention.shape)}")
 
 
 if __name__ == "__main__":

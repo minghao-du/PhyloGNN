@@ -8,9 +8,16 @@ Public imports
 
    from phylognn import (
        MaskedAttentionPhyloRegressor,
+       RegionAssociationData,
+       RegionAssociationCVResult,
+       RegionFitConfig,
+       RegionFitResult,
        RegionAssociationResult,
        build_leaf_laplacian,
+       cross_validate_region_association,
        evaluate_region_association,
+       fit_region_association,
+       prepare_region_association,
    )
 
 Tensor contracts
@@ -23,11 +30,18 @@ with at least one valid position per row. It returns predictions ``[N]`` and
 attention ``[N, L]``. Masked attention positions are exactly zero and each
 valid row sums to one.
 
-``evaluate_region_association`` uses the same representation and mask shapes.
-Its target is a finite ``[N]`` tensor in leaf order or a mapping keyed by the
-complete tree leaf-name set. It returns only a
-``RegionAssociationResult``; it does not persist predictions or aggregate
-regions.
+``prepare_region_association`` returns reusable frozen data with those tensors,
+ordered leaf names, and a finite ``[N, N]`` leaf constraint. ``fit_region_association``
+accepts that object and returns detached all-leaf predictions and masked
+attention while training on all or selected leaves. ``cross_validate_region_association``
+preserves or generates complete validation folds, returns one OOF prediction per
+leaf, and optionally exposes one all-leaf ``final_fit``. None of these APIs
+persist predictions or aggregate regions.
+
+``evaluate_region_association`` remains the compatible one-shot entry point. Its
+target is a finite ``[N]`` tensor in leaf order or a mapping keyed by the
+complete tree leaf-name set, and it returns the legacy
+``RegionAssociationResult`` fields derived from the staged result.
 
 Exceptions
 ----------
@@ -41,7 +55,7 @@ API
 ---
 
 .. automodule:: phylognn.association
-   :members: RegionAssociationResult, build_leaf_laplacian, evaluate_region_association
+   :members: RegionAssociationData, RegionFitConfig, RegionFitResult, RegionAssociationCVResult, RegionAssociationResult, build_leaf_laplacian, prepare_region_association, fit_region_association, cross_validate_region_association, evaluate_region_association
    :undoc-members:
 
 .. autoclass:: phylognn.models.masked_attention.MaskedAttentionPhyloRegressor

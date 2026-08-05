@@ -23,7 +23,17 @@ _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
     "MaskedAttentionPhyloRegressor": ("phylognn.models", "MaskedAttentionPhyloRegressor"),
     "TemporalBiLSTMEncoder": ("phylognn.models", "TemporalBiLSTMEncoder"),
     "RegionAssociationResult": ("phylognn.association", "RegionAssociationResult"),
+    "RegionAssociationData": ("phylognn.association", "RegionAssociationData"),
+    "RegionFitConfig": ("phylognn.association", "RegionFitConfig"),
+    "RegionFitResult": ("phylognn.association", "RegionFitResult"),
+    "RegionAssociationCVResult": ("phylognn.association", "RegionAssociationCVResult"),
     "build_leaf_laplacian": ("phylognn.association", "build_leaf_laplacian"),
+    "prepare_region_association": ("phylognn.association", "prepare_region_association"),
+    "fit_region_association": ("phylognn.association", "fit_region_association"),
+    "cross_validate_region_association": (
+        "phylognn.association",
+        "cross_validate_region_association",
+    ),
     "evaluate_region_association": ("phylognn.association", "evaluate_region_association"),
 }
 
@@ -38,7 +48,14 @@ __all__ = [
     "MaskedAttentionPhyloRegressor",
     "TemporalBiLSTMEncoder",
     "RegionAssociationResult",
+    "RegionAssociationData",
+    "RegionFitConfig",
+    "RegionFitResult",
+    "RegionAssociationCVResult",
     "build_leaf_laplacian",
+    "prepare_region_association",
+    "fit_region_association",
+    "cross_validate_region_association",
     "evaluate_region_association",
     "__version__",
 ]

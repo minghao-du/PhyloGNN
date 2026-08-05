@@ -32,21 +32,37 @@ the normalized leaf constraint.
 Transductive cross-validation
 -----------------------------
 
-``evaluate_region_association`` creates deterministic shuffled folds from its
-``seed``. In every fold the forward pass sees all leaf representations and the
-complete tree constraint, while loss uses only the training targets and
-R-squared uses only validation targets. A fresh model is then refit on all
-targets to produce attention. This is transductive CV, so its score measures
-held-out targets with the full tree and representations available, not a
-prediction for unseen leaves.
+The staged API makes those decisions explicit. First,
+``prepare_region_association`` validates and freezes the leaf order, tensors,
+mask, targets, and leaf constraint for reuse. Then
+``cross_validate_region_association`` creates deterministic shuffled folds from
+``RegionFitConfig.seed`` (or preserves supplied folds), calls
+``fit_region_association`` for each training complement, assembles one OOF
+prediction per leaf, and optionally performs one all-leaf refit. In every fold
+the forward pass sees all leaf representations and the complete tree
+constraint, while loss uses only the training targets and R-squared uses only
+validation targets.
+
+The original ``evaluate_region_association`` function remains the short path.
+It builds ``RegionFitConfig`` from its existing keywords and delegates to
+preparation plus cross-validation with ``refit=True``; its attention comes
+directly from the returned final fit, without a duplicate full-data fit. This
+is transductive CV, so its score measures held-out targets with the full tree
+and representations available, not a prediction for unseen leaves.
 
 Results and limits
 ------------------
 
-The returned :class:`phylognn.association.RegionAssociationResult` contains ``fold_r2``,
-their arithmetic mean ``cv_r2``, per-leaf ``attention`` with shape ``[N, L]``,
-and ``mean_attention`` with shape ``[L]``. Result fields cannot be reassigned;
-the returned tensors are detached clones.
+The staged :class:`phylognn.association.RegionAssociationData` and
+:class:`phylognn.association.RegionFitConfig` objects are frozen contracts.
+``RegionAssociationCVResult`` contains ``fold_scores``, ``cv_score``, complete
+``oof_predictions``, the ordered ``validation_folds``, one ``fold_results``
+entry per fold, and an optional ``final_fit``. Every fit result contains
+detached predictions, zero-padded attention, selected ``train_indices``, and
+finite per-epoch losses. The compatibility
+:class:`phylognn.association.RegionAssociationResult` contains the same scores
+under its legacy names plus the final-fit attention. Dataclass fields cannot
+be reassigned; returned tensors are detached clones.
 
 This workflow does not perform multi-tree or multi-region aggregation,
 significance testing, target transformation, missing-value handling, causal

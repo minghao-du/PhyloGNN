@@ -23,7 +23,14 @@ def test_root_package_exposes_curated_public_names():
         "MaskedAttentionPhyloRegressor",
         "TemporalBiLSTMEncoder",
         "RegionAssociationResult",
+        "RegionAssociationData",
+        "RegionFitConfig",
+        "RegionFitResult",
+        "RegionAssociationCVResult",
         "build_leaf_laplacian",
+        "prepare_region_association",
+        "fit_region_association",
+        "cross_validate_region_association",
         "evaluate_region_association",
         "__version__",
     ]
@@ -77,6 +84,25 @@ def test_root_package_dir_matches_curated_surface():
         assert export_name in dir(phylognn)
 
     assert phylognn.TemporalBiLSTMEncoder.__name__ == "TemporalBiLSTMEncoder"
+
+
+def test_root_package_lazily_exports_staged_region_association_api():
+    """Every staged association contract resolves through the curated root package."""
+    import phylognn
+    import phylognn.association
+
+    for name in (
+        "RegionAssociationData",
+        "RegionFitConfig",
+        "RegionFitResult",
+        "RegionAssociationCVResult",
+        "prepare_region_association",
+        "fit_region_association",
+        "cross_validate_region_association",
+    ):
+        assert name in phylognn.__all__
+        assert name in dir(phylognn)
+        assert getattr(phylognn, name) is getattr(phylognn.association, name)
 
 
 def test_target_attachment_is_a_lazy_public_export():

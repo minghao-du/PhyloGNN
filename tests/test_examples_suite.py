@@ -335,6 +335,9 @@ def test_single_tree_region_association_example_runs_in_memory_without_persisten
             "fold R2:",
             "cv R2:",
             "maximum mean-attention position:",
+            "staged fold count:",
+            "staged OOF predictions shape:",
+            "staged final attention shape:",
         ):
             assert marker in completed.stdout
         assert list(Path(temporary_directory).iterdir()) == []

@@ -4,8 +4,7 @@ This file gives repository-specific guidance for coding agents working in
 `/Users/Minghao/Research/PhyloGNN`.
 
 ## External Rule Files
-
-- Follow `/Users/Minghao/Code/Codex/my-codex-agent/docs/agent-rules/programming.md` for general cross-language programming guidance.
+- 总是先调用`apply-coding-guidelines`skill，尤其是在你进行脚本的编写时，一定要调用。如果没有这个skill，请停下来告知用户。
 - Repository-specific rules in this `AGENTS.md` take precedence over the general guidance when they conflict.
 
 ## Scope

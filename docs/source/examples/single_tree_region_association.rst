@@ -23,8 +23,8 @@ Run the script from the repository root after installing the core package:
 Expected output
 ---------------
 
-The small transductive evaluation completes before the test suite's 30-second
-hang guard and prints stable markers:
+The small one-shot and staged transductive evaluations complete before the test
+suite's 30-second hang guard and print stable markers:
 
 .. code-block:: text
 
@@ -35,6 +35,9 @@ hang guard and prints stable markers:
    fold R2:
    cv R2:
    maximum mean-attention position:
+   staged fold count:
+   staged OOF predictions shape:
+   staged final attention shape:
 
 The displayed scores are a deterministic demonstration, not a biological
 claim. The maximum mean-attention position identifies the largest averaged
@@ -54,9 +57,10 @@ and ETE3.
 Failure modes
 -------------
 
-The public evaluator rejects malformed leaf alignment, non-finite tensors,
-empty mask rows, invalid fold settings, and constant validation targets with
-clear exceptions. It performs no persistence or recovery from invalid input.
+The staged preparation and fit/CV boundaries reject malformed leaf alignment,
+non-finite tensors, empty mask rows, invalid fold settings, and constant
+validation targets with clear exceptions. They perform no persistence or
+recovery from invalid input.
 
 Source
 ------
