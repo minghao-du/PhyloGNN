@@ -76,6 +76,7 @@ nitpick_ignore = [
     ("py:class", "torch.nn.modules.module.Module"),
     ("py:class", "torch.nn.parameter.Parameter"),
     ("py:class", "torch.optim.optimizer.Optimizer"),
+    ("py:class", "ScoreFunction"),
 ]
 
 # Imported dependency docstrings contain legacy invalid-escape sequences.

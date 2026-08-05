@@ -84,7 +84,6 @@
  | <a href="#E"><strong>E</strong></a>
  | <a href="#F"><strong>F</strong></a>
  | <a href="#G"><strong>G</strong></a>
- | <a href="#H"><strong>H</strong></a>
  | <a href="#L"><strong>L</strong></a>
  | <a href="#M"><strong>M</strong></a>
  | <a href="#O"><strong>O</strong></a>
@@ -104,10 +103,10 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationResult.attention">attention (phylognn.association.RegionAssociationResult attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafFitResult.attention">attention (phylognn.leaf_regression.LeafFitResult attribute)</a>
 
       <ul>
-        <li><a href="reference/association.html#phylognn.association.RegionFitResult.attention">(phylognn.association.RegionFitResult attribute)</a>
+        <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionResult.attention">(phylognn.leaf_regression.LeafRegressionResult attribute)</a>
 </li>
       </ul></li>
   </ul></td>
@@ -119,8 +118,6 @@
       <li><a href="reference/models.html#BaseGATNet">BaseGATNet (built-in class)</a>
 </li>
       <li><a href="reference/models.html#BasePhyloGNN">BasePhyloGNN (built-in class)</a>
-</li>
-      <li><a href="reference/association.html#phylognn.association.build_leaf_laplacian">build_leaf_laplacian() (in module phylognn.association)</a>
 </li>
       <li>
     built-in function
@@ -169,12 +166,14 @@
         <li><a href="reference/training.html#create_trainer_from_config">built-in function</a>
 </li>
       </ul></li>
-      <li><a href="reference/association.html#phylognn.association.cross_validate_region_association">cross_validate_region_association() (in module phylognn.association)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.cross_validate_leaf_regression">cross_validate_leaf_regression() (in module phylognn.leaf_regression)</a>
 </li>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationResult.cv_r2">cv_r2 (phylognn.association.RegionAssociationResult attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafCrossValidationResult.cv_score">cv_score (phylognn.leaf_regression.LeafCrossValidationResult attribute)</a>
+
+      <ul>
+        <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionResult.cv_score">(phylognn.leaf_regression.LeafRegressionResult attribute)</a>
 </li>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationCVResult.cv_score">cv_score (phylognn.association.RegionAssociationCVResult attribute)</a>
-</li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -192,7 +191,7 @@
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.association.RegionFitConfig.device">device (phylognn.association.RegionFitConfig attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionConfig.device">device (phylognn.leaf_regression.LeafRegressionConfig attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -200,11 +199,7 @@
 <h2 id="E">E</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.association.RegionFitConfig.epochs">epochs (phylognn.association.RegionFitConfig attribute)</a>
-</li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.association.evaluate_region_association">evaluate_region_association() (in module phylognn.association)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionConfig.epochs">epochs (phylognn.leaf_regression.LeafRegressionConfig attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -212,22 +207,22 @@
 <h2 id="F">F</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationCVResult.final_fit">final_fit (phylognn.association.RegionAssociationCVResult attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafCrossValidationResult.final_fit">final_fit (phylognn.leaf_regression.LeafCrossValidationResult attribute)</a>
 </li>
       <li><a href="reference/training.html#Trainer.fit">fit() (Trainer method)</a>
 </li>
-      <li><a href="reference/association.html#phylognn.association.fit_region_association">fit_region_association() (in module phylognn.association)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.fit_leaf_regression">fit_leaf_regression() (in module phylognn.leaf_regression)</a>
 </li>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationResult.fold_r2">fold_r2 (phylognn.association.RegionAssociationResult attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafCrossValidationResult.fold_results">fold_results (phylognn.leaf_regression.LeafCrossValidationResult attribute)</a>
 </li>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationCVResult.fold_results">fold_results (phylognn.association.RegionAssociationCVResult attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafCrossValidationResult.fold_scores">fold_scores (phylognn.leaf_regression.LeafCrossValidationResult attribute)</a>
+
+      <ul>
+        <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionResult.fold_scores">(phylognn.leaf_regression.LeafRegressionResult attribute)</a>
 </li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationCVResult.fold_scores">fold_scores (phylognn.association.RegionAssociationCVResult attribute)</a>
-</li>
-      <li><a href="reference/association.html#phylognn.models.masked_attention.MaskedAttentionPhyloRegressor.forward">forward() (phylognn.models.masked_attention.MaskedAttentionPhyloRegressor method)</a>
-</li>
       <li><a href="reference/models.html#BasePhyloGNN.freeze_encoder">freeze_encoder() (BasePhyloGNN method)</a>
 </li>
       <li><a href="reference/training.html#DatasetSplit.from_dict">from_dict() (DatasetSplit class method)</a>
@@ -260,27 +255,29 @@
   </ul></td>
 </tr></table>
 
-<h2 id="H">H</h2>
-<table style="width: 100%" class="indextable genindextable"><tr>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.association.RegionFitConfig.hidden_dim">hidden_dim (phylognn.association.RegionFitConfig attribute)</a>
-</li>
-  </ul></td>
-</tr></table>
-
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationData.leaf_laplacian">leaf_laplacian (phylognn.association.RegionAssociationData attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionData.leaf_laplacian">leaf_laplacian (phylognn.leaf_regression.LeafRegressionData attribute)</a>
 </li>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationData.leaf_names">leaf_names (phylognn.association.RegionAssociationData attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionData.leaf_names">leaf_names (phylognn.leaf_regression.LeafRegressionData attribute)</a>
 </li>
-      <li><a href="reference/association.html#phylognn.association.RegionFitConfig.learning_rate">learning_rate (phylognn.association.RegionFitConfig attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafCrossValidationResult">LeafCrossValidationResult (class in phylognn.leaf_regression)</a>
 </li>
-      <li><a href="reference/training.html#Trainer.load_checkpoint">load_checkpoint() (Trainer method)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafFitResult">LeafFitResult (class in phylognn.leaf_regression)</a>
+</li>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionConfig">LeafRegressionConfig (class in phylognn.leaf_regression)</a>
+</li>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionData">LeafRegressionData (class in phylognn.leaf_regression)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionResult">LeafRegressionResult (class in phylognn.leaf_regression)</a>
+</li>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionConfig.learning_rate">learning_rate (phylognn.leaf_regression.LeafRegressionConfig attribute)</a>
+</li>
+      <li><a href="reference/training.html#Trainer.load_checkpoint">load_checkpoint() (Trainer method)</a>
+</li>
       <li><a href="reference/data.html#TreeToGraphConverter.load_data">load_data() (TreeToGraphConverter static method)</a>
 </li>
       <li>
@@ -290,7 +287,7 @@
         <li><a href="reference/training.html#load_training_config">built-in function</a>
 </li>
       </ul></li>
-      <li><a href="reference/association.html#phylognn.association.RegionFitResult.losses">losses (phylognn.association.RegionFitResult attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafFitResult.losses">losses (phylognn.leaf_regression.LeafFitResult attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -298,9 +295,7 @@
 <h2 id="M">M</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.models.masked_attention.MaskedAttentionPhyloRegressor">MaskedAttentionPhyloRegressor (class in phylognn.models.masked_attention)</a>
-</li>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationResult.mean_attention">mean_attention (phylognn.association.RegionAssociationResult attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionResult.mean_attention">mean_attention (phylognn.leaf_regression.LeafRegressionResult attribute)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -308,7 +303,7 @@
     module
 
       <ul>
-        <li><a href="reference/association.html#module-phylognn.association">phylognn.association</a>
+        <li><a href="reference/leaf_regression.html#module-phylognn.leaf_regression">phylognn.leaf_regression</a>
 </li>
       </ul></li>
   </ul></td>
@@ -317,8 +312,12 @@
 <h2 id="O">O</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationCVResult.oof_predictions">oof_predictions (phylognn.association.RegionAssociationCVResult attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafCrossValidationResult.oof_predictions">oof_predictions (phylognn.leaf_regression.LeafCrossValidationResult attribute)</a>
+
+      <ul>
+        <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionResult.oof_predictions">(phylognn.leaf_regression.LeafRegressionResult attribute)</a>
 </li>
+      </ul></li>
   </ul></td>
 </tr></table>
 
@@ -326,21 +325,25 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li>
-    phylognn.association
+    phylognn.leaf_regression
 
       <ul>
-        <li><a href="reference/association.html#module-phylognn.association">module</a>
+        <li><a href="reference/leaf_regression.html#module-phylognn.leaf_regression">module</a>
 </li>
       </ul></li>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationData.position_mask">position_mask (phylognn.association.RegionAssociationData attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionData.position_mask">position_mask (phylognn.leaf_regression.LeafRegressionData attribute)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/training.html#Trainer.predict">predict() (Trainer method)</a>
 </li>
-      <li><a href="reference/association.html#phylognn.association.RegionFitResult.predictions">predictions (phylognn.association.RegionFitResult attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafFitResult.predictions">predictions (phylognn.leaf_regression.LeafFitResult attribute)</a>
+
+      <ul>
+        <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionResult.predictions">(phylognn.leaf_regression.LeafRegressionResult attribute)</a>
 </li>
-      <li><a href="reference/association.html#phylognn.association.prepare_region_association">prepare_region_association() (in module phylognn.association)</a>
+      </ul></li>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.prepare_leaf_regression">prepare_leaf_regression() (in module phylognn.leaf_regression)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -362,21 +365,13 @@
         <li><a href="reference/io.html#read_tree_with_dendropy">built-in function</a>
 </li>
       </ul></li>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationCVResult">RegionAssociationCVResult (class in phylognn.association)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationData">RegionAssociationData (class in phylognn.association)</a>
-</li>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationResult">RegionAssociationResult (class in phylognn.association)</a>
-</li>
-      <li><a href="reference/association.html#phylognn.association.RegionFitConfig">RegionFitConfig (class in phylognn.association)</a>
-</li>
-      <li><a href="reference/association.html#phylognn.association.RegionFitResult">RegionFitResult (class in phylognn.association)</a>
-</li>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationData.representations">representations (phylognn.association.RegionAssociationData attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionData.representations">representations (phylognn.leaf_regression.LeafRegressionData attribute)</a>
 </li>
       <li><a href="reference/data.html#TreeFeatureEngineer.rescale_tree">rescale_tree() (TreeFeatureEngineer method)</a>
+</li>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.run_leaf_regression">run_leaf_regression() (in module phylognn.leaf_regression)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -392,7 +387,7 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.association.RegionFitConfig.seed">seed (phylognn.association.RegionFitConfig attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionConfig.seed">seed (phylognn.leaf_regression.LeafRegressionConfig attribute)</a>
 </li>
       <li><a href="reference/training.html#SplitDatasetView">SplitDatasetView (built-in class)</a>
 </li>
@@ -406,7 +401,7 @@
 <h2 id="T">T</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationData.targets">targets (phylognn.association.RegionAssociationData attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionData.targets">targets (phylognn.leaf_regression.LeafRegressionData attribute)</a>
 </li>
       <li><a href="reference/models.html#TemporalBiLSTMEncoder">TemporalBiLSTMEncoder (built-in class)</a>
 </li>
@@ -416,7 +411,7 @@
 </li>
       <li><a href="reference/training.html#TrackingRunInfo">TrackingRunInfo (built-in class)</a>
 </li>
-      <li><a href="reference/association.html#phylognn.association.RegionFitResult.train_indices">train_indices (phylognn.association.RegionFitResult attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafFitResult.train_indices">train_indices (phylognn.leaf_regression.LeafFitResult attribute)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -452,7 +447,7 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/models.html#BasePhyloGNN.validate_data">validate_data() (BasePhyloGNN method)</a>
 </li>
-      <li><a href="reference/association.html#phylognn.association.RegionAssociationCVResult.validation_folds">validation_folds (phylognn.association.RegionAssociationCVResult attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafCrossValidationResult.validation_folds">validation_folds (phylognn.leaf_regression.LeafCrossValidationResult attribute)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -464,7 +459,7 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/association.html#phylognn.association.RegionFitConfig.weight_decay">weight_decay (phylognn.association.RegionFitConfig attribute)</a>
+      <li><a href="reference/leaf_regression.html#phylognn.leaf_regression.LeafRegressionConfig.weight_decay">weight_decay (phylognn.leaf_regression.LeafRegressionConfig attribute)</a>
 </li>
   </ul></td>
 </tr></table>

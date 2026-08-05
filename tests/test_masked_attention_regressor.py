@@ -53,26 +53,35 @@ def test_masked_attention_regressor_rejects_invalid_laplacian(laplacian):
 
 
 def test_masked_attention_regressor_pools_only_valid_positions(
-    association_position_mask, association_representations, torch_module
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+    torch_module,
 ):
     """Padding should receive exactly zero attention and valid rows sum to one."""
-    from phylognn.association import build_leaf_laplacian
+    from phylognn.leaf_regression import prepare_leaf_regression
     from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
 
-    tree = pytest.importorskip("ete3").Tree("((A:1,B:1):1,(C:1,D:1):1,(E:1,F:1):1);")
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
     model = MaskedAttentionPhyloRegressor(
-        input_dim=association_representations.size(-1),
+        input_dim=data.representations.size(-1),
         hidden_dim=5,
-        leaf_laplacian=build_leaf_laplacian(tree),
+        leaf_laplacian=data.leaf_laplacian,
     )
 
-    predictions, attention = model(association_representations, association_position_mask)
+    predictions, attention = model(data.representations, data.position_mask)
 
     assert predictions.shape == (6,)
     assert attention.shape == (6, 4)
     assert torch_module.equal(
-        attention[~association_position_mask],
-        torch_module.zeros_like(attention[~association_position_mask]),
+        attention[~data.position_mask],
+        torch_module.zeros_like(attention[~data.position_mask]),
     )
     assert torch_module.allclose(attention.sum(dim=1), torch_module.ones(6), atol=1e-6, rtol=0)
 

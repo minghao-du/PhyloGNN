@@ -7,7 +7,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 
-def test_root_package_exposes_curated_public_names():
+def test_root_package_exposes_leaf_regression_public_names():
     """The root package should publish only the supported stable surface."""
     phylognn = importlib.import_module("phylognn")
 
@@ -22,16 +22,15 @@ def test_root_package_exposes_curated_public_names():
         "GATNodeRegressor",
         "MaskedAttentionPhyloRegressor",
         "TemporalBiLSTMEncoder",
-        "RegionAssociationResult",
-        "RegionAssociationData",
-        "RegionFitConfig",
-        "RegionFitResult",
-        "RegionAssociationCVResult",
-        "build_leaf_laplacian",
-        "prepare_region_association",
-        "fit_region_association",
-        "cross_validate_region_association",
-        "evaluate_region_association",
+        "LeafRegressionData",
+        "LeafRegressionConfig",
+        "LeafFitResult",
+        "LeafCrossValidationResult",
+        "LeafRegressionResult",
+        "prepare_leaf_regression",
+        "fit_leaf_regression",
+        "cross_validate_leaf_regression",
+        "run_leaf_regression",
         "__version__",
     ]
     assert "read_tree_as_ete3" not in phylognn.__all__
@@ -86,23 +85,29 @@ def test_root_package_dir_matches_curated_surface():
     assert phylognn.TemporalBiLSTMEncoder.__name__ == "TemporalBiLSTMEncoder"
 
 
-def test_root_package_lazily_exports_staged_region_association_api():
-    """Every staged association contract resolves through the curated root package."""
+def test_root_package_lazily_exports_leaf_regression_api():
+    """Every Leaf Regression contract resolves through both public facades."""
     import phylognn
-    import phylognn.association
+    import phylognn.leaf_regression
 
     for name in (
-        "RegionAssociationData",
-        "RegionFitConfig",
-        "RegionFitResult",
-        "RegionAssociationCVResult",
-        "prepare_region_association",
-        "fit_region_association",
-        "cross_validate_region_association",
+        "LeafRegressionData",
+        "LeafRegressionConfig",
+        "LeafFitResult",
+        "LeafCrossValidationResult",
+        "LeafRegressionResult",
+        "prepare_leaf_regression",
+        "fit_leaf_regression",
+        "cross_validate_leaf_regression",
+        "run_leaf_regression",
     ):
         assert name in phylognn.__all__
         assert name in dir(phylognn)
-        assert getattr(phylognn, name) is getattr(phylognn.association, name)
+        assert getattr(phylognn, name) is getattr(phylognn.leaf_regression, name)
+
+    assert not any("reg" + "ion" in name.lower() for name in phylognn.__all__)
+    assert not any("association" in name.lower() for name in phylognn.__all__)
+    assert not any("factory" in name.lower() for name in phylognn.__all__)
 
 
 def test_target_attachment_is_a_lazy_public_export():

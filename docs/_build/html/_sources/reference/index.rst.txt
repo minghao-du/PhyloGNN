@@ -30,8 +30,8 @@ Reference areas
 :doc:`Models <models>`
    Public model classes and shared model base behavior.
 
-:doc:`Association <association>`
-   In-memory single-tree region association evaluation and masked attention.
+:doc:`Leaf regression <leaf_regression>`
+   In-memory leaf-level regression, validation, and masked attention.
 
 :doc:`Training <training>`
    Trainer, configuration, datasets, metrics, TOML helpers, and tracking.
@@ -47,7 +47,7 @@ Reference areas
 
    data
    models
-   association
+   leaf_regression
    training
    io
    utils

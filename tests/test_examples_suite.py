@@ -29,7 +29,7 @@ EXPECTED_FILES = {
     "toml_training_config.toml",
     "complete_pipeline.py",
     "extant_trait_regression.py",
-    "single_tree_region_association.py",
+    "single_tree_leaf_regression.py",
 }
 
 REMOVED_FILES = {
@@ -170,6 +170,23 @@ def test_examples_readme_references_each_supported_script():
     assert "optional dependencies" in readme
     assert "examples_data/simulated_trees/" in readme
     assert "python examples/single_task_training.py" in readme
+
+
+def test_leaf_regression_example_runs_without_writing_files():
+    """The leaf-regression example is a deterministic, in-memory workflow."""
+    with tempfile.TemporaryDirectory() as temporary_directory:
+        completed = _run_example("single_tree_leaf_regression.py", cwd=Path(temporary_directory))
+        assert completed.returncode == 0, completed.stderr
+        assert set(Path(temporary_directory).iterdir()) == set()
+    for marker in (
+        "leaf count:",
+        "fold scores:",
+        "overall score:",
+        "OOF predictions shape:",
+        "final predictions:",
+        "attention summary:",
+    ):
+        assert marker in completed.stdout
 
 
 @pytest.mark.parametrize(
@@ -320,24 +337,22 @@ def test_extant_trait_regression_uses_public_target_attachment():
     assert "data.prediction_mask =" not in script
 
 
-def test_single_tree_region_association_example_runs_in_memory_without_persistence():
+def test_single_tree_leaf_regression_example_runs_in_memory_without_persistence():
     with tempfile.TemporaryDirectory() as temporary_directory:
         completed = _run_example(
-            "single_tree_region_association.py",
+            "single_tree_leaf_regression.py",
             cwd=Path(temporary_directory),
             timeout=30,
         )
         assert completed.returncode == 0, completed.stderr
         for marker in (
+            "Single-tree leaf regression summary",
             "leaf count:",
-            "representations shape:",
-            "position mask shape:",
-            "fold R2:",
-            "cv R2:",
-            "maximum mean-attention position:",
-            "staged fold count:",
-            "staged OOF predictions shape:",
-            "staged final attention shape:",
+            "fold scores:",
+            "overall score:",
+            "OOF predictions shape:",
+            "final predictions:",
+            "attention summary:",
         ):
             assert marker in completed.stdout
         assert list(Path(temporary_directory).iterdir()) == []

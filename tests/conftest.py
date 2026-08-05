@@ -32,25 +32,25 @@ def ete3_module():
 
 
 @pytest.fixture
-def association_tree(ete3_module):
-    """Provide a deterministic six-leaf tree for association tests."""
+def leaf_regression_tree(ete3_module):
+    """Provide a deterministic six-leaf tree for leaf-regression tests."""
     return ete3_module.Tree("((A:1,B:2):1,(C:1,D:3):1,(E:2,F:1):2);")
 
 
 @pytest.fixture
-def association_leaf_names():
-    """Provide the tree traversal order used by association fixtures."""
+def leaf_regression_leaf_names():
+    """Provide the tree traversal order used by leaf-regression fixtures."""
     return ("A", "B", "C", "D", "E", "F")
 
 
 @pytest.fixture
-def association_permuted_leaf_names():
+def leaf_regression_permuted_leaf_names():
     """Provide a complete non-traversal order for alignment tests."""
     return ("F", "D", "A", "C", "E", "B")
 
 
 @pytest.fixture
-def association_representations():
+def leaf_regression_representations():
     """Provide padded leaf-aligned position representations of shape [6, 4, 3]."""
     return torch.tensor(
         [
@@ -66,8 +66,8 @@ def association_representations():
 
 
 @pytest.fixture
-def association_position_mask():
-    """Provide the valid-position mask for ``association_representations``."""
+def leaf_regression_position_mask():
+    """Provide the valid-position mask for ``leaf_regression_representations``."""
     return torch.tensor(
         [
             [True, True, True, False],
@@ -81,18 +81,18 @@ def association_position_mask():
 
 
 @pytest.fixture
-def association_targets():
+def leaf_regression_targets():
     """Provide finite, non-constant leaf-aligned regression targets."""
     return torch.tensor([-1.0, -0.4, 0.2, 0.9, 1.5, 2.1], dtype=torch.float32)
 
 
 @pytest.fixture
-def association_target_mapping(association_leaf_names, association_targets):
-    """Provide the association targets keyed by their traversal-order leaf names."""
-    return dict(zip(association_leaf_names, association_targets.tolist(), strict=True))
+def leaf_regression_target_mapping(leaf_regression_leaf_names, leaf_regression_targets):
+    """Provide targets keyed by their traversal-order leaf names."""
+    return dict(zip(leaf_regression_leaf_names, leaf_regression_targets.tolist(), strict=True))
 
 
 @pytest.fixture
-def association_factory_probe():
+def leaf_regression_factory_probe():
     """Provide call records for staged model, loss, and optimizer factory tests."""
     return {"model": [], "loss": [], "optimizer": []}
