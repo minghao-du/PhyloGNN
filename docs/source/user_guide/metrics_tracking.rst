@@ -62,12 +62,36 @@ metrics, and terminal status. Metadata keys that look like secrets are
 rejected. Path-like metadata values are reduced to their final file or
 directory names before logging.
 
+Leaf-regression scalar boundary
+--------------------------------
+
+Leaf-regression runs use the same boundary. A tracked workflow sends a
+sanitized scalar configuration and scalar events such as:
+
+.. code-block:: text
+
+   workflow.type = "run_leaf_regression"
+   data.leaf_count = 24
+   stage/type = "cv_fold"
+   stage/index = 1
+   train/loss = 0.418
+   cv/fold_score = 0.731
+   status/state = "completed"
+
+Trees, leaf names or index lists, tensors, predictions, attention, model
+state, checkpoints, and artifacts are never uploaded. Tracking remains
+disabled unless the caller explicitly enables it, and an injected tracker does
+not change that selection rule. The :doc:`leaf_regression` guide explains the
+CV and refit stages; :doc:`../reference/leaf_regression` contains the three
+tracking-enabled API signatures.
+
 Common failures
 ---------------
 
 `TrackingError` is raised for invalid tracking settings, missing wandb, unsafe
 metadata, invalid metric payloads, and backend logging failures. Disable
-tracking to keep the workflow local while debugging model or data issues.
+tracking to keep the workflow local while debugging model or data issues. See
+:doc:`../troubleshooting` for setup and failure guidance.
 
 Related pages
 -------------

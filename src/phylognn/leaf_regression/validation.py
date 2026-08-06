@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, TypeAlias
 
 import torch
 
+from phylognn.training.tracking import TrackerProtocol, TrackingConfig
+
 from .data import LeafRegressionData, prepare_leaf_regression
 from .fitting import (
     LeafFitResult,
@@ -18,6 +20,7 @@ from .fitting import (
     _validate_indices,
     fit_leaf_regression,
 )
+from .tracking import _LeafExperimentCoordinator, _build_leaf_tracking_config
 
 if TYPE_CHECKING:
     from ete3 import Tree
@@ -175,61 +178,126 @@ def cross_validate_leaf_regression(
     refit: bool = True,
     model_class: type[torch.nn.Module] | None = None,
     model_config: Mapping[str, object] | None = None,
+    tracking_config: TrackingConfig | None = None,
+    tracker: TrackerProtocol | None = None,
+    _tracking_coordinator: _LeafExperimentCoordinator | None = None,
 ) -> LeafCrossValidationResult:
-    """Cross-validate a leaf-regression model."""
-    if not isinstance(data, LeafRegressionData):
-        raise TypeError("`data` must be a LeafRegressionData instance.")
-    config = training_config or LeafRegressionConfig()
-    if not isinstance(config, LeafRegressionConfig):
-        raise TypeError("`training_config` must be a LeafRegressionConfig instance or None.")
-    leaf_count = len(data.leaf_names)
-    device = (
-        torch.device(config.device) if config.device is not None else data.representations.device
+    """Cross-validate a leaf-regression model with optional scalar tracking.
+
+    Args:
+        tracking_config: Optional explicit tracking settings. Tracking remains
+            disabled when omitted or disabled.
+        tracker: Optional enabled-run tracker implementation for testing or a
+            custom backend.
+    """
+    coordinator = _tracking_coordinator or _LeafExperimentCoordinator(
+        tracking_config, tracker=tracker
     )
-    with _local_rng(config.seed, device):
-        folds = (
-            _validate_manual_folds(validation_folds, leaf_count)
-            if validation_folds is not None
-            else _generate_folds(leaf_count, n_splits, config.seed)
+    owns_tracking = _tracking_coordinator is None
+    try:
+        if not isinstance(data, LeafRegressionData):
+            raise TypeError("`data` must be a LeafRegressionData instance.")
+        config = training_config or LeafRegressionConfig()
+        if not isinstance(config, LeafRegressionConfig):
+            raise TypeError("`training_config` must be a LeafRegressionConfig instance or None.")
+        leaf_count = len(data.leaf_names)
+        device = (
+            torch.device(config.device)
+            if config.device is not None
+            else data.representations.device
         )
-        _validate_scoring_contract(data.targets, folds, score_fn)
-        oof = torch.empty_like(data.targets)
-        scores: list[float] = []
-        results: list[LeafFitResult] = []
-        all_indices = torch.arange(leaf_count, dtype=torch.long)
-        for index, fold in enumerate(folds):
-            train_indices = all_indices[~torch.isin(all_indices, fold)]
-            stage_config = _stage_config(config, index)
-            result = fit_leaf_regression(
-                data,
-                train_indices=train_indices,
-                training_config=stage_config,
-                model_class=model_class,
-                model_config=model_config,
+        with _local_rng(config.seed, device):
+            folds = (
+                _validate_manual_folds(validation_folds, leaf_count)
+                if validation_folds is not None
+                else _generate_folds(leaf_count, n_splits, config.seed)
             )
-            predictions = result.predictions.to(oof.device)
-            oof[fold] = predictions[fold]
-            scores.append(_score_fold(predictions[fold], data.targets[fold], score_fn))
-            results.append(result)
-        final_fit = None
-        if refit:
-            final_fit = fit_leaf_regression(
-                data,
-                training_config=_stage_config(config, len(folds)),
-                model_class=model_class,
-                model_config=model_config,
-            )
-    weighted_score = (
-        sum(score * fold.numel() for score, fold in zip(scores, folds, strict=True)) / leaf_count
-    )
-    return LeafCrossValidationResult(
-        cv_score=weighted_score,
-        fold_scores=tuple(scores),
-        oof_predictions=oof,
-        validation_folds=folds,
-        fold_results=tuple(results),
-        final_fit=final_fit,
-    )
+            _validate_scoring_contract(data.targets, folds, score_fn)
+            if owns_tracking and coordinator.enabled:
+                coordinator.start(
+                    _build_leaf_tracking_config(
+                        tracking_config=tracking_config or TrackingConfig(enabled=False),
+                        workflow_type="cross_validate",
+                        leaf_count=leaf_count,
+                        fold_count=len(folds),
+                        refit=refit,
+                        training_values={
+                            "epochs": config.epochs,
+                            "learning_rate": config.learning_rate,
+                            "weight_decay": config.weight_decay,
+                            "seed": config.seed,
+                        },
+                        model_class=model_class,
+                        model_config=model_config,
+                        score_fn=score_fn,
+                        device=device,
+                    )
+                )
+            oof = torch.empty_like(data.targets)
+            scores: list[float] = []
+            results: list[LeafFitResult] = []
+            all_indices = torch.arange(leaf_count, dtype=torch.long)
+            for index, fold in enumerate(folds):
+                train_indices = all_indices[~torch.isin(all_indices, fold)]
+                stage_config = _stage_config(config, index)
+                tracking_stage = coordinator.start_stage("cv_fold")
+                result = fit_leaf_regression(
+                    data,
+                    train_indices=train_indices,
+                    training_config=stage_config,
+                    model_class=model_class,
+                    model_config=model_config,
+                    _tracking_coordinator=coordinator,
+                    _tracking_stage=tracking_stage,
+                )
+                predictions = result.predictions.to(oof.device)
+                oof[fold] = predictions[fold]
+                fold_score = _score_fold(predictions[fold], data.targets[fold], score_fn)
+                scores.append(fold_score)
+                coordinator.log_summary(
+                    {
+                        "stage/type": "cv_fold",
+                        "stage/index": index + 1,
+                        "cv/fold_score": fold_score,
+                        "cv/validation_leaf_count": fold.numel(),
+                    }
+                )
+                results.append(result)
+            final_fit = None
+            if refit:
+                tracking_stage = coordinator.start_stage("refit")
+                final_fit = fit_leaf_regression(
+                    data,
+                    training_config=_stage_config(config, len(folds)),
+                    model_class=model_class,
+                    model_config=model_config,
+                    _tracking_coordinator=coordinator,
+                    _tracking_stage=tracking_stage,
+                )
+        weighted_score = (
+            sum(score * fold.numel() for score, fold in zip(scores, folds, strict=True))
+            / leaf_count
+        )
+        coordinator.log_summary({"cv/weighted_score": weighted_score})
+        result = LeafCrossValidationResult(
+            cv_score=weighted_score,
+            fold_scores=tuple(scores),
+            oof_predictions=oof,
+            validation_folds=folds,
+            fold_results=tuple(results),
+            final_fit=final_fit,
+        )
+        if owns_tracking:
+            coordinator.finish("completed")
+        return result
+    except KeyboardInterrupt:
+        if owns_tracking:
+            coordinator.finish_after_failure("interrupted")
+        raise
+    except Exception:
+        if owns_tracking:
+            coordinator.finish_after_failure("failed")
+        raise
 
 
 def run_leaf_regression(
@@ -245,34 +313,82 @@ def run_leaf_regression(
     score_fn: ScoreFunction | None = None,
     model_class: type[torch.nn.Module] | None = None,
     model_config: Mapping[str, object] | None = None,
+    tracking_config: TrackingConfig | None = None,
+    tracker: TrackerProtocol | None = None,
 ) -> LeafRegressionResult:
-    """Run preparation, cross-validation, and final leaf-regression refitting."""
-    data = prepare_leaf_regression(
-        tree, representations, position_mask, targets, leaf_names=leaf_names
-    )
-    cv_result = cross_validate_leaf_regression(
-        data,
-        n_splits=n_splits,
-        validation_folds=validation_folds,
-        training_config=training_config,
-        score_fn=score_fn,
-        refit=True,
-        model_class=model_class,
-        model_config=model_config,
-    )
-    if cv_result.final_fit is None:
-        raise RuntimeError("Leaf-regression workflow requires a final refit.")
-    final_fit = cv_result.final_fit
-    attention = final_fit.attention
-    mean_attention = attention.mean(dim=0) if attention is not None else None
-    return LeafRegressionResult(
-        cv_score=cv_result.cv_score,
-        fold_scores=cv_result.fold_scores,
-        oof_predictions=cv_result.oof_predictions,
-        predictions=final_fit.predictions,
-        attention=attention,
-        mean_attention=mean_attention,
-    )
+    """Run preparation, cross-validation, and final refitting in one run.
+
+    Args:
+        tracking_config: Optional explicit tracking settings. Tracking remains
+            disabled when omitted or disabled.
+        tracker: Optional enabled-run tracker implementation for testing or a
+            custom backend.
+    """
+    coordinator = _LeafExperimentCoordinator(tracking_config, tracker=tracker)
+    try:
+        data = prepare_leaf_regression(
+            tree, representations, position_mask, targets, leaf_names=leaf_names
+        )
+        config = training_config or LeafRegressionConfig()
+        if not isinstance(config, LeafRegressionConfig):
+            raise TypeError("`training_config` must be a LeafRegressionConfig instance or None.")
+        if coordinator.enabled:
+            fold_count = len(validation_folds) if validation_folds is not None else n_splits
+            device = (
+                torch.device(config.device)
+                if config.device is not None
+                else data.representations.device
+            )
+            start_config = _build_leaf_tracking_config(
+                tracking_config=tracking_config or TrackingConfig(enabled=False),
+                workflow_type="run",
+                leaf_count=len(data.leaf_names),
+                fold_count=fold_count,
+                refit=True,
+                training_values={
+                    "epochs": config.epochs,
+                    "learning_rate": config.learning_rate,
+                    "weight_decay": config.weight_decay,
+                    "seed": config.seed,
+                },
+                model_class=model_class,
+                model_config=model_config,
+                score_fn=score_fn,
+                device=device,
+            )
+            coordinator.start(start_config)
+        cv_result = cross_validate_leaf_regression(
+            data,
+            n_splits=n_splits,
+            validation_folds=validation_folds,
+            training_config=config,
+            score_fn=score_fn,
+            refit=True,
+            model_class=model_class,
+            model_config=model_config,
+            _tracking_coordinator=coordinator,
+        )
+        if cv_result.final_fit is None:
+            raise RuntimeError("Leaf-regression workflow requires a final refit.")
+        final_fit = cv_result.final_fit
+        attention = final_fit.attention
+        mean_attention = attention.mean(dim=0) if attention is not None else None
+        result = LeafRegressionResult(
+            cv_score=cv_result.cv_score,
+            fold_scores=cv_result.fold_scores,
+            oof_predictions=cv_result.oof_predictions,
+            predictions=final_fit.predictions,
+            attention=attention,
+            mean_attention=mean_attention,
+        )
+        coordinator.finish("completed")
+        return result
+    except KeyboardInterrupt:
+        coordinator.finish_after_failure("interrupted")
+        raise
+    except Exception:
+        coordinator.finish_after_failure("failed")
+        raise
 
 
 def _validate_manual_folds(

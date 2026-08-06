@@ -41,12 +41,31 @@ Custom models may instead return predictions alone.
 API
 ---
 
+Tracking-enabled entry points
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The three training entry points accept the optional keyword-only
+``tracking_config`` and ``tracker`` arguments. Tracking is inactive unless
+``TrackingConfig(enabled=True, project="...")`` is supplied; an injected
+tracker does not enable it implicitly. Their generated API pages include the
+complete argument and return-value contracts:
+
+.. autosummary::
+   :toctree: generated
+
+   phylognn.leaf_regression.fit_leaf_regression
+   phylognn.leaf_regression.cross_validate_leaf_regression
+   phylognn.leaf_regression.run_leaf_regression
+
 .. automodule:: phylognn.leaf_regression
-   :members: LeafRegressionData, LeafRegressionConfig, LeafFitResult, LeafCrossValidationResult, LeafRegressionResult, prepare_leaf_regression, fit_leaf_regression, cross_validate_leaf_regression, run_leaf_regression
+   :members:
    :undoc-members:
+   :exclude-members: fit_leaf_regression, cross_validate_leaf_regression, run_leaf_regression
 
 Related guide
 -------------
 
 See :doc:`../user_guide/leaf_regression` for input alignment, staged usage,
-scoring, attention, errors, determinism, and workflow limits.
+scoring, attention, errors, determinism, and workflow limits. See
+:doc:`../user_guide/metrics_tracking` for the shared tracking and scalar
+privacy boundary.

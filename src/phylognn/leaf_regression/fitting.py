@@ -8,12 +8,16 @@ from dataclasses import dataclass
 import math
 from numbers import Real
 import random
+import time
 from typing import Iterator
 
 import numpy as np
 import torch
 
+from phylognn.training.tracking import TrackerProtocol, TrackingConfig
+
 from .data import LeafRegressionData
+from .tracking import _LeafExperimentCoordinator, _LeafTrackingStage, _build_leaf_tracking_config
 from phylognn.models import MaskedAttentionPhyloRegressor
 
 
@@ -138,84 +142,146 @@ def fit_leaf_regression(
     training_config: LeafRegressionConfig | None = None,
     model_class: type[torch.nn.Module] | None = None,
     model_config: Mapping[str, object] | None = None,
+    tracking_config: TrackingConfig | None = None,
+    tracker: TrackerProtocol | None = None,
+    _tracking_coordinator: _LeafExperimentCoordinator | None = None,
+    _tracking_stage: _LeafTrackingStage | None = None,
 ) -> LeafFitResult:
-    """Fit one fresh leaf-regression model."""
-    if not isinstance(data, LeafRegressionData):
-        raise TypeError("`data` must be a LeafRegressionData instance.")
-    config = training_config or LeafRegressionConfig()
-    if not isinstance(config, LeafRegressionConfig):
-        raise TypeError("`training_config` must be a LeafRegressionConfig instance or None.")
-    leaf_count = len(data.leaf_names)
-    indices = (
-        torch.arange(leaf_count, dtype=torch.long)
-        if train_indices is None
-        else _validate_indices(train_indices, leaf_count, "train_indices")
+    """Fit one fresh leaf-regression model with optional scalar tracking.
+
+    Args:
+        tracking_config: Optional explicit tracking settings. Tracking remains
+            disabled when omitted or disabled.
+        tracker: Optional enabled-run tracker implementation for testing or a
+            custom backend.
+    """
+    coordinator = _tracking_coordinator or _LeafExperimentCoordinator(
+        tracking_config, tracker=tracker
     )
-    device = (
-        torch.device(config.device) if config.device is not None else data.representations.device
-    )
-    with _local_rng(config.seed, device):
-        representations = data.representations.detach().clone().to(device)
-        position_mask = data.position_mask.detach().clone().to(device)
-        targets = data.targets.detach().clone().to(device)
-        selected_indices = indices.to(device)
-        model = _construct_model(data, model_class, model_config).to(device)
-        trainable_parameters = [
-            parameter for parameter in model.parameters() if parameter.requires_grad
-        ]
-        if not trainable_parameters:
-            raise ValueError("The model must have trainable parameters.")
-        model.train()
-        predictions, _ = _normalize_model_output(
-            model(representations, position_mask),
-            leaf_count,
-            representations.size(1),
-            position_mask,
+    owns_tracking = _tracking_coordinator is None
+    try:
+        if not isinstance(data, LeafRegressionData):
+            raise TypeError("`data` must be a LeafRegressionData instance.")
+        config = training_config or LeafRegressionConfig()
+        if not isinstance(config, LeafRegressionConfig):
+            raise TypeError("`training_config` must be a LeafRegressionConfig instance or None.")
+        leaf_count = len(data.leaf_names)
+        indices = (
+            torch.arange(leaf_count, dtype=torch.long)
+            if train_indices is None
+            else _validate_indices(train_indices, leaf_count, "train_indices")
         )
-        loss = torch.nn.functional.mse_loss(
-            predictions[selected_indices], targets[selected_indices]
+        device = (
+            torch.device(config.device)
+            if config.device is not None
+            else data.representations.device
         )
-        if not loss.requires_grad or not torch.isfinite(loss):
-            raise ValueError("The selected-leaf MSE loss must be finite and differentiable.")
-        optimizer = torch.optim.Adam(
-            trainable_parameters,
-            lr=config.learning_rate,
-            weight_decay=config.weight_decay,
-        )
-        losses: list[float] = []
-        for epoch in range(config.epochs):
-            optimizer.zero_grad()
-            if epoch:
-                predictions, _ = _normalize_model_output(
-                    model(representations, position_mask),
-                    leaf_count,
-                    representations.size(1),
-                    position_mask,
+        if owns_tracking and coordinator.enabled:
+            coordinator.start(
+                _build_leaf_tracking_config(
+                    tracking_config=tracking_config or TrackingConfig(enabled=False),
+                    workflow_type="fit",
+                    leaf_count=leaf_count,
+                    fold_count=0,
+                    refit=False,
+                    training_values={
+                        "epochs": config.epochs,
+                        "learning_rate": config.learning_rate,
+                        "weight_decay": config.weight_decay,
+                        "seed": config.seed,
+                    },
+                    model_class=model_class,
+                    model_config=model_config,
+                    score_fn=None,
+                    device=device,
                 )
-                loss = torch.nn.functional.mse_loss(
-                    predictions[selected_indices], targets[selected_indices]
-                )
-                if not loss.requires_grad or not torch.isfinite(loss):
-                    raise ValueError(
-                        "The selected-leaf MSE loss must be finite and differentiable."
-                    )
-            loss.backward()
-            optimizer.step()
-            losses.append(float(loss.detach().cpu()))
-        model.eval()
-        with torch.no_grad():
-            predictions, attention = _normalize_model_output(
+            )
+        with _local_rng(config.seed, device):
+            representations = data.representations.detach().clone().to(device)
+            position_mask = data.position_mask.detach().clone().to(device)
+            targets = data.targets.detach().clone().to(device)
+            selected_indices = indices.to(device)
+            model = _construct_model(data, model_class, model_config).to(device)
+            trainable_parameters = [
+                parameter for parameter in model.parameters() if parameter.requires_grad
+            ]
+            if not trainable_parameters:
+                raise ValueError("The model must have trainable parameters.")
+            model.train()
+            predictions, _ = _normalize_model_output(
                 model(representations, position_mask),
                 leaf_count,
                 representations.size(1),
                 position_mask,
             )
-    return LeafFitResult(
-        predictions=predictions,
-        attention=attention,
-        train_indices=indices,
-        losses=tuple(losses),
-    )
+            loss = torch.nn.functional.mse_loss(
+                predictions[selected_indices], targets[selected_indices]
+            )
+            if not loss.requires_grad or not torch.isfinite(loss):
+                raise ValueError("The selected-leaf MSE loss must be finite and differentiable.")
+            optimizer = torch.optim.Adam(
+                trainable_parameters,
+                lr=config.learning_rate,
+                weight_decay=config.weight_decay,
+            )
+            losses: list[float] = []
+            tracking_stage = _tracking_stage
+            if tracking_stage is None:
+                tracking_stage = coordinator.start_stage("fit")
+            for epoch in range(config.epochs):
+                epoch_started = time.perf_counter() if coordinator.enabled else None
+                optimizer.zero_grad()
+                if epoch:
+                    predictions, _ = _normalize_model_output(
+                        model(representations, position_mask),
+                        leaf_count,
+                        representations.size(1),
+                        position_mask,
+                    )
+                    loss = torch.nn.functional.mse_loss(
+                        predictions[selected_indices], targets[selected_indices]
+                    )
+                    if not loss.requires_grad or not torch.isfinite(loss):
+                        raise ValueError(
+                            "The selected-leaf MSE loss must be finite and differentiable."
+                        )
+                loss.backward()
+                optimizer.step()
+                loss_value = float(loss.detach().cpu())
+                losses.append(loss_value)
+                coordinator.log_epoch(
+                    tracking_stage,
+                    loss=loss_value,
+                    learning_rate=float(optimizer.param_groups[0]["lr"]),
+                    epoch_time_sec=(
+                        time.perf_counter() - epoch_started if epoch_started is not None else 0.0
+                    ),
+                )
+            model.eval()
+            with torch.no_grad():
+                predictions, attention = _normalize_model_output(
+                    model(representations, position_mask),
+                    leaf_count,
+                    representations.size(1),
+                    position_mask,
+                )
+        result = LeafFitResult(
+            predictions=predictions,
+            attention=attention,
+            train_indices=indices,
+            losses=tuple(losses),
+        )
+        if owns_tracking:
+            coordinator.finish("completed")
+        return result
+    except KeyboardInterrupt:
+        if owns_tracking:
+            coordinator.finish_after_failure("interrupted")
+        raise
+    except Exception:
+        if owns_tracking:
+            coordinator.finish_after_failure("failed")
+        raise
 
 
 def _validate_indices(

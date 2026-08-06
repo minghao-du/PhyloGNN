@@ -22,4 +22,5 @@ Thumbs.db
 
 checkpoints/
 example_outputs/
+wandb/
 *.log

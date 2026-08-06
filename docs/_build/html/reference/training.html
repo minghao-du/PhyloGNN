@@ -21,7 +21,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Tree I/O Reference" href="io.html" />
-    <link rel="prev" title="Association Reference" href="association.html" /> 
+    <link rel="prev" title="phylognn.leaf_regression.run_leaf_regression" href="generated/phylognn.leaf_regression.run_leaf_regression.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -54,7 +54,7 @@
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#reference-areas">Reference areas</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="data.html">Data Reference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="models.html">Models Reference</a></li>
-<li class="toctree-l3"><a class="reference internal" href="association.html">Association Reference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="leaf_regression.html">Leaf Regression Reference</a></li>
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Training Reference</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#import-path">Import path</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#configuration-and-trainer">Configuration and trainer</a></li>
@@ -279,27 +279,34 @@ Use the keys above or instantiate TorchMetrics classes directly.</p>
 <section id="tracking">
 <h2>Tracking<a class="headerlink" href="#tracking" title="Link to this heading"></a></h2>
 <dl class="py class">
-<dt class="sig sig-object py" id="TrackingConfig">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">TrackingConfig</span></span><a class="headerlink" href="#TrackingConfig" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="phylognn.training.tracking.TrackingConfig">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">phylognn.training.tracking.</span></span><span class="sig-name descname"><span class="pre">TrackingConfig</span></span><a class="headerlink" href="#phylognn.training.tracking.TrackingConfig" title="Link to this definition"></a></dt>
 <dd><p>Optional experiment tracking settings. Disabled tracking imports no external
 backend.</p>
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="TrackingRunInfo">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">TrackingRunInfo</span></span><a class="headerlink" href="#TrackingRunInfo" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="phylognn.training.tracking.TrackerProtocol">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">phylognn.training.tracking.</span></span><span class="sig-name descname"><span class="pre">TrackerProtocol</span></span><a class="headerlink" href="#phylognn.training.tracking.TrackerProtocol" title="Link to this definition"></a></dt>
+<dd><p>Protocol for an enabled tracking backend injected into a training entry
+point.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="phylognn.training.tracking.TrackingRunInfo">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">phylognn.training.tracking.</span></span><span class="sig-name descname"><span class="pre">TrackingRunInfo</span></span><a class="headerlink" href="#phylognn.training.tracking.TrackingRunInfo" title="Link to this definition"></a></dt>
 <dd><p>External run identity returned after tracking starts.</p>
 </dd></dl>
 
 <dl class="py exception">
-<dt class="sig sig-object py" id="TrackingError">
-<span class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">TrackingError</span></span><a class="headerlink" href="#TrackingError" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="phylognn.training.tracking.TrackingError">
+<span class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">phylognn.training.tracking.</span></span><span class="sig-name descname"><span class="pre">TrackingError</span></span><a class="headerlink" href="#phylognn.training.tracking.TrackingError" title="Link to this definition"></a></dt>
 <dd><p>Raised when tracking configuration or logging fails.</p>
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="WandbTracker">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">WandbTracker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tracking_config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#WandbTracker" title="Link to this definition"></a></dt>
+<dt class="sig sig-object py" id="phylognn.training.tracking.WandbTracker">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">phylognn.training.tracking.</span></span><span class="sig-name descname"><span class="pre">WandbTracker</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tracking_config</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#phylognn.training.tracking.WandbTracker" title="Link to this definition"></a></dt>
 <dd><p>Weights &amp; Biases adapter with lazy <code class="docutils literal notranslate"><span class="pre">wandb</span></code> import.</p>
 </dd></dl>
 
@@ -322,7 +329,7 @@ and metrics externally.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="association.html" class="btn btn-neutral float-left" title="Association Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="generated/phylognn.leaf_regression.run_leaf_regression.html" class="btn btn-neutral float-left" title="phylognn.leaf_regression.run_leaf_regression" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="io.html" class="btn btn-neutral float-right" title="Tree I/O Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

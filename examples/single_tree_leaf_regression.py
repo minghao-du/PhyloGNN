@@ -4,6 +4,18 @@ from ete3 import Tree
 import torch
 
 from phylognn import LeafRegressionConfig, run_leaf_regression
+from phylognn.training import TrackingConfig
+
+# Tracking is opt-in. Uncomment the next line and provide a W&B project to
+# inspect fold and refit curves; the default remains local and credential-free.
+TRACKING_CONFIG: TrackingConfig | None = None
+# TRACKING_CONFIG = TrackingConfig(
+#       enabled=True,
+#       project="phylognn-leaf-regression-test",
+#       run_name="single-tree-leaf-regression",
+#       group="leaf-regression-manual-check",
+#       tags=("manual-check", "leaf-regression"),
+#   )
 
 
 def main() -> None:
@@ -38,6 +50,7 @@ def main() -> None:
         targets,
         n_splits=3,
         training_config=LeafRegressionConfig(epochs=20, learning_rate=0.01, seed=7),
+        tracking_config=TRACKING_CONFIG,
     )
 
     print("Single-tree leaf regression summary")

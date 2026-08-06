@@ -50,7 +50,7 @@
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">User Guide</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#workflow-pages">Workflow pages</a><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="tree_input.html">Tree Input</a></li>
-<li class="toctree-l3"><a class="reference internal" href="region_association.html">Single-Tree Region Association</a></li>
+<li class="toctree-l3"><a class="reference internal" href="leaf_regression.html">Leaf Regression</a></li>
 <li class="toctree-l3"><a class="reference internal" href="feature_engineering.html">Feature Engineering</a></li>
 <li class="toctree-l3"><a class="reference internal" href="graph_conversion.html">Graph Conversion</a></li>
 <li class="toctree-l3"><a class="reference internal" href="datasets_and_splits.html">Datasets And Splits</a></li>
@@ -62,6 +62,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#tracking-configuration">Tracking configuration</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#tracking-choices">Tracking choices</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#external-run-metadata">External run metadata</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#leaf-regression-scalar-boundary">Leaf-regression scalar boundary</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#common-failures">Common failures</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#related-pages">Related pages</a></li>
 </ul>
@@ -163,11 +164,32 @@ metrics, and terminal status. Metadata keys that look like secrets are
 rejected. Path-like metadata values are reduced to their final file or
 directory names before logging.</p>
 </section>
+<section id="leaf-regression-scalar-boundary">
+<h2>Leaf-regression scalar boundary<a class="headerlink" href="#leaf-regression-scalar-boundary" title="Link to this heading"></a></h2>
+<p>Leaf-regression runs use the same boundary. A tracked workflow sends a
+sanitized scalar configuration and scalar events such as:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>workflow.type = &quot;run_leaf_regression&quot;
+data.leaf_count = 24
+stage/type = &quot;cv_fold&quot;
+stage/index = 1
+train/loss = 0.418
+cv/fold_score = 0.731
+status/state = &quot;completed&quot;
+</pre></div>
+</div>
+<p>Trees, leaf names or index lists, tensors, predictions, attention, model
+state, checkpoints, and artifacts are never uploaded. Tracking remains
+disabled unless the caller explicitly enables it, and an injected tracker does
+not change that selection rule. The <a class="reference internal" href="leaf_regression.html"><span class="doc">Leaf Regression</span></a> guide explains the
+CV and refit stages; <a class="reference internal" href="../reference/leaf_regression.html"><span class="doc">Leaf Regression Reference</span></a> contains the three
+tracking-enabled API signatures.</p>
+</section>
 <section id="common-failures">
 <h2>Common failures<a class="headerlink" href="#common-failures" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">TrackingError</span></code> is raised for invalid tracking settings, missing wandb, unsafe
 metadata, invalid metric payloads, and backend logging failures. Disable
-tracking to keep the workflow local while debugging model or data issues.</p>
+tracking to keep the workflow local while debugging model or data issues. See
+<a class="reference internal" href="../troubleshooting.html"><span class="doc">Troubleshooting</span></a> for setup and failure guidance.</p>
 </section>
 <section id="related-pages">
 <h2>Related pages<a class="headerlink" href="#related-pages" title="Link to this heading"></a></h2>

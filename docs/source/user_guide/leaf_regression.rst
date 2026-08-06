@@ -42,6 +42,38 @@ transductive cross-validation, and one final all-leaf refit:
 ``result.predictions`` comes from the final refit. ``cv_score`` is the
 validation-leaf-count-weighted mean of the fold scores.
 
+Optional one-run tracking
+-------------------------
+
+Leaf regression tracking is opt-in. Pass ``TrackingConfig(enabled=True,
+project="...")`` and, for local tests or custom backends, a ``TrackerProtocol``
+implementation through the ``tracker`` argument. The recommended workflow
+creates one logical run for all cross-validation folds and the final refit:
+
+.. code-block:: python
+
+   from phylognn import run_leaf_regression
+   from phylognn.training import TrackingConfig
+
+   result = run_leaf_regression(
+       tree, representations, position_mask, targets,
+       n_splits=3,
+       tracking_config=TrackingConfig(enabled=True, project="phylognn"),
+   )
+
+Each completed epoch records ``train/loss``, ``lr``, and ``epoch_time_sec``.
+Use ``stage/type`` and ``stage/index`` to filter the ``cv_fold`` stages and the
+optional ``refit`` stage; ``stage/epoch`` resets within each stage while the
+tracker step remains globally increasing. Fold summaries contain
+``cv/fold_score`` and ``cv/validation_leaf_count``, followed by one weighted
+``cv/weighted_score`` and a single terminal status. A backend-provided run id,
+name, or URL is printed locally after tracking starts.
+
+Tracking is disabled when ``tracking_config`` is omitted or disabled, even when
+an injected tracker is supplied. See :doc:`metrics_tracking` for the shared
+scalar-only privacy boundary and :doc:`../troubleshooting` for optional W&B
+installation and configuration failures.
+
 Staged workflow and scoring
 ---------------------------
 

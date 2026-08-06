@@ -174,10 +174,14 @@ def test_examples_readme_references_each_supported_script():
 
 def test_leaf_regression_example_runs_without_writing_files():
     """The leaf-regression example is a deterministic, in-memory workflow."""
+    script = (EXAMPLES_DIR / "single_tree_leaf_regression.py").read_text(encoding="utf-8")
+    assert 'TrackingConfig(enabled=True, project="your-project")' in script
+    assert "TRACKING_CONFIG: TrackingConfig | None = None" in script
     with tempfile.TemporaryDirectory() as temporary_directory:
         completed = _run_example("single_tree_leaf_regression.py", cwd=Path(temporary_directory))
         assert completed.returncode == 0, completed.stderr
         assert set(Path(temporary_directory).iterdir()) == set()
+        assert "Tracking run:" not in completed.stdout
     for marker in (
         "leaf count:",
         "fold scores:",

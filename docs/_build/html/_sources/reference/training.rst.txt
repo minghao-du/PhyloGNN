@@ -132,20 +132,25 @@ Use the keys above or instantiate TorchMetrics classes directly.
 Tracking
 --------
 
-.. py:class:: TrackingConfig
+.. py:class:: phylognn.training.tracking.TrackingConfig
 
    Optional experiment tracking settings. Disabled tracking imports no external
    backend.
 
-.. py:class:: TrackingRunInfo
+.. py:class:: phylognn.training.tracking.TrackerProtocol
+
+   Protocol for an enabled tracking backend injected into a training entry
+   point.
+
+.. py:class:: phylognn.training.tracking.TrackingRunInfo
 
    External run identity returned after tracking starts.
 
-.. py:exception:: TrackingError
+.. py:exception:: phylognn.training.tracking.TrackingError
 
    Raised when tracking configuration or logging fails.
 
-.. py:class:: WandbTracker(tracking_config)
+.. py:class:: phylognn.training.tracking.WandbTracker(tracking_config)
 
    Weights & Biases adapter with lazy `wandb` import.
 

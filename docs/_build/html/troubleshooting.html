@@ -55,7 +55,10 @@
 <li class="toctree-l2"><a class="reference internal" href="#duplicate-or-unknown-features">Duplicate or unknown features</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#invalid-graph-data">Invalid graph data</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#invalid-toml-training-configuration">Invalid TOML training configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#tracking-setup-failures">Tracking setup failures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#tracking-setup-failures">Tracking setup failures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#common-tracking-failures">Common tracking failures</a></li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#documentation-build-failures">Documentation build failures</a></li>
 </ul>
 </li>
@@ -102,6 +105,15 @@ confirm the tree format and schema. Core workflows accept <code class="docutils 
 <p><code class="docutils literal notranslate"><span class="pre">ModuleNotFoundError</span></code> for <code class="docutils literal notranslate"><span class="pre">DendroPy</span></code> means optional tree I/O was used without the
 <code class="docutils literal notranslate"><span class="pre">beast</span></code> extra. <code class="docutils literal notranslate"><span class="pre">TrackingError</span></code> mentioning wandb means tracking was enabled
 without the <code class="docutils literal notranslate"><span class="pre">wandb</span></code> extra.</p>
+<p>Leaf-regression tracking is disabled by default. Install the optional backend
+only when an external run is needed:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[wandb]&quot;</span>
+</pre></div>
+</div>
+<p>The default leaf-regression example and all three public entry points remain
+offline and file-free without this extra. Supplying an injected tracker does
+not change that behavior; pass <code class="docutils literal notranslate"><span class="pre">TrackingConfig(enabled=True,</span> <span class="pre">project=&quot;...&quot;)</span></code>
+explicitly to opt in.</p>
 </section>
 <section id="duplicate-or-unknown-features">
 <h2>Duplicate or unknown features<a class="headerlink" href="#duplicate-or-unknown-features" title="Link to this heading"></a></h2>
@@ -127,6 +139,24 @@ wrong types, unsupported loss or metric names, and invalid trainer values. See
 <p>When tracking is enabled, <code class="docutils literal notranslate"><span class="pre">tracking.project</span></code> is required. Metadata keys that
 look secret, such as tokens or passwords, are rejected before external logging.
 Disable tracking to keep training fully local.</p>
+<p>Only sanitized configuration, finite scalar metrics, stage identifiers, run
+identity, and terminal status are sent. Trees, leaf names or index lists, input
+and output tensors, attention, model state, checkpoints, and artifacts are not
+uploaded. Path-like metadata is reduced to its final component; secret-like
+metadata keys are rejected.</p>
+<section id="common-tracking-failures">
+<h3>Common tracking failures<a class="headerlink" href="#common-tracking-failures" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">tracking.project</span> <span class="pre">is</span> <span class="pre">required</span></code>: enable tracking with a non-empty W&amp;B project.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">wandb</span> <span class="pre">is</span> <span class="pre">required</span></code>: install the <code class="docutils literal notranslate"><span class="pre">wandb</span></code> extra in the active environment.</p></li>
+<li><p>Unsafe metadata or unsupported values: remove token/password fields and keep
+metadata scalar or a flat scalar sequence.</p></li>
+<li><p>Backend initialization or logging errors: verify credentials and network
+access, or disable tracking while diagnosing the scientific workflow.
+Training failures remain the primary exception; cleanup failures after a
+failed or interrupted run are warnings.</p></li>
+</ul>
+</section>
 </section>
 <section id="documentation-build-failures">
 <h2>Documentation build failures<a class="headerlink" href="#documentation-build-failures" title="Link to this heading"></a></h2>

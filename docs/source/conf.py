@@ -77,6 +77,10 @@ nitpick_ignore = [
     ("py:class", "torch.nn.parameter.Parameter"),
     ("py:class", "torch.optim.optimizer.Optimizer"),
     ("py:class", "ScoreFunction"),
+    # Private leaf-regression coordination is intentionally absent from the
+    # curated public reference, although internal keyword plumbing uses it.
+    ("py:class", "phylognn.leaf_regression.tracking._LeafExperimentCoordinator"),
+    ("py:class", "phylognn.leaf_regression.tracking._LeafTrackingStage"),
 ]
 
 # Imported dependency docstrings contain legacy invalid-escape sequences.

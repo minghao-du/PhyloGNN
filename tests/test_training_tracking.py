@@ -3,6 +3,7 @@
 # ruff: noqa: E402
 
 from pathlib import Path
+import math
 import warnings
 
 import pytest
@@ -223,6 +224,29 @@ def test_metric_payload_builders_use_stable_names_and_skip_missing_validation():
         "final/best_val_loss": 0.25,
     }
     assert build_status_metrics("failed") == {"status/state": "failed"}
+
+
+def test_tracking_builders_emit_finite_payloads_and_preserve_run_identity():
+    """Shared builders retain scalar-only metric and identity contracts."""
+    epoch_payload = build_epoch_metrics(
+        train_metrics={"loss": 1.25},
+        val_metrics={"mse": 0.5},
+        lr=0.01,
+        epoch_time_sec=0.125,
+    )
+    final_payload = build_final_metrics(best_val_loss=0.5, best_epoch=2)
+    identity = TrackingRunInfo(run_id="run-1", run_name="leaf-fit", run_url="https://test/run-1")
+
+    assert all(math.isfinite(value) for value in epoch_payload.values())
+    assert all(math.isfinite(value) for value in final_payload.values())
+    assert [build_status_metrics(status) for status in ("completed", "failed", "interrupted")] == [
+        {"status/state": "completed"},
+        {"status/state": "failed"},
+        {"status/state": "interrupted"},
+    ]
+    assert identity == TrackingRunInfo(
+        run_id="run-1", run_name="leaf-fit", run_url="https://test/run-1"
+    )
 
 
 def test_ten_completed_run_configs_are_comparable():
