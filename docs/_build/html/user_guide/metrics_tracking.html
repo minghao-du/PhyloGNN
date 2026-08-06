@@ -60,6 +60,10 @@
 <li class="toctree-l4"><a class="reference internal" href="#metrics">Metrics</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#local-first-behavior">Local-first behavior</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#tracking-configuration">Tracking configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#metric-catalog">Metric catalog</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#metric-selection">Metric selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#operational-fields">Operational fields</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#selection-validation">Selection validation</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#tracking-choices">Tracking choices</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#external-run-metadata">External run metadata</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#leaf-regression-scalar-boundary">Leaf-regression scalar boundary</a></li>
@@ -132,6 +136,108 @@ run should send sanitized configuration, metrics, and status to an external
 wandb. When tracking is enabled, the backend must be <code class="docutils literal notranslate"><span class="pre">wandb</span></code>, <code class="docutils literal notranslate"><span class="pre">project</span></code> is
 required, and the <code class="docutils literal notranslate"><span class="pre">wandb</span></code> extra must be installed.</p>
 </section>
+<section id="metric-catalog">
+<h2>Metric catalog<a class="headerlink" href="#metric-catalog" title="Link to this heading"></a></h2>
+<p>Tracking sends only finite scalar values. The fixed quantitative catalog is
+ordered as follows; a metric that is not applicable to a particular workflow
+or event is omitted.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">train/loss</span></code></p></td>
+<td><p>Training loss for a completed epoch.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">train/lr</span></code></p></td>
+<td><p>Current optimizer learning rate.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">train/epoch_time_sec</span></code></p></td>
+<td><p>Completed epoch duration in seconds.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">val/loss</span></code></p></td>
+<td><p>Validation loss when validation is available.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">final/best_val_loss</span></code></p></td>
+<td><p>Best finite validation loss.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">final/best_epoch</span></code></p></td>
+<td><p>Epoch of the best finite validation loss.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cv/fold_score</span></code></p></td>
+<td><p>Configured score for a held-out leaf fold.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cv/validation_leaf_count</span></code></p></td>
+<td><p>Number of held-out leaves in that fold.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cv/mean_score</span></code></p></td>
+<td><p>Arithmetic mean of fold scores.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cv/weighted_score</span></code></p></td>
+<td><p>Fold score weighted by held-out leaf count.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cv/std_score</span></code></p></td>
+<td><p>Population standard deviation of fold scores.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cv/min_score</span></code></p></td>
+<td><p>Minimum fold score.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cv/max_score</span></code></p></td>
+<td><p>Maximum fold score.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cv/mae</span></code></p></td>
+<td><p>Mean absolute error for aligned out-of-fold predictions and targets.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cv/pearson_r</span></code></p></td>
+<td><p>Pearson correlation for aligned out-of-fold predictions and targets.</p></td>
+</tr>
+</tbody>
+</table>
+<p>For each metric configured on a standard <code class="docutils literal notranslate"><span class="pre">Trainer</span></code>, <code class="docutils literal notranslate"><span class="pre">train/&lt;name&gt;</span></code> and
+<code class="docutils literal notranslate"><span class="pre">val/&lt;name&gt;</span></code> are also accepted. They are emitted only when that trainer has
+the named metric and the corresponding training or validation value exists.
+The legacy top-level <code class="docutils literal notranslate"><span class="pre">lr</span></code> and <code class="docutils literal notranslate"><span class="pre">epoch_time_sec</span></code> fields are not emitted.</p>
+</section>
+<section id="metric-selection">
+<h2>Metric selection<a class="headerlink" href="#metric-selection" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">TrackingConfig.metrics</span></code> controls quantitative fields only. Its three states
+are explicit:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Record every applicable quantitative metric (the default).</span>
+<span class="n">TrackingConfig</span><span class="p">(</span><span class="n">metrics</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+<span class="c1"># Record no quantitative metrics.</span>
+<span class="n">TrackingConfig</span><span class="p">(</span><span class="n">metrics</span><span class="o">=</span><span class="p">())</span>
+
+<span class="c1"># Record only applicable names in this ordered allowlist.</span>
+<span class="n">TrackingConfig</span><span class="p">(</span><span class="n">metrics</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;train/loss&quot;</span><span class="p">,</span> <span class="s2">&quot;val/loss&quot;</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>An allowlist may include fixed catalog names and, for a standard trainer,
+configured dynamic <code class="docutils literal notranslate"><span class="pre">train/&lt;name&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">val/&lt;name&gt;</span></code> names. A valid name for
+another workflow is simply absent from events where it does not apply. See
+<a class="reference internal" href="training_config.html"><span class="doc">Training Configuration</span></a> for the equivalent TOML syntax.</p>
+</section>
+<section id="operational-fields">
+<h2>Operational fields<a class="headerlink" href="#operational-fields" title="Link to this heading"></a></h2>
+<p>Metric selection never removes sanitized run configuration, <code class="docutils literal notranslate"><span class="pre">stage/type</span></code>,
+<code class="docutils literal notranslate"><span class="pre">stage/index</span></code>, <code class="docutils literal notranslate"><span class="pre">stage/epoch</span></code>, the backend step, or <code class="docutils literal notranslate"><span class="pre">status/state</span></code>. Thus
+an empty selection still leaves a useful stage and lifecycle record. A
+successfully started run records exactly one terminal <code class="docutils literal notranslate"><span class="pre">status/state</span></code> value:
+<code class="docutils literal notranslate"><span class="pre">completed</span></code>, <code class="docutils literal notranslate"><span class="pre">failed</span></code>, or <code class="docutils literal notranslate"><span class="pre">interrupted</span></code>.</p>
+</section>
+<section id="selection-validation">
+<h2>Selection validation<a class="headerlink" href="#selection-validation" title="Link to this heading"></a></h2>
+<p>For enabled tracking, selection is validated before the tracker starts.
+Selections must be <code class="docutils literal notranslate"><span class="pre">None</span></code> or a tuple of strings in Python, cannot contain
+duplicates, and must use known fixed or configured dynamic names. Empty,
+malformed, unknown, or sensitive namespace segments fail with <code class="docutils literal notranslate"><span class="pre">TrackingError</span></code>.
+Sensitive segments include case-insensitive forms containing <code class="docutils literal notranslate"><span class="pre">api_key</span></code>,
+<code class="docutils literal notranslate"><span class="pre">apikey</span></code>, <code class="docutils literal notranslate"><span class="pre">auth</span></code>, <code class="docutils literal notranslate"><span class="pre">credential</span></code>, <code class="docutils literal notranslate"><span class="pre">password</span></code>, <code class="docutils literal notranslate"><span class="pre">secret</span></code>, or <code class="docutils literal notranslate"><span class="pre">token</span></code>.
+Disabled tracking remains inert: it does not import W&amp;B or validate a workflow
+selection.</p>
+</section>
 <section id="tracking-choices">
 <h2>Tracking choices<a class="headerlink" href="#tracking-choices" title="Link to this heading"></a></h2>
 <table class="docutils align-default">
@@ -162,7 +268,8 @@ required, and the <code class="docutils literal notranslate"><span class="pre">w
 <p>The trainer logs sanitized configuration metadata, epoch metrics, final
 metrics, and terminal status. Metadata keys that look like secrets are
 rejected. Path-like metadata values are reduced to their final file or
-directory names before logging.</p>
+directory names before logging. Raw graphs, trees, tensors, predictions,
+attention, model state, checkpoints, and artifacts are not uploaded.</p>
 </section>
 <section id="leaf-regression-scalar-boundary">
 <h2>Leaf-regression scalar boundary<a class="headerlink" href="#leaf-regression-scalar-boundary" title="Link to this heading"></a></h2>

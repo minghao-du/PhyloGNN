@@ -17,7 +17,7 @@ from torch import nn
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 
-from phylognn.training import TrainingConfig
+from phylognn.training import TrainingConfig, load_training_config
 from phylognn.training.tracking import (
     TrackingConfig,
     TrackingError,
@@ -60,6 +60,33 @@ class FakeTracker:
         self.finish_calls.append(status)
         if self.finish_error is not None:
             raise self.finish_error
+
+    @property
+    def ordered_payloads(self):
+        """Return metric payloads in the order they were logged."""
+        return [payload for _, payload in self.metric_calls]
+
+    @property
+    def quantitative_payloads(self):
+        """Return payloads containing at least one quantitative field."""
+        return [
+            payload
+            for payload in self.ordered_payloads
+            if any(not _is_operational_key(key) for key in payload)
+        ]
+
+    @property
+    def operational_payloads(self):
+        """Return payloads containing only operational fields."""
+        return [
+            payload
+            for payload in self.ordered_payloads
+            if payload and all(_is_operational_key(key) for key in payload)
+        ]
+
+
+def _is_operational_key(key):
+    return key == "status/state" or key.startswith("stage/")
 
 
 class FakeRun:
@@ -201,6 +228,11 @@ def test_trainer_logs_epoch_final_and_completed_status(tmp_path: Path):
     epoch_calls = [call for call in tracker.metric_calls if "train/loss" in call[1]]
     assert [step for step, _ in epoch_calls] == [1, 2]
     assert all("val/loss" in payload for _, payload in epoch_calls)
+    assert all("train/lr" in payload for _, payload in epoch_calls)
+    assert all("train/epoch_time_sec" in payload for _, payload in epoch_calls)
+    assert all(
+        "lr" not in payload and "epoch_time_sec" not in payload for _, payload in epoch_calls
+    )
     assert tracker.metric_calls[-2][1]["final/best_epoch"] >= 1.0
     assert tracker.metric_calls[-1] == (trainer.current_epoch, {"status/state": "completed"})
     assert tracker.finish_calls == ["completed"]
@@ -214,14 +246,14 @@ def test_metric_payload_builders_use_stable_names_and_skip_missing_validation():
         epoch_time_sec=0.5,
     )
     assert epoch_payload == {
-        "epoch_time_sec": 0.5,
-        "lr": 0.01,
         "train/loss": 2.0,
         "train/mae": 1.0,
+        "train/lr": 0.01,
+        "train/epoch_time_sec": 0.5,
     }
     assert build_final_metrics(best_val_loss=0.25, best_epoch=3) == {
-        "final/best_epoch": 3.0,
         "final/best_val_loss": 0.25,
+        "final/best_epoch": 3,
     }
     assert build_status_metrics("failed") == {"status/state": "failed"}
 
@@ -247,6 +279,134 @@ def test_tracking_builders_emit_finite_payloads_and_preserve_run_identity():
     assert identity == TrackingRunInfo(
         run_id="run-1", run_name="leaf-fit", run_url="https://test/run-1"
     )
+
+
+def test_tracking_builders_omit_nonfinite_quantitative_values():
+    """External payloads never contain NaN or infinity values."""
+    assert build_epoch_metrics(
+        train_metrics={"loss": 1.0, "nan_metric": float("nan")},
+        val_metrics={"loss": float("inf"), "mae": 0.25},
+        lr=float("inf"),
+        epoch_time_sec=float("nan"),
+    ) == {"train/loss": 1.0, "val/mae": 0.25}
+    assert build_final_metrics(best_val_loss=float("nan"), best_epoch=None) == {}
+
+
+@pytest.mark.parametrize(
+    "selection, expected_epoch_keys, expected_final_keys",
+    [
+        (
+            None,
+            {"train/loss", "train/mae", "train/lr", "train/epoch_time_sec", "val/loss", "val/mae"},
+            {"final/best_val_loss", "final/best_epoch"},
+        ),
+        (("train/loss", "val/mae"), {"train/loss", "val/mae"}, set()),
+        ((), set(), set()),
+        (("cv/mae",), set(), set()),
+    ],
+)
+def test_trainer_metric_selection_filters_quantitative_payloads(
+    tmp_path: Path, selection, expected_epoch_keys, expected_final_keys
+):
+    """Selection affects only applicable quantitative fields in a standard run."""
+    tracker = FakeTracker()
+    trainer = _trainer(
+        tmp_path,
+        tracker=tracker,
+        tracking_config=TrackingConfig(enabled=True, project="phylognn", metrics=selection),
+        epochs=1,
+    )
+
+    history = trainer.fit(train_loader=_loader(), val_loader=_loader())
+
+    epoch_payloads = [
+        payload for _, payload in tracker.metric_calls if "status/state" not in payload
+    ]
+    final_payloads = [
+        payload for _, payload in tracker.metric_calls if "final/best_epoch" in payload
+    ]
+    assert (set(epoch_payloads[0]) if epoch_payloads else set()) == expected_epoch_keys
+    assert (set(final_payloads[0]) if final_payloads else set()) == expected_final_keys
+    assert tracker.metric_calls[-1][1] == {"status/state": "completed"}
+    assert history["train_loss"]
+
+
+def test_trainer_dynamic_selection_validates_before_start_and_is_deterministic(tmp_path: Path):
+    """Configured dynamic names are valid; unavailable and unsafe names never start a run."""
+    valid_trackers = []
+    for run_index in range(2):
+        tracker = FakeTracker()
+        trainer = _trainer(
+            tmp_path / str(run_index),
+            tracker=tracker,
+            tracking_config=TrackingConfig(
+                enabled=True, project="phylognn", metrics=("train/mae", "val/mae")
+            ),
+            epochs=1,
+        )
+        trainer.fit(train_loader=_loader(), val_loader=_loader())
+        valid_trackers.append(tracker)
+    assert [set(tracker.metric_calls[0][1]) for tracker in valid_trackers] == [
+        {"train/mae", "val/mae"},
+        {"train/mae", "val/mae"},
+    ]
+
+    for selection, pattern in [
+        (("train/not_configured",), "unknown"),
+        (("train/api-key",), "sensitive"),
+    ]:
+        tracker = FakeTracker()
+        with pytest.raises(TrackingError, match=pattern):
+            _trainer(
+                tmp_path / pattern,
+                tracker=tracker,
+                tracking_config=TrackingConfig(enabled=True, project="phylognn", metrics=selection),
+                epochs=1,
+            )
+        assert tracker.started is False
+
+
+def test_toml_and_python_tracking_selections_filter_identical_payloads(tmp_path: Path):
+    """A TOML allowlist has the same filtering behavior as the Python API."""
+    config_path = tmp_path / "training.toml"
+    config_path.write_text(
+        """
+[model]
+type = "GATBiLSTMNet"
+
+[model.params]
+input_dim = 1
+output_dim = 1
+temporal_mode = "none"
+
+[training]
+epochs = 1
+
+[metrics]
+names = ["mae"]
+
+[tracking]
+enabled = true
+project = "phylognn"
+metrics = ["train/loss", "val/mae"]
+""",
+        encoding="utf-8",
+    )
+    toml_selection = load_training_config(config_path).tracking_config
+    python_selection = TrackingConfig(
+        enabled=True,
+        project="phylognn",
+        metrics=("train/loss", "val/mae"),
+    )
+    payloads = []
+    for name, selection in (("toml", toml_selection), ("python", python_selection)):
+        tracker = FakeTracker()
+        _trainer(tmp_path / name, tracker=tracker, tracking_config=selection, epochs=1).fit(
+            train_loader=_loader(), val_loader=_loader()
+        )
+        payloads.append([payload for _, payload in tracker.metric_calls])
+
+    assert [set(payload) for payload in payloads[0]] == [set(payload) for payload in payloads[1]]
 
 
 def test_ten_completed_run_configs_are_comparable():

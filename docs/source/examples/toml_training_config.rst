@@ -71,6 +71,21 @@ The default ``[tracking]`` section keeps experiment tracking disabled. Install
 and configure the ``wandb`` extra only when you intentionally enable tracking;
 this local example does not require credentials.
 
+To run the same TOML workflow with a focused external metric selection, add or
+replace its tracking section with the following runnable configuration after
+installing the optional backend and providing your project:
+
+.. code-block:: toml
+
+   [tracking]
+   enabled = true
+   project = "phylognn"
+   metrics = ["train/loss", "val/loss"]
+
+Omit ``metrics`` to record all applicable quantitative values, or use
+``metrics = []`` to record only configuration, lifecycle, and stage fields.
+See :doc:`../user_guide/training_config` for validation rules.
+
 Source
 ------
 

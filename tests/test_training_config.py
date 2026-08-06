@@ -486,6 +486,61 @@ dataset_id = "dataset-v1"
 
 
 @pytest.mark.parametrize(
+    "metrics_text, expected",
+    [
+        ("", None),
+        ("metrics = []\n", ()),
+        ('metrics = ["train/loss", "val/loss"]\n', ("train/loss", "val/loss")),
+    ],
+)
+def test_tracking_metrics_toml_preserves_omitted_empty_and_allowlist_states(
+    tmp_path: Path, metrics_text: str, expected: tuple[str, ...] | None
+):
+    """TOML selection preserves its three distinct public states."""
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config(epochs=1) + """
+[tracking]
+enabled = true
+project = "phylognn"
+""" + metrics_text,
+    )
+
+    assert load_training_config(config_path).tracking_config.metrics == expected
+
+
+@pytest.mark.parametrize(
+    "metrics_text, pattern",
+    [
+        ('metrics = ["train/loss", "train/loss"]\n', "duplicate"),
+        ('metrics = ["loss"]\n', "namespace/name"),
+        ('metrics = ["train/api-key"]\n', "sensitive"),
+        ('metrics = "train/loss"\n', "TOML array"),
+        ("metrics = [1]\n", "only strings"),
+        ('metrics = ["cv/not_a_metric"]\n', "unknown name"),
+        ('metrics = ["train/not_configured"]\n', "unknown name"),
+    ],
+)
+def test_tracking_metrics_toml_rejects_invalid_entries_with_path_context(
+    tmp_path: Path, metrics_text: str, pattern: str
+):
+    """Invalid TOML selection is rejected while loading the named file."""
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config(epochs=1) + """
+[tracking]
+enabled = true
+project = "phylognn"
+""" + metrics_text,
+    )
+
+    with pytest.raises(TrainingConfigError, match=pattern) as error:
+        load_training_config(config_path)
+
+    assert str(config_path) in str(error.value)
+
+
+@pytest.mark.parametrize(
     "tracking_text, pattern",
     [
         ("enabled = true\nproject = 123\n", "tracking.project"),

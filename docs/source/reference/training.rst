@@ -135,7 +135,11 @@ Tracking
 .. py:class:: phylognn.training.tracking.TrackingConfig
 
    Optional experiment tracking settings. Disabled tracking imports no external
-   backend.
+   backend. The ``metrics: tuple[str, ...] | None`` field selects quantitative
+   payload values: ``None`` records all applicable values, an empty tuple
+   records none, and a non-empty tuple is an exact allowlist. Sanitized
+   configuration, stage identity, steps, and terminal status are operational
+   fields and are not filtered.
 
 .. py:class:: phylognn.training.tracking.TrackerProtocol
 
@@ -154,13 +158,21 @@ Tracking
 
    Weights & Biases adapter with lazy `wandb` import.
 
+Enabled configurations validate selected metric names before the tracker starts.
+The fixed catalog is available as ``FIXED_METRIC_CATALOG``; standard trainers
+also accept ``train/<name>`` and ``val/<name>`` for their configured metrics.
+Payloads contain finite quantitative scalars only. See
+:doc:`../user_guide/metrics_tracking` for the catalog, validation, and privacy
+contract.
+
 Configuration sections and outputs
 ----------------------------------
 
 `TOML` files use `[model]`, `[model.params]`, `[training]`, optional `[loss]`,
 optional `[metrics]`, and optional `[tracking]`. Training writes local
 checkpoints and `history.json`; enabled tracking logs sanitized run metadata
-and metrics externally.
+and metrics externally. ``[tracking].metrics`` uses the same three-state
+selection contract as ``TrackingConfig.metrics``.
 
 Related guide
 -------------

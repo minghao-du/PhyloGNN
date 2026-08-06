@@ -327,3 +327,67 @@ def test_quickstart_references_runnable_training_smoke_test():
     assert "../../examples/quickstart_training.py" in quickstart
     assert "Quickstart training summary" in quickstart
     assert "prediction:" in quickstart
+
+
+def test_metric_tracking_documentation_contracts():
+    tracking = _read(DOCS_SOURCE / "user_guide" / "metrics_tracking.rst")
+    config = _read(DOCS_SOURCE / "user_guide" / "training_config.rst")
+    toml_example = _read(DOCS_EXAMPLES / "toml_training_config.rst")
+    leaf = _read(DOCS_SOURCE / "user_guide" / "leaf_regression.rst")
+    training_reference = _read(DOCS_SOURCE / "reference" / "training.rst")
+    leaf_reference = _read(DOCS_SOURCE / "reference" / "leaf_regression.rst")
+    troubleshooting = _read(DOCS_SOURCE / "troubleshooting.rst")
+
+    for metric_name in (
+        "train/loss",
+        "train/lr",
+        "train/epoch_time_sec",
+        "val/loss",
+        "final/best_val_loss",
+        "final/best_epoch",
+        "cv/fold_score",
+        "cv/validation_leaf_count",
+        "cv/mean_score",
+        "cv/weighted_score",
+        "cv/std_score",
+        "cv/min_score",
+        "cv/max_score",
+        "cv/mae",
+        "cv/pearson_r",
+    ):
+        assert metric_name in tracking
+
+    assert "TrackingConfig(metrics=None)" in tracking
+    assert "TrackingConfig(metrics=())" in tracking
+    assert 'TrackingConfig(metrics=("train/loss", "val/loss"))' in tracking
+    assert "Operational fields" in tracking
+    assert "status/state" in tracking
+    assert 'metrics = ["train/loss", "val/loss"]' in config
+    assert "metrics = []" in config
+    assert "tracking.metrics" in config
+    assert 'metrics = ["train/loss", "val/loss"]' in toml_example
+
+    normalized_leaf = " ".join(leaf.split())
+    for term in (
+        "population standard deviation",
+        "out-of-fold",
+        "cv/mae",
+        "cv/pearson_r",
+        "RuntimeWarning",
+        "omitted",
+    ):
+        assert term in normalized_leaf
+
+    assert "metrics" in training_reference
+    assert "quantitative" in training_reference
+    assert "tracking_config" in leaf_reference
+    assert "metric selection" in leaf_reference
+
+    for term in (
+        "before tracker start",
+        "duplicate",
+        "secret",
+        "lazy",
+        "not uploaded",
+    ):
+        assert term in troubleshooting.lower()

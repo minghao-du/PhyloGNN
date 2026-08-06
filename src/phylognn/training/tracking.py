@@ -11,12 +11,37 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from importlib import import_module
+import math
 from pathlib import Path
 from typing import Any, Literal, Mapping, Optional, Protocol, Sequence
 
 TrackingStatus = Literal["completed", "failed", "interrupted"]
 ScalarValue = str | int | float | bool | None
 ConfigValue = ScalarValue | tuple[ScalarValue, ...]
+
+# Ordered names shared by standard training and leaf-regression tracking.
+FIXED_METRIC_CATALOG: tuple[str, ...] = (
+    "train/loss",
+    "train/lr",
+    "train/epoch_time_sec",
+    "val/loss",
+    "final/best_val_loss",
+    "final/best_epoch",
+    "cv/fold_score",
+    "cv/validation_leaf_count",
+    "cv/mean_score",
+    "cv/weighted_score",
+    "cv/std_score",
+    "cv/min_score",
+    "cv/max_score",
+    "cv/mae",
+    "cv/pearson_r",
+)
+# Descriptive alias for callers that prefer the contract terminology.
+QUANTITATIVE_METRIC_CATALOG = FIXED_METRIC_CATALOG
+
+_OPERATIONAL_METRIC_PREFIXES = ("stage/",)
+_OPERATIONAL_METRIC_KEYS = frozenset(("status/state",))
 
 SECRET_KEY_PARTS = (
     "api_key",
@@ -49,7 +74,9 @@ class TrackingConfig:
 
     When `enabled` is false, no external tracking dependency is imported or
     initialized. When enabled, the wandb backend validates destination and label
-    metadata before training starts.
+    metadata before training starts. ``metrics`` is an optional tuple allowlist:
+    ``None`` records all applicable quantitative fields, while an empty tuple
+    records none. Operational identity and lifecycle fields are unaffected.
     """
 
     enabled: bool = False
@@ -62,6 +89,7 @@ class TrackingConfig:
     tags: tuple[str, ...] = field(default_factory=tuple)
     dataset_id: Optional[str] = None
     config_metadata: Mapping[str, object] = field(default_factory=dict)
+    metrics: tuple[str, ...] | None = None
 
     def validate(self) -> None:
         """Validate tracking settings without importing optional backends."""
@@ -75,6 +103,7 @@ class TrackingConfig:
                 raise TrackingError(f"tracking.{key} must be a string or null.")
         if not isinstance(self.tags, tuple) or any(not isinstance(tag, str) for tag in self.tags):
             raise TrackingError("tracking.tags must contain only strings.")
+        validate_metric_selection(self.metrics)
         sanitize_config_metadata(self.config_metadata)
         if self.enabled and not self.project:
             raise TrackingError("tracking.project is required when wandb tracking is enabled.")
@@ -239,22 +268,101 @@ def build_epoch_metrics(
     val_metrics: Optional[Mapping[str, float]],
     lr: float,
     epoch_time_sec: float,
-) -> dict[str, float]:
-    """Build a stable metric payload for one completed training epoch."""
-    payload = {"lr": float(lr), "epoch_time_sec": float(epoch_time_sec)}
-    payload.update(_prefixed_metrics("train", train_metrics))
+) -> dict[str, float | int]:
+    """Build an ordered, finite metric payload for one completed training epoch."""
+    payload = _prefixed_metrics("train", train_metrics)
+    _add_finite_metric(payload, "train/lr", lr)
+    _add_finite_metric(payload, "train/epoch_time_sec", epoch_time_sec)
     if val_metrics is not None:
         payload.update(_prefixed_metrics("val", val_metrics))
     return payload
 
 
-def build_final_metrics(*, best_val_loss: float, best_epoch: Optional[int]) -> dict[str, float]:
-    """Build final comparable metric payload."""
-    payload: dict[str, float] = {}
-    if best_val_loss != float("inf"):
+def validate_metric_selection(metrics: tuple[str, ...] | None) -> tuple[str, ...] | None:
+    """Validate the structural shape and namespaces of a metric allowlist.
+
+    ``None`` means all applicable quantitative fields and ``()`` means no
+    quantitative fields. A non-empty tuple must contain unique, non-empty
+    ``namespace/name`` entries. Each namespace segment is checked by the same
+    sensitive-key sanitizer used for tracking metadata.
+    """
+    if metrics is None:
+        return None
+    if not isinstance(metrics, tuple):
+        raise TrackingError("tracking.metrics must be a tuple of strings or null.")
+
+    seen: set[str] = set()
+    for name in metrics:
+        if not isinstance(name, str):
+            raise TrackingError("tracking.metrics must contain only strings.")
+        if not name or name != name.strip() or name.count("/") != 1:
+            raise TrackingError(
+                f"tracking.metrics entry {name!r} must use a non-empty namespace/name format."
+            )
+        if name in seen:
+            raise TrackingError(f"tracking.metrics contains duplicate name {name!r}.")
+        seen.add(name)
+        namespace, metric_name = name.split("/")
+        if not namespace or not metric_name or any(char.isspace() for char in name):
+            raise TrackingError(
+                f"tracking.metrics entry {name!r} must use a non-empty namespace/name format."
+            )
+        _reject_secret_key(namespace)
+        _reject_secret_key(metric_name)
+    return metrics
+
+
+def validate_workflow_metrics(
+    metrics: tuple[str, ...] | None,
+    available_metrics: Sequence[str] = (),
+    *,
+    workflow: str = "workflow",
+) -> tuple[str, ...] | None:
+    """Validate a selection against fixed and workflow-specific metric names."""
+    validate_metric_selection(metrics)
+    if metrics is None:
+        return None
+    available = set(FIXED_METRIC_CATALOG)
+    available.update(available_metrics)
+    unknown = tuple(name for name in metrics if name not in available)
+    if unknown:
+        names = ", ".join(repr(name) for name in unknown)
+        raise TrackingError(f"tracking.metrics has unknown name(s) for {workflow}: {names}.")
+    return metrics
+
+
+def filter_quantitative_metrics(
+    payload: Mapping[str, float | int | str],
+    selection: tuple[str, ...] | None = None,
+) -> dict[str, float | int | str]:
+    """Filter quantitative fields while retaining operational lifecycle fields.
+
+    Payload insertion order is preserved. ``None`` retains all quantitative
+    fields, while an empty tuple removes them all.
+    """
+    validate_metric_selection(selection)
+    selected = None if selection is None else set(selection)
+    filtered: dict[str, float | int | str] = {}
+    for key, value in payload.items():
+        if _is_operational_metric_key(key) or selected is None or key in selected:
+            filtered[key] = value
+    return filtered
+
+
+def build_final_metrics(
+    *, best_val_loss: float, best_epoch: Optional[int]
+) -> dict[str, float | int]:
+    """Build final comparable metrics, omitting unavailable or non-finite values."""
+    payload: dict[str, float | int] = {}
+    has_best_loss = (
+        not isinstance(best_val_loss, bool)
+        and isinstance(best_val_loss, (int, float))
+        and math.isfinite(best_val_loss)
+    )
+    if has_best_loss:
         payload["final/best_val_loss"] = float(best_val_loss)
-    if best_epoch is not None:
-        payload["final/best_epoch"] = float(best_epoch)
+    if has_best_loss and best_epoch is not None:
+        _add_finite_metric(payload, "final/best_epoch", best_epoch)
     return payload
 
 
@@ -267,8 +375,16 @@ def _prefixed_metrics(prefix: str, metrics: Mapping[str, float]) -> dict[str, fl
     payload: dict[str, float] = {}
     for key in sorted(metrics):
         name = "loss" if key == "loss" else str(key)
-        payload[f"{prefix}/{name}"] = float(metrics[key])
+        _add_finite_metric(payload, f"{prefix}/{name}", metrics[key])
     return payload
+
+
+def _add_finite_metric(payload: dict[str, float | int], key: str, value: object) -> None:
+    """Add one finite scalar metric without fabricating a replacement value."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return
+    if math.isfinite(value):
+        payload[key] = value
 
 
 def _validate_metric_payload(
@@ -282,6 +398,8 @@ def _validate_metric_payload(
             raise TrackingError("tracking metric names must be strings.")
         if not isinstance(value, (int, float, str)) or isinstance(value, bool):
             raise TrackingError(f"tracking metric {key!r} must be numeric or string.")
+        if isinstance(value, (int, float)) and not math.isfinite(value):
+            raise TrackingError(f"tracking metric {key!r} must be finite.")
         payload[key] = value
     return payload
 
@@ -326,3 +444,7 @@ def _optional_str(value: object) -> Optional[str]:
     if value is None:
         return None
     return str(value)
+
+
+def _is_operational_metric_key(key: str) -> bool:
+    return key in _OPERATIONAL_METRIC_KEYS or key.startswith(_OPERATIONAL_METRIC_PREFIXES)

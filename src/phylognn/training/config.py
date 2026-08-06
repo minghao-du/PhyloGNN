@@ -28,6 +28,7 @@ from phylognn.training.tracking import (
     TrackingConfig,
     TrackingError,
     build_experiment_config,
+    validate_workflow_metrics,
 )
 
 
@@ -127,6 +128,7 @@ TRACKING_KEYS = frozenset(
         "job_type",
         "tags",
         "dataset_id",
+        "metrics",
     }
 )
 
@@ -202,7 +204,11 @@ def load_training_config(
             model = GATBiLSTMNet(**model_params)
         training_config = TrainingConfig(**training_values)
         training_config.validate()
-        tracking_config = _resolve_tracking_config(raw_config, config_path=config_path)
+        tracking_config = _resolve_tracking_config(
+            raw_config,
+            metric_names=metric_names,
+            config_path=config_path,
+        )
         tracking_metadata = build_experiment_config(
             model_type=model_config["type"],
             model_params=model_params,
@@ -494,6 +500,7 @@ def _resolve_metric_specs(metric_names: Sequence[str], *, output_dim: object) ->
 def _resolve_tracking_config(
     raw_config: Mapping[str, Any],
     *,
+    metric_names: Sequence[str],
     config_path: Path,
 ) -> TrackingConfig:
     tracking_values = dict(
@@ -507,10 +514,18 @@ def _resolve_tracking_config(
             raise TrainingConfigError(f"{config_path}: tracking.tags must contain only strings.")
         tracking_values["tags"] = tuple(tags)
 
+    if "metrics" in tracking_values:
+        metrics = tracking_values["metrics"]
+        if not isinstance(metrics, list):
+            raise TrainingConfigError(f"{config_path}: tracking.metrics must be a TOML array.")
+        if any(not isinstance(name, str) for name in metrics):
+            raise TrainingConfigError(f"{config_path}: tracking.metrics must contain only strings.")
+        tracking_values["metrics"] = tuple(metrics)
+
     if "enabled" in tracking_values and not isinstance(tracking_values["enabled"], bool):
         raise TrainingConfigError(f"{config_path}: tracking.enabled must be a boolean.")
 
-    for key in sorted(TRACKING_KEYS - {"enabled", "tags"}):
+    for key in sorted(TRACKING_KEYS - {"enabled", "tags", "metrics"}):
         if (
             key in tracking_values
             and tracking_values[key] is not None
@@ -521,6 +536,15 @@ def _resolve_tracking_config(
     try:
         tracking_config = TrackingConfig(**tracking_values)
         tracking_config.validate()
+        if tracking_config.enabled:
+            dynamic_metrics = tuple(
+                f"{prefix}/{name}" for prefix in ("train", "val") for name in metric_names
+            )
+            validate_workflow_metrics(
+                tracking_config.metrics,
+                dynamic_metrics,
+                workflow="configured trainer",
+            )
     except TypeError as exc:
         raise TrainingConfigError(f"{config_path}: invalid tracking configuration: {exc}") from exc
     return tracking_config

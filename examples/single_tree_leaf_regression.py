@@ -8,14 +8,15 @@ from phylognn.training import TrackingConfig
 
 # Tracking is opt-in. Uncomment the next line and provide a W&B project to
 # inspect fold and refit curves; the default remains local and credential-free.
-TRACKING_CONFIG: TrackingConfig | None = None
-# TRACKING_CONFIG = TrackingConfig(
-#       enabled=True,
-#       project="phylognn-leaf-regression-test",
-#       run_name="single-tree-leaf-regression",
-#       group="leaf-regression-manual-check",
-#       tags=("manual-check", "leaf-regression"),
-#   )
+# TRACKING_CONFIG: TrackingConfig | None = None
+# TRACKING_CONFIG = TrackingConfig(enabled=True, project="your-project")
+TRACKING_CONFIG = TrackingConfig(
+      enabled=True,
+      project="phylognn-leaf-regression-test",
+      run_name="single-tree-leaf-regression",
+      group="leaf-regression-manual-check",
+      tags=("manual-check", "leaf-regression"),
+  )
 
 
 def main() -> None:

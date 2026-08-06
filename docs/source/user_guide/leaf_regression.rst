@@ -61,13 +61,38 @@ creates one logical run for all cross-validation folds and the final refit:
        tracking_config=TrackingConfig(enabled=True, project="phylognn"),
    )
 
-Each completed epoch records ``train/loss``, ``lr``, and ``epoch_time_sec``.
-Use ``stage/type`` and ``stage/index`` to filter the ``cv_fold`` stages and the
-optional ``refit`` stage; ``stage/epoch`` resets within each stage while the
-tracker step remains globally increasing. Fold summaries contain
-``cv/fold_score`` and ``cv/validation_leaf_count``, followed by one weighted
-``cv/weighted_score`` and a single terminal status. A backend-provided run id,
-name, or URL is printed locally after tracking starts.
+Each completed epoch records ``train/loss``, ``train/lr``, and
+``train/epoch_time_sec``. Use ``stage/type`` and ``stage/index`` to filter the
+``cv_fold`` stages and the optional ``refit`` stage; ``stage/epoch`` resets
+within each stage while the tracker step remains globally increasing. Fold
+events contain ``cv/fold_score`` and ``cv/validation_leaf_count``. A
+backend-provided run id, name, or URL is printed locally after tracking starts.
+
+To focus a run on selected quantitative values, pass an allowlist. Operational
+stage fields and terminal status remain available even with an empty selection:
+
+.. code-block:: python
+
+   tracking_config = TrackingConfig(
+       enabled=True,
+       project="phylognn",
+       metrics=("train/loss", "cv/weighted_score", "cv/mae"),
+   )
+
+CV aggregate definitions
+------------------------
+
+``cv/mean_score``, ``cv/std_score``, ``cv/min_score``, and ``cv/max_score``
+are calculated from ordered fold scores. ``cv/std_score`` is the population
+standard deviation. ``cv/weighted_score`` weights each fold score by its
+``cv/validation_leaf_count``. ``cv/mae`` and ``cv/pearson_r`` compare aligned
+out-of-fold predictions with their corresponding targets, so every leaf
+contributes exactly one held-out prediction.
+
+All quantitative payload values are finite. If Pearson correlation has fewer
+than two paired observations, zero variance in either input, or a non-finite
+result, the workflow emits a ``RuntimeWarning`` and ``cv/pearson_r`` is
+omitted. Other finite fold and summary metrics continue to be logged.
 
 Tracking is disabled when ``tracking_config`` is omitted or disabled, even when
 an injected tracker is supplied. See :doc:`metrics_tracking` for the shared

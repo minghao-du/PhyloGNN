@@ -19,7 +19,9 @@ from phylognn.training.tracking import (
     build_experiment_config,
     build_status_metrics,
     create_tracker,
+    filter_quantitative_metrics,
     sanitize_config_metadata,
+    validate_workflow_metrics,
 )
 
 StageType = Literal["fit", "cv_fold", "refit"]
@@ -46,6 +48,11 @@ class _LeafExperimentCoordinator:
             raise TypeError("`tracking_config` must be a TrackingConfig instance or None.")
         if tracking_config is not None:
             tracking_config.validate()
+            if tracking_config.enabled:
+                validate_workflow_metrics(
+                    tracking_config.metrics,
+                    workflow="leaf regression",
+                )
         # An injected tracker never enables tracking by itself; only an explicit
         # enabled TrackingConfig selects a backend and starts lifecycle calls.
         self._tracking_config = (
@@ -144,6 +151,7 @@ class _LeafExperimentCoordinator:
                 "stage/epoch": self._next_stage_epoch(stage),
             }
         )
+        payload = filter_quantitative_metrics(payload, self._tracking_config.metrics)
         self._log(payload, step=self._global_step + 1)
         self._global_step += 1
 
@@ -153,7 +161,10 @@ class _LeafExperimentCoordinator:
             return
         if self._terminal_status is not None:
             raise TrackingError("leaf-regression tracking is already in a terminal state.")
-        self._log(metrics, step=self._global_step)
+        _validate_summary_metrics(metrics)
+        payload = filter_quantitative_metrics(metrics, self._tracking_config.metrics)
+        if payload:
+            self._log(payload, step=self._global_step)
 
     def finish(self, status: TrackingStatus) -> None:
         """Record and lock one terminal state, then finish the backend run."""
@@ -205,6 +216,19 @@ def _validate_finite(value: float, field_name: str, *, positive: bool) -> None:
         raise TrackingError(f"tracking {field_name} must be a finite number.")
     if positive and value <= 0:
         raise TrackingError(f"tracking {field_name} must be positive.")
+
+
+def _validate_summary_metrics(metrics: Mapping[str, float | int | str]) -> None:
+    """Reject non-finite summary payloads before they reach a backend."""
+    if not isinstance(metrics, Mapping):
+        raise TrackingError("tracking summary metrics must be a mapping.")
+    for key, value in metrics.items():
+        if not isinstance(key, str):
+            raise TrackingError("tracking summary metric names must be strings.")
+        if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+            raise TrackingError(f"tracking metric {key!r} must be numeric or string.")
+        if isinstance(value, (int, float)) and not math.isfinite(value):
+            raise TrackingError(f"tracking metric {key!r} must be finite.")
 
 
 def _format_identity(info: TrackingRunInfo) -> str:

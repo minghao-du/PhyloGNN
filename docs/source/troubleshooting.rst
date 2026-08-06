@@ -67,6 +67,42 @@ and output tensors, attention, model state, checkpoints, and artifacts are not
 uploaded. Path-like metadata is reduced to its final component; secret-like
 metadata keys are rejected.
 
+Metric-selection validation failures
+------------------------------------
+
+For enabled tracking, metric selection is validated before tracker start. Use
+``TrackingConfig(metrics=None)`` for all applicable quantitative metrics,
+``TrackingConfig(metrics=())`` for none, or an ordered tuple of catalog names
+for an allowlist. In TOML, use ``[tracking].metrics = ["train/loss"]`` or
+``metrics = []`` inside the ``[tracking]`` table.
+
+Duplicate names, empty or malformed names, unknown fixed names, and dynamic
+``train/<name>`` or ``val/<name>`` names not configured on the active trainer
+fail before tracker start. Secret-like namespace segments also fail validation;
+remove names containing ``api_key``, ``apikey``, ``auth``, ``credential``,
+``password``, ``secret``, or ``token``. A catalog name that is valid but not
+applicable to the current workflow is omitted from that event.
+
+Missing or undefined metrics
+----------------------------
+
+Only finite scalar metrics are uploaded. An unavailable validation metric or a
+metric excluded by selection is omitted, not replaced with zero. Pearson
+correlation requires at least two aligned out-of-fold values and nonzero
+variance in both inputs. When it is undefined, leaf regression raises a
+``RuntimeWarning`` and omits ``cv/pearson_r`` while retaining every other
+finite summary metric.
+
+Lazy W&B loading and privacy
+----------------------------
+
+W&B is imported lazily only after enabled tracking begins. Leave tracking
+disabled to avoid importing the optional dependency, starting a run, or
+validating a workflow metric selection. Sanitized configuration, finite scalar
+metrics, stage identifiers, and terminal state may be sent; raw trees, leaf
+names, tensors, predictions, attention, model state, checkpoints, artifacts,
+and full local paths are not uploaded.
+
 Common tracking failures
 ~~~~~~~~~~~~~~~~~~~~~~~~
 

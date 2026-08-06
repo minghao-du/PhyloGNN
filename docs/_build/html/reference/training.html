@@ -282,7 +282,11 @@ Use the keys above or instantiate TorchMetrics classes directly.</p>
 <dt class="sig sig-object py" id="phylognn.training.tracking.TrackingConfig">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">phylognn.training.tracking.</span></span><span class="sig-name descname"><span class="pre">TrackingConfig</span></span><a class="headerlink" href="#phylognn.training.tracking.TrackingConfig" title="Link to this definition"></a></dt>
 <dd><p>Optional experiment tracking settings. Disabled tracking imports no external
-backend.</p>
+backend. The <code class="docutils literal notranslate"><span class="pre">metrics:</span> <span class="pre">tuple[str,</span> <span class="pre">...]</span> <span class="pre">|</span> <span class="pre">None</span></code> field selects quantitative
+payload values: <code class="docutils literal notranslate"><span class="pre">None</span></code> records all applicable values, an empty tuple
+records none, and a non-empty tuple is an exact allowlist. Sanitized
+configuration, stage identity, steps, and terminal status are operational
+fields and are not filtered.</p>
 </dd></dl>
 
 <dl class="py class">
@@ -310,13 +314,20 @@ point.</p>
 <dd><p>Weights &amp; Biases adapter with lazy <code class="docutils literal notranslate"><span class="pre">wandb</span></code> import.</p>
 </dd></dl>
 
+<p>Enabled configurations validate selected metric names before the tracker starts.
+The fixed catalog is available as <code class="docutils literal notranslate"><span class="pre">FIXED_METRIC_CATALOG</span></code>; standard trainers
+also accept <code class="docutils literal notranslate"><span class="pre">train/&lt;name&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">val/&lt;name&gt;</span></code> for their configured metrics.
+Payloads contain finite quantitative scalars only. See
+<a class="reference internal" href="../user_guide/metrics_tracking.html"><span class="doc">Metrics And Tracking</span></a> for the catalog, validation, and privacy
+contract.</p>
 </section>
 <section id="configuration-sections-and-outputs">
 <h2>Configuration sections and outputs<a class="headerlink" href="#configuration-sections-and-outputs" title="Link to this heading"></a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">TOML</span></code> files use <code class="docutils literal notranslate"><span class="pre">[model]</span></code>, <code class="docutils literal notranslate"><span class="pre">[model.params]</span></code>, <code class="docutils literal notranslate"><span class="pre">[training]</span></code>, optional <code class="docutils literal notranslate"><span class="pre">[loss]</span></code>,
 optional <code class="docutils literal notranslate"><span class="pre">[metrics]</span></code>, and optional <code class="docutils literal notranslate"><span class="pre">[tracking]</span></code>. Training writes local
 checkpoints and <code class="docutils literal notranslate"><span class="pre">history.json</span></code>; enabled tracking logs sanitized run metadata
-and metrics externally.</p>
+and metrics externally. <code class="docutils literal notranslate"><span class="pre">[tracking].metrics</span></code> uses the same three-state
+selection contract as <code class="docutils literal notranslate"><span class="pre">TrackingConfig.metrics</span></code>.</p>
 </section>
 <section id="related-guide">
 <h2>Related guide<a class="headerlink" href="#related-guide" title="Link to this heading"></a></h2>

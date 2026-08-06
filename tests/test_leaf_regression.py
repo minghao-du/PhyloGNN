@@ -112,6 +112,31 @@ class _ObservableLeafTracker:
 
             raise TrackingError("finish failure")
 
+    @property
+    def ordered_payloads(self):
+        """Return leaf metric payloads in tracker order."""
+        return [payload for _, payload in self.metric_calls]
+
+    @property
+    def fold_payloads(self):
+        """Return ordered fold-level payloads."""
+        return [payload for payload in self.ordered_payloads if "cv/fold_score" in payload]
+
+    @property
+    def summary_payloads(self):
+        """Return ordered CV summary payloads."""
+        return [payload for payload in self.ordered_payloads if "cv/mean_score" in payload]
+
+    @property
+    def stage_payloads(self):
+        """Return payloads carrying stage identity, preserving event order."""
+        return [payload for payload in self.ordered_payloads if "stage/type" in payload]
+
+    @property
+    def terminal_payloads(self):
+        """Return terminal status payloads in the order they were logged."""
+        return [payload for payload in self.ordered_payloads if "status/state" in payload]
+
 
 class _InterruptingRegressor(torch.nn.Module):
     """Raise KeyboardInterrupt during model execution for lifecycle tests."""
@@ -152,12 +177,12 @@ def test_leaf_tracking_coordinator_selects_injected_tracker_and_records_lifecycl
     assert tracker.start_payloads == [{"data.config_file": "input.toml", "workflow.type": "fit"}]
     assert [step for step, _ in tracker.metric_calls] == [1, 2, 2]
     assert tracker.metric_calls[0][1] == {
-        "epoch_time_sec": 0.2,
-        "lr": 0.01,
         "stage/epoch": 1,
         "stage/index": 1,
         "stage/type": "fit",
         "train/loss": 0.5,
+        "train/lr": 0.01,
+        "train/epoch_time_sec": 0.2,
     }
     assert tracker.metric_calls[1][1]["stage/type"] == "cv_fold"
     assert tracker.metric_calls[-1] == (2, {"status/state": "completed"})
@@ -319,8 +344,17 @@ def test_run_leaf_regression_records_three_folds_and_refit_in_one_run(
         assert epochs == list(range(1, 21))
     summaries = [metrics for _, metrics in tracker.metric_calls if "cv/fold_score" in metrics]
     assert len(summaries) == 3
-    weighted = [metrics for _, metrics in tracker.metric_calls if "cv/weighted_score" in metrics]
-    assert len(weighted) == 1
+    summaries = tracker.summary_payloads
+    assert len(summaries) == 1
+    assert {
+        "cv/mean_score",
+        "cv/weighted_score",
+        "cv/std_score",
+        "cv/min_score",
+        "cv/max_score",
+        "cv/mae",
+        "cv/pearson_r",
+    } <= summaries[0].keys()
     assert tracker.metric_calls[-1][1] == {"status/state": "completed"}
     assert tracker.finish_calls == ["completed"]
     assert result.cv_score == pytest.approx(2.0)
@@ -504,8 +538,8 @@ def test_fit_leaf_regression_tracking_records_direct_stage_and_lifecycle(
         assert metrics["stage/index"] == 1
         assert metrics["stage/epoch"] == index
         assert np.isfinite(metrics["train/loss"])
-        assert metrics["lr"] == 0.01
-        assert np.isfinite(metrics["epoch_time_sec"])
+        assert metrics["train/lr"] == 0.01
+        assert np.isfinite(metrics["train/epoch_time_sec"])
     assert tracker.metric_calls[-1] == (2, {"status/state": "completed"})
     assert tracker.finish_calls == ["completed"]
 
@@ -632,16 +666,189 @@ def test_cross_validate_leaf_regression_tracking_records_direct_stages_and_summa
     assert [summary["stage/index"] for summary in summaries] == [1, 2, 3]
     assert [summary["cv/validation_leaf_count"] for summary in summaries] == [2, 2, 2]
     assert [summary["cv/fold_score"] for summary in summaries] == [2.0, 2.0, 2.0]
-    assert [
-        metrics["cv/weighted_score"]
-        for _, metrics in tracker.metric_calls
-        if "cv/weighted_score" in metrics
-    ] == [2.0]
+    assert len(tracker.summary_payloads) == 1
+    assert tracker.summary_payloads[0]["cv/mean_score"] == 2.0
+    assert tracker.summary_payloads[0]["cv/weighted_score"] == 2.0
+    assert tracker.summary_payloads[0]["cv/std_score"] == 0.0
+    assert tracker.summary_payloads[0]["cv/min_score"] == 2.0
+    assert tracker.summary_payloads[0]["cv/max_score"] == 2.0
+    assert np.isfinite(tracker.summary_payloads[0]["cv/mae"])
+    assert np.isfinite(tracker.summary_payloads[0]["cv/pearson_r"])
     assert result.cv_score == pytest.approx(2.0)
     assert result.final_fit is None
     assert not any(metrics.get("stage/type") == "refit" for _, metrics in tracker.metric_calls)
     assert tracker.metric_calls[-1] == (6, {"status/state": "completed"})
     assert tracker.finish_calls == ["completed"]
+
+
+def test_leaf_cv_summary_omits_undefined_pearson_and_rejects_nonfinite_payloads():
+    """Undefined correlations warn without suppressing other finite summaries."""
+    from phylognn.leaf_regression.tracking import _LeafExperimentCoordinator
+    from phylognn.leaf_regression.validation import _build_cv_summary_metrics
+    from phylognn.training.tracking import TrackingConfig, TrackingError
+
+    with pytest.warns(RuntimeWarning, match="Pearson"):
+        summary = _build_cv_summary_metrics(
+            scores=(1.0, 3.0),
+            folds=(torch.tensor([0]), torch.tensor([1])),
+            oof_predictions=torch.tensor([2.0, 2.0]),
+            targets=torch.tensor([1.0, 2.0]),
+        )
+
+    assert summary == {
+        "cv/mean_score": 2.0,
+        "cv/weighted_score": 2.0,
+        "cv/std_score": 1.0,
+        "cv/min_score": 1.0,
+        "cv/max_score": 3.0,
+        "cv/mae": 0.5,
+    }
+
+    coordinator = _LeafExperimentCoordinator(TrackingConfig(enabled=True, project="phylognn"))
+    coordinator._tracker = _ObservableLeafTracker()
+    coordinator._started = True
+    with pytest.raises(TrackingError, match="finite"):
+        coordinator.log_summary({"cv/mean_score": float("nan")})
+
+
+@pytest.mark.parametrize(
+    "selection, expected_fold_keys, expected_summary_keys",
+    [
+        (
+            ("train/loss", "cv/fold_score", "cv/mae"),
+            {"stage/type", "stage/index", "cv/fold_score"},
+            {"cv/mae"},
+        ),
+        ((), {"stage/type", "stage/index"}, set()),
+        (("val/loss",), {"stage/type", "stage/index"}, set()),
+    ],
+)
+def test_leaf_tracking_metric_selection_filters_payloads_and_keeps_operational_fields(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+    selection,
+    expected_fold_keys,
+    expected_summary_keys,
+):
+    """Leaf CV filters quantitative values without changing stages or results."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        prepare_leaf_regression,
+    )
+    from phylognn.training.tracking import TrackingConfig
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    tracker = _ObservableLeafTracker()
+    result = cross_validate_leaf_regression(
+        data,
+        validation_folds=([0, 1], [2, 3], [4, 5]),
+        training_config=LeafRegressionConfig(epochs=1, learning_rate=0.01, seed=53),
+        score_fn=_fold_size_score,
+        refit=False,
+        model_class=_ConfiguredRegressor,
+        model_config={"offset": 0.2},
+        tracking_config=TrackingConfig(enabled=True, project="phylognn", metrics=selection),
+        tracker=tracker,
+    )
+
+    fold_payloads = [
+        payload
+        for payload in tracker.stage_payloads
+        if payload["stage/type"] == "cv_fold" and "stage/epoch" not in payload
+    ]
+    summary_payloads = [
+        payload
+        for payload in tracker.ordered_payloads
+        if "cv/mae" in payload or "cv/mean_score" in payload
+    ]
+    assert set(fold_payloads[0]) == expected_fold_keys
+    assert (set(summary_payloads[0]) if summary_payloads else set()) == expected_summary_keys
+    epoch_payload = next(payload for payload in tracker.stage_payloads if "stage/epoch" in payload)
+    assert ("train/loss" in epoch_payload) is (selection is None or "train/loss" in selection)
+    assert tracker.terminal_payloads == [{"status/state": "completed"}]
+    assert result.cv_score == pytest.approx(2.0)
+
+
+@pytest.mark.parametrize(
+    "selection, pattern",
+    [
+        (("train/loss", "train/loss"), "duplicate"),
+        (("loss",), "namespace/name"),
+        (("train/api-key",), "sensitive"),
+        (("cv/not_a_metric",), "unknown"),
+        (("train/not_configured",), "unknown"),
+        (("train/loss", 1), "only strings"),
+    ],
+)
+def test_leaf_tracking_rejects_invalid_selection_before_tracker_start(selection, pattern):
+    """Leaf tracking rejects structural and workflow-invalid selections before start."""
+    from phylognn.leaf_regression.tracking import _LeafExperimentCoordinator
+    from phylognn.training.tracking import TrackingConfig, TrackingError
+
+    tracker = _ObservableLeafTracker()
+    with pytest.raises(TrackingError, match=pattern):
+        _LeafExperimentCoordinator(
+            TrackingConfig(enabled=True, project="phylognn", metrics=selection), tracker=tracker
+        )
+    assert tracker.start_payloads == []
+
+
+def test_leaf_tracking_selection_is_deterministic_and_preserves_cv_results(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Equivalent selected runs retain their scientific result and payload keys."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        prepare_leaf_regression,
+    )
+    from phylognn.training.tracking import TrackingConfig
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    kwargs = {
+        "validation_folds": ([0, 1], [2, 3], [4, 5]),
+        "training_config": LeafRegressionConfig(epochs=1, learning_rate=0.01, seed=59),
+        "score_fn": _fold_size_score,
+        "refit": False,
+        "model_class": _ConfiguredRegressor,
+        "model_config": {"offset": 0.2},
+    }
+    untracked = cross_validate_leaf_regression(data, **kwargs)
+    tracked_payload_keys = []
+    for _ in range(2):
+        tracker = _ObservableLeafTracker()
+        tracked = cross_validate_leaf_regression(
+            data,
+            tracking_config=TrackingConfig(
+                enabled=True,
+                project="phylognn",
+                metrics=("train/loss", "cv/fold_score", "cv/mae"),
+            ),
+            tracker=tracker,
+            **kwargs,
+        )
+        assert tracked.cv_score == untracked.cv_score
+        assert tracked.fold_scores == untracked.fold_scores
+        assert torch.equal(tracked.oof_predictions, untracked.oof_predictions)
+        tracked_payload_keys.append([tuple(payload) for payload in tracker.ordered_payloads])
+
+    assert tracked_payload_keys[0] == tracked_payload_keys[1]
 
 
 def test_cross_validate_leaf_regression_tracking_preserves_failure_and_cleanup_precedence(

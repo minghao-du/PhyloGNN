@@ -35,6 +35,97 @@ Tracking configuration
 wandb. When tracking is enabled, the backend must be `wandb`, `project` is
 required, and the `wandb` extra must be installed.
 
+Metric catalog
+--------------
+
+Tracking sends only finite scalar values. The fixed quantitative catalog is
+ordered as follows; a metric that is not applicable to a particular workflow
+or event is omitted.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Meaning
+   * - ``train/loss``
+     - Training loss for a completed epoch.
+   * - ``train/lr``
+     - Current optimizer learning rate.
+   * - ``train/epoch_time_sec``
+     - Completed epoch duration in seconds.
+   * - ``val/loss``
+     - Validation loss when validation is available.
+   * - ``final/best_val_loss``
+     - Best finite validation loss.
+   * - ``final/best_epoch``
+     - Epoch of the best finite validation loss.
+   * - ``cv/fold_score``
+     - Configured score for a held-out leaf fold.
+   * - ``cv/validation_leaf_count``
+     - Number of held-out leaves in that fold.
+   * - ``cv/mean_score``
+     - Arithmetic mean of fold scores.
+   * - ``cv/weighted_score``
+     - Fold score weighted by held-out leaf count.
+   * - ``cv/std_score``
+     - Population standard deviation of fold scores.
+   * - ``cv/min_score``
+     - Minimum fold score.
+   * - ``cv/max_score``
+     - Maximum fold score.
+   * - ``cv/mae``
+     - Mean absolute error for aligned out-of-fold predictions and targets.
+   * - ``cv/pearson_r``
+     - Pearson correlation for aligned out-of-fold predictions and targets.
+
+For each metric configured on a standard ``Trainer``, ``train/<name>`` and
+``val/<name>`` are also accepted. They are emitted only when that trainer has
+the named metric and the corresponding training or validation value exists.
+The legacy top-level ``lr`` and ``epoch_time_sec`` fields are not emitted.
+
+Metric selection
+----------------
+
+``TrackingConfig.metrics`` controls quantitative fields only. Its three states
+are explicit:
+
+.. code-block:: python
+
+   # Record every applicable quantitative metric (the default).
+   TrackingConfig(metrics=None)
+
+   # Record no quantitative metrics.
+   TrackingConfig(metrics=())
+
+   # Record only applicable names in this ordered allowlist.
+   TrackingConfig(metrics=("train/loss", "val/loss"))
+
+An allowlist may include fixed catalog names and, for a standard trainer,
+configured dynamic ``train/<name>`` and ``val/<name>`` names. A valid name for
+another workflow is simply absent from events where it does not apply. See
+:doc:`training_config` for the equivalent TOML syntax.
+
+Operational fields
+------------------
+
+Metric selection never removes sanitized run configuration, ``stage/type``,
+``stage/index``, ``stage/epoch``, the backend step, or ``status/state``. Thus
+an empty selection still leaves a useful stage and lifecycle record. A
+successfully started run records exactly one terminal ``status/state`` value:
+``completed``, ``failed``, or ``interrupted``.
+
+Selection validation
+--------------------
+
+For enabled tracking, selection is validated before the tracker starts.
+Selections must be ``None`` or a tuple of strings in Python, cannot contain
+duplicates, and must use known fixed or configured dynamic names. Empty,
+malformed, unknown, or sensitive namespace segments fail with ``TrackingError``.
+Sensitive segments include case-insensitive forms containing ``api_key``,
+``apikey``, ``auth``, ``credential``, ``password``, ``secret``, or ``token``.
+Disabled tracking remains inert: it does not import W&B or validate a workflow
+selection.
+
 Tracking choices
 ----------------
 
@@ -60,7 +151,8 @@ External run metadata
 The trainer logs sanitized configuration metadata, epoch metrics, final
 metrics, and terminal status. Metadata keys that look like secrets are
 rejected. Path-like metadata values are reduced to their final file or
-directory names before logging.
+directory names before logging. Raw graphs, trees, tensors, predictions,
+attention, model state, checkpoints, and artifacts are not uploaded.
 
 Leaf-regression scalar boundary
 --------------------------------

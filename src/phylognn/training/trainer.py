@@ -57,7 +57,9 @@ from phylognn.training.tracking import (
     build_final_metrics,
     build_status_metrics,
     create_tracker,
+    filter_quantitative_metrics,
     sanitize_config_metadata,
+    validate_workflow_metrics,
 )
 
 # ---------------------------------------------------------------------
@@ -308,11 +310,21 @@ class Trainer:
 
         self.tracking_config = tracking_config or TrackingConfig(enabled=False)
         self.tracking_config.validate()
+        if self.tracking_config.enabled:
+            dynamic_metrics = tuple(
+                f"{prefix}/{name}" for prefix in ("train", "val") for name in self.metrics
+            )
+            validate_workflow_metrics(
+                self.tracking_config.metrics,
+                dynamic_metrics,
+                workflow="trainer",
+            )
         self.tracking_metadata = sanitize_config_metadata(tracking_metadata or {})
         self.tracker: TrackerProtocol = (
             tracker if tracker is not None else create_tracker(self.tracking_config)
         )
         self._tracking_started = False
+        self._tracking_terminal_status: Literal["completed", "failed", "interrupted"] | None = None
 
         self.optimizer: Optimizer = self._create_optimizer()
         self.scheduler = self._create_scheduler()
@@ -899,19 +911,27 @@ class Trainer:
             lr=lr,
             epoch_time_sec=epoch_time,
         )
-        self.tracker.log_metrics(payload, step=epoch_num)
+        payload = filter_quantitative_metrics(payload, self.tracking_config.metrics)
+        if payload:
+            self.tracker.log_metrics(payload, step=epoch_num)
 
     def _finish_tracking(self, status: Literal["completed", "failed", "interrupted"]) -> None:
-        if not self.tracking_config.enabled or not self._tracking_started:
+        if (
+            not self.tracking_config.enabled
+            or not self._tracking_started
+            or self._tracking_terminal_status is not None
+        ):
             return
         step = max(self.current_epoch, 0)
         final_metrics = build_final_metrics(
             best_val_loss=self.best_val_loss,
             best_epoch=self.best_epoch,
         )
+        final_metrics = filter_quantitative_metrics(final_metrics, self.tracking_config.metrics)
         if final_metrics:
             self.tracker.log_metrics(final_metrics, step=step)
         self.tracker.log_metrics(build_status_metrics(status), step=step)
+        self._tracking_terminal_status = status
         self.tracker.finish(status)
 
     def _finish_tracking_after_failure(

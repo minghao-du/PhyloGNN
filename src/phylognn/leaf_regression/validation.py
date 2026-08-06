@@ -7,10 +7,11 @@ from dataclasses import dataclass
 import math
 from numbers import Real
 from typing import TYPE_CHECKING, TypeAlias
+import warnings
 
 import torch
 
-from phylognn.training.tracking import TrackerProtocol, TrackingConfig
+from phylognn.training.tracking import TrackerProtocol, TrackingConfig, TrackingError
 
 from .data import LeafRegressionData, prepare_leaf_regression
 from .fitting import (
@@ -278,7 +279,15 @@ def cross_validate_leaf_regression(
             sum(score * fold.numel() for score, fold in zip(scores, folds, strict=True))
             / leaf_count
         )
-        coordinator.log_summary({"cv/weighted_score": weighted_score})
+        if coordinator.enabled:
+            coordinator.log_summary(
+                _build_cv_summary_metrics(
+                    scores=tuple(scores),
+                    folds=folds,
+                    oof_predictions=oof,
+                    targets=data.targets,
+                )
+            )
         result = LeafCrossValidationResult(
             cv_score=weighted_score,
             fold_scores=tuple(scores),
@@ -452,6 +461,86 @@ def _score_fold(
     if isinstance(value, bool) or not isinstance(value, Real) or not math.isfinite(value):
         raise ValueError("`score_fn` must return a finite real scalar.")
     return float(value)
+
+
+def _build_cv_summary_metrics(
+    *,
+    scores: tuple[float, ...],
+    folds: tuple[torch.Tensor, ...],
+    oof_predictions: torch.Tensor,
+    targets: torch.Tensor,
+) -> dict[str, float]:
+    """Build finite fold and aligned out-of-fold cross-validation summaries.
+
+    Fold-score standard deviation is the population standard deviation. Pearson
+    correlation is omitted with a warning when fewer than two aligned values
+    are available or either input has zero variance.
+    """
+    if not scores or len(scores) != len(folds):
+        raise TrackingError("tracking CV summaries require one finite score per validation fold.")
+    if oof_predictions.shape != targets.shape or oof_predictions.ndim != 1:
+        raise TrackingError("tracking CV summaries require aligned one-dimensional OOF values.")
+    if not torch.isfinite(oof_predictions).all() or not torch.isfinite(targets).all():
+        raise TrackingError("tracking CV summaries require finite OOF predictions and targets.")
+    if any(not math.isfinite(score) for score in scores):
+        raise TrackingError("tracking CV summaries require finite fold scores.")
+
+    fold_sizes = tuple(fold.numel() for fold in folds)
+    total_size = sum(fold_sizes)
+    if total_size <= 0:
+        raise TrackingError("tracking CV summaries require nonempty validation folds.")
+
+    mean_score = sum(scores) / len(scores)
+    weighted_score = (
+        sum(score * size for score, size in zip(scores, fold_sizes, strict=True)) / total_size
+    )
+    std_score = math.sqrt(sum((score - mean_score) ** 2 for score in scores) / len(scores))
+    summary = {
+        "cv/mean_score": mean_score,
+        "cv/weighted_score": weighted_score,
+        "cv/std_score": std_score,
+        "cv/min_score": min(scores),
+        "cv/max_score": max(scores),
+        "cv/mae": float(torch.mean(torch.abs(oof_predictions - targets)).item()),
+    }
+    if not all(math.isfinite(value) for value in summary.values()):
+        raise TrackingError("tracking CV summary metrics must be finite.")
+
+    if oof_predictions.numel() < 2:
+        warnings.warn(
+            "Pearson correlation is undefined for fewer than two aligned OOF values.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return summary
+
+    prediction_centered = oof_predictions - oof_predictions.mean()
+    target_centered = targets - targets.mean()
+    prediction_variance = torch.sum(prediction_centered.square())
+    target_variance = torch.sum(target_centered.square())
+    if prediction_variance.item() == 0 or target_variance.item() == 0:
+        warnings.warn(
+            "Pearson correlation is undefined when aligned OOF values have zero variance.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return summary
+
+    pearson = float(
+        (
+            torch.sum(prediction_centered * target_centered)
+            / torch.sqrt(prediction_variance * target_variance)
+        ).item()
+    )
+    if not math.isfinite(pearson):
+        warnings.warn(
+            "Pearson correlation is undefined for the aligned OOF values.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return summary
+    summary["cv/pearson_r"] = pearson
+    return summary
 
 
 def _stage_config(config: LeafRegressionConfig, offset: int) -> LeafRegressionConfig:

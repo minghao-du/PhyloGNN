@@ -50,6 +50,19 @@ The three training entry points accept the optional keyword-only
 tracker does not enable it implicitly. Their generated API pages include the
 complete argument and return-value contracts:
 
+``TrackingConfig.metrics`` is an optional quantitative metric selection for
+these entry points. ``None`` keeps every applicable finite metric, ``()``
+keeps no quantitative metrics, and a tuple is an exact allowlist. Stage
+identity, steps, and ``status/state`` remain operational fields. Leaf
+selections are validated against the fixed catalog before tracking starts;
+valid names that do not apply to a particular stage are omitted.
+
+Fold events may contain ``cv/fold_score`` and ``cv/validation_leaf_count``.
+The final CV summary may contain finite ``cv/mean_score``,
+``cv/weighted_score``, ``cv/std_score``, ``cv/min_score``, ``cv/max_score``,
+``cv/mae``, and ``cv/pearson_r`` values. Undefined Pearson correlation emits a
+``RuntimeWarning`` and is omitted without changing the returned result.
+
 .. autosummary::
    :toctree: generated
 
