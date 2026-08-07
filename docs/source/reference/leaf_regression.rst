@@ -57,6 +57,23 @@ identity, steps, and ``status/state`` remain operational fields. Leaf
 selections are validated against the fixed catalog before tracking starts;
 valid names that do not apply to a particular stage are omitted.
 
+Each tracking epoch call accepts complete epoch prediction and target inputs
+for the training partition and, when present, the validation partition. It
+emits finite ``train/loss``, ``train/score``, ``train/mae``, and defined
+``train/pearson_r`` values, plus corresponding ``val/loss``, ``val/score``,
+``val/mae``, and ``val/pearson_r`` values when a validation partition exists.
+The values are calculated once across each complete aligned partition; stages
+without validation omit all ``val/*`` epoch fields. ``score`` uses the
+configured regression score, defaulting to R-squared. Empty, mismatched, or
+non-finite partition inputs and invalid required metric values raise
+``TrackingError`` before logging. Pearson is omitted with one ``RuntimeWarning``
+per run and partition when there are fewer than two pairs, either input has
+zero variance, or the result is non-finite.
+
+Only the resulting scalar-only payload is sent to the tracker. Graphs, trees,
+tensors, predictions, targets, attention, checkpoints, and artifacts are not
+part of the tracking API boundary.
+
 Fold events may contain ``cv/fold_score`` and ``cv/validation_leaf_count``.
 The final CV summary may contain finite ``cv/mean_score``,
 ``cv/weighted_score``, ``cv/std_score``, ``cv/min_score``, ``cv/max_score``,

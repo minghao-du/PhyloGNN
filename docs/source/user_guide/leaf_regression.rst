@@ -61,11 +61,20 @@ creates one logical run for all cross-validation folds and the final refit:
        tracking_config=TrackingConfig(enabled=True, project="phylognn"),
    )
 
-Each completed epoch records ``train/loss``, ``train/lr``, and
-``train/epoch_time_sec``. Use ``stage/type`` and ``stage/index`` to filter the
+Each completed epoch records ``train/loss``, ``train/score``, ``train/mae``,
+and, when defined, ``train/pearson_r``, together with ``train/lr`` and
+``train/epoch_time_sec``. The corresponding ``val/loss``, ``val/score``,
+``val/mae``, and ``val/pearson_r`` are recorded from the whole epoch whenever a
+validation loader is available. Each value is calculated once from all aligned
+predictions and targets in that partition's whole epoch, rather than from a
+single batch or an average of batch metrics. ``score`` is the configured
+regression score; without a custom score it is R-squared.
+
+When a stage has no validation loader, it is train-only and all ``val/*``
+epoch fields are omitted. Use ``stage/type`` and ``stage/index`` to filter the
 ``cv_fold`` stages and the optional ``refit`` stage; ``stage/epoch`` resets
-within each stage while the tracker step remains globally increasing. Fold
-events contain ``cv/fold_score`` and ``cv/validation_leaf_count``. A
+within each stage while the backend tracker step remains globally increasing.
+Fold events contain ``cv/fold_score`` and ``cv/validation_leaf_count``. A
 backend-provided run id, name, or URL is printed locally after tracking starts.
 
 To focus a run on selected quantitative values, pass an allowlist. Operational
@@ -76,7 +85,7 @@ stage fields and terminal status remain available even with an empty selection:
    tracking_config = TrackingConfig(
        enabled=True,
        project="phylognn",
-       metrics=("train/loss", "cv/weighted_score", "cv/mae"),
+       metrics=("train/loss", "train/score", "val/loss", "val/score", "cv/weighted_score"),
    )
 
 CV aggregate definitions
@@ -89,10 +98,13 @@ standard deviation. ``cv/weighted_score`` weights each fold score by its
 out-of-fold predictions with their corresponding targets, so every leaf
 contributes exactly one held-out prediction.
 
-All quantitative payload values are finite. If Pearson correlation has fewer
-than two paired observations, zero variance in either input, or a non-finite
-result, the workflow emits a ``RuntimeWarning`` and ``cv/pearson_r`` is
-omitted. Other finite fold and summary metrics continue to be logged.
+All quantitative payload values are finite. Pearson correlation is ineligible
+with fewer than two paired observations, zero variance in either input, or a
+non-finite result. Otherwise it is recorded. The affected
+``train/pearson_r``, ``val/pearson_r``, or ``cv/pearson_r`` is omitted when it
+is ineligible. It emits a ``RuntimeWarning`` once per run and partition for
+undefined epoch Pearson values, then suppresses repeated warnings for that
+partition. Other finite metrics continue to be logged.
 
 Tracking is disabled when ``tracking_config`` is omitted or disabled, even when
 an injected tracker is supplied. See :doc:`metrics_tracking` for the shared

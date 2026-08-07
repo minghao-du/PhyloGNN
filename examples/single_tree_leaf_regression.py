@@ -8,8 +8,17 @@ from phylognn.training import TrackingConfig
 
 # Tracking is opt-in. Uncomment the next line and provide a W&B project to
 # inspect fold and refit curves; the default remains local and credential-free.
+# Epoch events use scalar-only metrics. Predictions, targets, and other tensors
+# remain local. A train-only stage omits every val/* metric.
 # TRACKING_CONFIG: TrackingConfig | None = None
-# TRACKING_CONFIG = TrackingConfig(enabled=True, project="your-project")
+# TRACKING_CONFIG = TrackingConfig(
+#     enabled=True,
+#     project="your-project",
+#     metrics=(
+#         "train/loss", "train/score", "train/mae", "train/pearson_r",
+#         "val/loss", "val/score", "val/mae", "val/pearson_r",
+#     ),
+# )
 TRACKING_CONFIG = TrackingConfig(
       enabled=True,
       project="phylognn-leaf-regression-test",

@@ -336,6 +336,8 @@ def test_metric_tracking_documentation_contracts():
     leaf = _read(DOCS_SOURCE / "user_guide" / "leaf_regression.rst")
     training_reference = _read(DOCS_SOURCE / "reference" / "training.rst")
     leaf_reference = _read(DOCS_SOURCE / "reference" / "leaf_regression.rst")
+    leaf_example = _read(DOCS_EXAMPLES / "single_tree_leaf_regression.rst")
+    leaf_example_source = _read(EXAMPLES_DIR / "single_tree_leaf_regression.py")
     troubleshooting = _read(DOCS_SOURCE / "troubleshooting.rst")
 
     for metric_name in (
@@ -354,12 +356,20 @@ def test_metric_tracking_documentation_contracts():
         "cv/max_score",
         "cv/mae",
         "cv/pearson_r",
+        "train/score",
+        "val/score",
+        "train/mae",
+        "val/mae",
+        "train/pearson_r",
+        "val/pearson_r",
     ):
         assert metric_name in tracking
 
     assert "TrackingConfig(metrics=None)" in tracking
     assert "TrackingConfig(metrics=())" in tracking
-    assert 'TrackingConfig(metrics=("train/loss", "val/loss"))' in tracking
+    assert (
+        'TrackingConfig(metrics=("train/loss", "train/score", "val/loss", "val/score"))' in tracking
+    )
     assert "Operational fields" in tracking
     assert "status/state" in tracking
     assert 'metrics = ["train/loss", "val/loss"]' in config
@@ -377,6 +387,52 @@ def test_metric_tracking_documentation_contracts():
         "omitted",
     ):
         assert term in normalized_leaf
+
+    for term in (
+        "whole epoch",
+        "train/score",
+        "val/score",
+        "train/mae",
+        "val/mae",
+        "train/pearson_r",
+        "val/pearson_r",
+        "no validation loader",
+        "all ``val/*``",
+        "fewer than two paired observations",
+        "zero variance in either input",
+        "once per run and partition",
+        "RuntimeWarning",
+    ):
+        assert term in normalized_leaf
+
+    for term in (
+        "epoch prediction and target inputs",
+        "train/loss",
+        "val/loss",
+        "train/score",
+        "val/score",
+        "train/mae",
+        "val/mae",
+        "train/pearson_r",
+        "val/pearson_r",
+        "TrackingError",
+        "scalar-only",
+    ):
+        assert term in leaf_reference
+
+    for term in (
+        "TrackingConfig",
+        "train/score",
+        "val/score",
+        "train/mae",
+        "val/mae",
+        "train/pearson_r",
+        "val/pearson_r",
+        "train-only",
+        "scalar-only",
+    ):
+        assert term in leaf_example
+        assert term in leaf_example_source
 
     assert "metrics" in training_reference
     assert "quantitative" in training_reference

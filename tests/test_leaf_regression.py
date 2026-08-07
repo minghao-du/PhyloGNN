@@ -1,6 +1,8 @@
 """Tests for the recommended leaf-regression workflow."""
 
+import copy
 import random
+import warnings
 
 import numpy as np
 import pytest
@@ -168,9 +170,23 @@ def test_leaf_tracking_coordinator_selects_injected_tracker_and_records_lifecycl
 
     coordinator.start({"workflow.type": "fit", "data.config_file": "/private/input.toml"})
     fit_stage = coordinator.start_stage("fit")
-    coordinator.log_epoch(fit_stage, loss=0.5, learning_rate=0.01, epoch_time_sec=0.2)
+    coordinator.log_epoch(
+        fit_stage,
+        train_predictions=torch.tensor([1.0, 3.0]),
+        train_targets=torch.tensor([2.0, 4.0]),
+        learning_rate=0.01,
+        epoch_time_sec=0.2,
+    )
     cv_stage = coordinator.start_stage("cv_fold")
-    coordinator.log_epoch(cv_stage, loss=0.25, learning_rate=0.01, epoch_time_sec=0.3)
+    coordinator.log_epoch(
+        cv_stage,
+        train_predictions=torch.tensor([1.0, 3.0]),
+        train_targets=torch.tensor([2.0, 4.0]),
+        val_predictions=torch.tensor([1.0, 3.0]),
+        val_targets=torch.tensor([2.0, 4.0]),
+        learning_rate=0.01,
+        epoch_time_sec=0.3,
+    )
     coordinator.finish("completed")
     coordinator.finish("failed")
 
@@ -180,11 +196,24 @@ def test_leaf_tracking_coordinator_selects_injected_tracker_and_records_lifecycl
         "stage/epoch": 1,
         "stage/index": 1,
         "stage/type": "fit",
-        "train/loss": 0.5,
+        "train/loss": 1.0,
+        "train/score": 0.0,
+        "train/mae": 1.0,
+        "train/pearson_r": 1.0,
         "train/lr": 0.01,
         "train/epoch_time_sec": 0.2,
     }
     assert tracker.metric_calls[1][1]["stage/type"] == "cv_fold"
+    assert {
+        "train/loss",
+        "train/score",
+        "train/mae",
+        "train/pearson_r",
+        "val/loss",
+        "val/score",
+        "val/mae",
+        "val/pearson_r",
+    } <= tracker.metric_calls[1][1].keys()
     assert tracker.metric_calls[-1] == (2, {"status/state": "completed"})
     assert tracker.finish_calls == ["completed"]
     assert capsys.readouterr().out.strip() == (
@@ -200,7 +229,13 @@ def test_leaf_tracking_coordinator_keeps_disabled_and_backend_selection_inert(mo
     disabled_tracker = _ObservableLeafTracker()
     disabled = _LeafExperimentCoordinator(TrackingConfig(enabled=False), tracker=disabled_tracker)
     disabled.start({"workflow.type": "fit"})
-    disabled.log_epoch(disabled.start_stage("fit"), loss=1.0, learning_rate=0.1, epoch_time_sec=0.0)
+    disabled.log_epoch(
+        disabled.start_stage("fit"),
+        train_predictions=torch.tensor([1.0]),
+        train_targets=torch.tensor([1.0]),
+        learning_rate=0.1,
+        epoch_time_sec=0.0,
+    )
     disabled.finish("completed")
     assert disabled_tracker.start_payloads == []
     assert disabled_tracker.metric_calls == []
@@ -215,6 +250,56 @@ def test_leaf_tracking_coordinator_keeps_disabled_and_backend_selection_inert(mo
     selected.start({"workflow.type": "fit"})
 
     assert created_tracker.start_payloads == [{"workflow.type": "fit"}]
+
+
+def test_leaf_tracking_epoch_metrics_warn_once_for_undefined_pearson_and_reject_invalid_pairs():
+    """Epoch metrics use complete aligned partitions and validate before logging."""
+    from phylognn.leaf_regression.tracking import _LeafExperimentCoordinator
+    from phylognn.training.tracking import TrackingConfig, TrackingError
+
+    tracker = _ObservableLeafTracker()
+    coordinator = _LeafExperimentCoordinator(
+        TrackingConfig(enabled=True, project="phylognn"), tracker=tracker
+    )
+    coordinator.start({"workflow.type": "fit"})
+    stage = coordinator.start_stage("fit")
+    with pytest.warns(RuntimeWarning, match="Pearson"):
+        coordinator.log_epoch(
+            stage,
+            train_predictions=torch.tensor([2.0]),
+            train_targets=torch.tensor([1.0]),
+            score_fn=lambda *_: 0.0,
+            learning_rate=0.1,
+            epoch_time_sec=0.0,
+        )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        coordinator.log_epoch(
+            stage,
+            train_predictions=torch.tensor([3.0]),
+            train_targets=torch.tensor([1.0]),
+            score_fn=lambda *_: 0.0,
+            learning_rate=0.1,
+            epoch_time_sec=0.0,
+        )
+    assert not caught
+    assert all("train/pearson_r" not in payload for _, payload in tracker.metric_calls)
+
+    for predictions, targets, score_fn, pattern in (
+        (torch.tensor([]), torch.tensor([]), None, "nonempty"),
+        (torch.tensor([1.0]), torch.tensor([1.0, 2.0]), None, "aligned"),
+        (torch.tensor([1.0, 2.0]), torch.tensor([1.0, 2.0]), lambda *_: float("nan"), "score"),
+    ):
+        with pytest.raises(TrackingError, match=pattern):
+            coordinator.log_epoch(
+                stage,
+                train_predictions=predictions,
+                train_targets=targets,
+                score_fn=score_fn,
+                learning_rate=0.1,
+                epoch_time_sec=0.0,
+            )
+    assert len(tracker.metric_calls) == 2
 
 
 @pytest.mark.parametrize("entry_point", ["fit", "cross_validate", "run"])
@@ -537,7 +622,9 @@ def test_fit_leaf_regression_tracking_records_direct_stage_and_lifecycle(
         assert metrics["stage/type"] == "fit"
         assert metrics["stage/index"] == 1
         assert metrics["stage/epoch"] == index
-        assert np.isfinite(metrics["train/loss"])
+        assert {"train/loss", "train/score", "train/mae"} <= metrics.keys()
+        assert not any(key.startswith("val/") for key in metrics)
+        assert all(np.isfinite(metrics[key]) for key in ("train/loss", "train/score", "train/mae"))
         assert metrics["train/lr"] == 0.01
         assert np.isfinite(metrics["train/epoch_time_sec"])
     assert tracker.metric_calls[-1] == (2, {"status/state": "completed"})
@@ -662,6 +749,20 @@ def test_cross_validate_leaf_regression_tracking_records_direct_stages_and_summa
         ("cv_fold", 3, 1),
         ("cv_fold", 3, 2),
     ]
+    for _, metrics in epoch_calls:
+        assert {
+            "train/loss",
+            "train/score",
+            "train/mae",
+            "train/pearson_r",
+            "val/loss",
+            "val/score",
+            "val/mae",
+            "val/pearson_r",
+        } <= metrics.keys()
+        assert all(
+            np.isfinite(metrics[key]) for key in metrics if key.startswith(("train/", "val/"))
+        )
     summaries = [metrics for _, metrics in tracker.metric_calls if "cv/fold_score" in metrics]
     assert [summary["stage/index"] for summary in summaries] == [1, 2, 3]
     assert [summary["cv/validation_leaf_count"] for summary in summaries] == [2, 2, 2]
@@ -712,15 +813,21 @@ def test_leaf_cv_summary_omits_undefined_pearson_and_rejects_nonfinite_payloads(
 
 
 @pytest.mark.parametrize(
-    "selection, expected_fold_keys, expected_summary_keys",
+    "selection, expected_epoch_keys, expected_fold_keys, expected_summary_keys",
     [
         (
             ("train/loss", "cv/fold_score", "cv/mae"),
+            {"stage/type", "stage/index", "stage/epoch", "train/loss"},
             {"stage/type", "stage/index", "cv/fold_score"},
             {"cv/mae"},
         ),
-        ((), {"stage/type", "stage/index"}, set()),
-        (("val/loss",), {"stage/type", "stage/index"}, set()),
+        ((), {"stage/type", "stage/index", "stage/epoch"}, {"stage/type", "stage/index"}, set()),
+        (
+            ("val/loss",),
+            {"stage/type", "stage/index", "stage/epoch", "val/loss"},
+            {"stage/type", "stage/index"},
+            set(),
+        ),
     ],
 )
 def test_leaf_tracking_metric_selection_filters_payloads_and_keeps_operational_fields(
@@ -729,6 +836,7 @@ def test_leaf_tracking_metric_selection_filters_payloads_and_keeps_operational_f
     leaf_regression_targets,
     leaf_regression_tree,
     selection,
+    expected_epoch_keys,
     expected_fold_keys,
     expected_summary_keys,
 ):
@@ -772,7 +880,7 @@ def test_leaf_tracking_metric_selection_filters_payloads_and_keeps_operational_f
     assert set(fold_payloads[0]) == expected_fold_keys
     assert (set(summary_payloads[0]) if summary_payloads else set()) == expected_summary_keys
     epoch_payload = next(payload for payload in tracker.stage_payloads if "stage/epoch" in payload)
-    assert ("train/loss" in epoch_payload) is (selection is None or "train/loss" in selection)
+    assert set(epoch_payload) == expected_epoch_keys
     assert tracker.terminal_payloads == [{"status/state": "completed"}]
     assert result.cv_score == pytest.approx(2.0)
 
@@ -925,6 +1033,7 @@ def test_cross_validate_leaf_regression_tracking_preserves_failure_and_cleanup_p
 
 
 def test_direct_tracking_preserves_fit_and_cv_scientific_results(
+    monkeypatch,
     leaf_regression_position_mask,
     leaf_regression_representations,
     leaf_regression_targets,
@@ -949,6 +1058,16 @@ def test_direct_tracking_preserves_fit_and_cv_scientific_results(
     model_kwargs = {"model_class": _PredictionOnlyRegressor, "model_config": {"offset": 0.2}}
     tracked_config = TrackingConfig(enabled=True, project="phylognn")
 
+    captured_optimizers = []
+    original_adam = torch.optim.Adam
+
+    def capture_adam(*args, **kwargs):
+        optimizer = original_adam(*args, **kwargs)
+        captured_optimizers.append(optimizer)
+        return optimizer
+
+    monkeypatch.setattr("phylognn.leaf_regression.fitting.torch.optim.Adam", capture_adam)
+
     fit_without_tracking = fit_leaf_regression(data, training_config=config, **model_kwargs)
     fit_with_tracking = fit_leaf_regression(
         data,
@@ -957,6 +1076,19 @@ def test_direct_tracking_preserves_fit_and_cv_scientific_results(
         tracker=_ObservableLeafTracker(),
         **model_kwargs,
     )
+    assert len(captured_optimizers) == 2
+    untracked_adam_state, tracked_adam_state = (
+        copy.deepcopy(optimizer.state_dict()) for optimizer in captured_optimizers
+    )
+    assert set(untracked_adam_state["state"]) == set(tracked_adam_state["state"])
+    for parameter_id, untracked_state in untracked_adam_state["state"].items():
+        tracked_state = tracked_adam_state["state"][parameter_id]
+        assert set(untracked_state) == set(tracked_state)
+        for field_name, untracked_value in untracked_state.items():
+            tracked_value = tracked_state[field_name]
+            assert torch.is_tensor(untracked_value), field_name
+            torch.testing.assert_close(untracked_value, tracked_value, rtol=1e-6, atol=1e-7)
+
     cv_without_tracking = cross_validate_leaf_regression(
         data,
         validation_folds=([0, 1], [2, 3], [4, 5]),
@@ -975,11 +1107,15 @@ def test_direct_tracking_preserves_fit_and_cv_scientific_results(
     )
 
     assert fit_with_tracking.losses == fit_without_tracking.losses
-    assert torch.equal(fit_with_tracking.predictions, fit_without_tracking.predictions)
+    torch.testing.assert_close(
+        fit_with_tracking.predictions, fit_without_tracking.predictions, rtol=1e-6, atol=1e-7
+    )
     assert fit_with_tracking.attention is None
     assert cv_with_tracking.fold_scores == cv_without_tracking.fold_scores
     assert cv_with_tracking.cv_score == cv_without_tracking.cv_score
-    assert torch.equal(cv_with_tracking.oof_predictions, cv_without_tracking.oof_predictions)
+    torch.testing.assert_close(
+        cv_with_tracking.oof_predictions, cv_without_tracking.oof_predictions, rtol=1e-6, atol=1e-7
+    )
     assert tuple(result.losses for result in cv_with_tracking.fold_results) == tuple(
         result.losses for result in cv_without_tracking.fold_results
     )

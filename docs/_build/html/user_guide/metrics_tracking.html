@@ -151,14 +151,32 @@ or event is omitted.</p>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">train/loss</span></code></p></td>
 <td><p>Training loss for a completed epoch.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">train/lr</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">train/score</span></code></p></td>
+<td><p>Configured regression score calculated from all training predictions and targets in a completed leaf-regression epoch.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">train/mae</span></code></p></td>
+<td><p>Mean absolute error calculated from all training predictions and targets in a completed leaf-regression epoch.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">train/pearson_r</span></code></p></td>
+<td><p>Defined Pearson correlation for all training predictions and targets in a completed leaf-regression epoch.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">train/lr</span></code></p></td>
 <td><p>Current optimizer learning rate.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">train/epoch_time_sec</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">train/epoch_time_sec</span></code></p></td>
 <td><p>Completed epoch duration in seconds.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">val/loss</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">val/loss</span></code></p></td>
 <td><p>Validation loss when validation is available.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">val/score</span></code></p></td>
+<td><p>Configured regression score calculated from all validation predictions and targets in a completed leaf-regression epoch.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">val/mae</span></code></p></td>
+<td><p>Mean absolute error calculated from all validation predictions and targets in a completed leaf-regression epoch.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">val/pearson_r</span></code></p></td>
+<td><p>Defined Pearson correlation for all validation predictions and targets in a completed leaf-regression epoch.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">final/best_val_loss</span></code></p></td>
 <td><p>Best finite validation loss.</p></td>
@@ -211,12 +229,14 @@ are explicit:</p>
 <span class="n">TrackingConfig</span><span class="p">(</span><span class="n">metrics</span><span class="o">=</span><span class="p">())</span>
 
 <span class="c1"># Record only applicable names in this ordered allowlist.</span>
-<span class="n">TrackingConfig</span><span class="p">(</span><span class="n">metrics</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;train/loss&quot;</span><span class="p">,</span> <span class="s2">&quot;val/loss&quot;</span><span class="p">))</span>
+<span class="n">TrackingConfig</span><span class="p">(</span><span class="n">metrics</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;train/loss&quot;</span><span class="p">,</span> <span class="s2">&quot;train/score&quot;</span><span class="p">,</span> <span class="s2">&quot;val/loss&quot;</span><span class="p">,</span> <span class="s2">&quot;val/score&quot;</span><span class="p">))</span>
 </pre></div>
 </div>
 <p>An allowlist may include fixed catalog names and, for a standard trainer,
 configured dynamic <code class="docutils literal notranslate"><span class="pre">train/&lt;name&gt;</span></code> and <code class="docutils literal notranslate"><span class="pre">val/&lt;name&gt;</span></code> names. A valid name for
-another workflow is simply absent from events where it does not apply. See
+another workflow is simply absent from events where it does not apply. For leaf
+regression, <code class="docutils literal notranslate"><span class="pre">train/score</span></code>, <code class="docutils literal notranslate"><span class="pre">train/mae</span></code>, <code class="docutils literal notranslate"><span class="pre">train/pearson_r</span></code> and their
+<code class="docutils literal notranslate"><span class="pre">val/</span></code> equivalents select complete-partition epoch values. See
 <a class="reference internal" href="training_config.html"><span class="doc">Training Configuration</span></a> for the equivalent TOML syntax.</p>
 </section>
 <section id="operational-fields">
@@ -280,6 +300,9 @@ data.leaf_count = 24
 stage/type = &quot;cv_fold&quot;
 stage/index = 1
 train/loss = 0.418
+train/score = 0.731
+train/mae = 0.216
+train/pearson_r = 0.892
 cv/fold_score = 0.731
 status/state = &quot;completed&quot;
 </pre></div>
@@ -287,9 +310,11 @@ status/state = &quot;completed&quot;
 <p>Trees, leaf names or index lists, tensors, predictions, attention, model
 state, checkpoints, and artifacts are never uploaded. Tracking remains
 disabled unless the caller explicitly enables it, and an injected tracker does
-not change that selection rule. The <a class="reference internal" href="leaf_regression.html"><span class="doc">Leaf Regression</span></a> guide explains the
-CV and refit stages; <a class="reference internal" href="../reference/leaf_regression.html"><span class="doc">Leaf Regression Reference</span></a> contains the three
-tracking-enabled API signatures.</p>
+not change that selection rule. Leaf-regression epoch events are scalar-only:
+the tracker receives computed scalar metrics, never their source prediction or
+target tensors. The <a class="reference internal" href="leaf_regression.html"><span class="doc">Leaf Regression</span></a> guide explains the CV and refit
+stages; <a class="reference internal" href="../reference/leaf_regression.html"><span class="doc">Leaf Regression Reference</span></a> contains the three tracking-enabled
+API signatures.</p>
 </section>
 <section id="common-failures">
 <h2>Common failures<a class="headerlink" href="#common-failures" title="Link to this heading"></a></h2>

@@ -51,12 +51,26 @@ Optional dependencies
 None. The example needs only the core package dependencies, including PyTorch
 and ETE3.
 
+Optional tracking
+-----------------
+
+The script is train-only by default because ``TRACKING_CONFIG`` is ``None``.
+To inspect tracked epoch curves, uncomment the ``TrackingConfig`` block and
+set a W&B project. Its allowlist shows ``train/score``, ``train/mae``,
+``train/pearson_r`` and the matching ``val/score``, ``val/mae``, and
+``val/pearson_r`` names alongside loss. Stages without a validation loader are
+train-only and omit all ``val/*`` fields. Tracking receives scalar-only metric
+events; the tree, tensors, predictions, targets, attention, checkpoints, and
+artifacts remain local.
+
 Failure modes
 -------------
 
 The workflow rejects malformed leaf alignment, non-finite tensors, empty mask
 rows, invalid fold settings, and undefined default R-squared folds with clear
-exceptions. It performs no persistence or recovery from invalid input.
+exceptions. With tracking enabled, invalid epoch metric inputs fail before an
+event is logged; undefined Pearson is omitted with a ``RuntimeWarning``. It
+performs no persistence or recovery from invalid input.
 
 Source
 ------

@@ -250,6 +250,8 @@ def cross_validate_leaf_regression(
                     model_config=model_config,
                     _tracking_coordinator=coordinator,
                     _tracking_stage=tracking_stage,
+                    _tracking_validation_indices=fold,
+                    _tracking_score_fn=score_fn,
                 )
                 predictions = result.predictions.to(oof.device)
                 oof[fold] = predictions[fold]

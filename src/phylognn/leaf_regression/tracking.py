@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 import math
+from numbers import Real
 from typing import Literal
 import warnings
+
+import torch
 
 from phylognn.training.tracking import (
     ConfigValue,
@@ -65,6 +68,7 @@ class _LeafExperimentCoordinator:
         self._global_step = 0
         self._stage_counts: dict[StageType, int] = {"fit": 0, "cv_fold": 0, "refit": 0}
         self._stage_epochs: dict[tuple[StageType, int], int] = {}
+        self._undefined_pearson_partitions: set[str] = set()
         self._run_info = TrackingRunInfo()
 
     @property
@@ -126,21 +130,43 @@ class _LeafExperimentCoordinator:
         self,
         stage: _LeafTrackingStage,
         *,
-        loss: float,
+        train_predictions: torch.Tensor,
+        train_targets: torch.Tensor,
+        val_predictions: torch.Tensor | None = None,
+        val_targets: torch.Tensor | None = None,
+        score_fn: Callable[[torch.Tensor, torch.Tensor], object] | None = None,
         learning_rate: float,
         epoch_time_sec: float,
     ) -> None:
-        """Record one completed epoch and advance the global step."""
+        """Record complete-partition epoch metrics and advance the global step.
+
+        Prediction and target tensors must be finite, aligned one-dimensional
+        tensors. Validation tensors are supplied together for stages with a
+        validation partition; omitted tensors produce a train-only event.
+        ``score_fn`` is the configured regression score, with R-squared used
+        when it is omitted.
+        """
         if not self.enabled:
             return
         if self._terminal_status is not None:
             raise TrackingError("leaf-regression tracking is already in a terminal state.")
-        _validate_finite(loss, "loss", positive=False)
         _validate_finite(learning_rate, "learning_rate", positive=True)
         _validate_finite(epoch_time_sec, "epoch_time_sec", positive=False)
+        train_metrics = self._build_partition_metrics(
+            "train", train_predictions, train_targets, score_fn
+        )
+        if (val_predictions is None) != (val_targets is None):
+            raise TrackingError(
+                "tracking validation predictions and targets must be supplied together."
+            )
+        val_metrics = (
+            None
+            if val_predictions is None
+            else self._build_partition_metrics("val", val_predictions, val_targets, score_fn)
+        )
         payload = build_epoch_metrics(
-            train_metrics={"loss": loss},
-            val_metrics=None,
+            train_metrics=train_metrics,
+            val_metrics=val_metrics,
             lr=learning_rate,
             epoch_time_sec=epoch_time_sec,
         )
@@ -154,6 +180,38 @@ class _LeafExperimentCoordinator:
         payload = filter_quantitative_metrics(payload, self._tracking_config.metrics)
         self._log(payload, step=self._global_step + 1)
         self._global_step += 1
+
+    def _build_partition_metrics(
+        self,
+        partition: Literal["train", "val"],
+        predictions: torch.Tensor,
+        targets: torch.Tensor,
+        score_fn: Callable[[torch.Tensor, torch.Tensor], object] | None,
+    ) -> dict[str, float]:
+        """Return the finite whole-partition metrics for one epoch event."""
+        predictions, targets = _validate_partition_pair(partition, predictions, targets)
+        loss = _finite_metric_value(
+            torch.nn.functional.mse_loss(predictions, targets), f"{partition} loss"
+        )
+        score = _score_partition(predictions, targets, score_fn, partition)
+        mae = _finite_metric_value(torch.mean(torch.abs(predictions - targets)), f"{partition} mae")
+        metrics = {"loss": loss, "score": score, "mae": mae}
+        pearson = _pearson_r(predictions, targets)
+        if pearson is None:
+            self._warn_undefined_pearson(partition)
+        else:
+            metrics["pearson_r"] = pearson
+        return metrics
+
+    def _warn_undefined_pearson(self, partition: Literal["train", "val"]) -> None:
+        if partition in self._undefined_pearson_partitions:
+            return
+        self._undefined_pearson_partitions.add(partition)
+        warnings.warn(
+            f"Pearson correlation is undefined for the {partition} partition; omitting it.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
 
     def log_summary(self, metrics: Mapping[str, float | int | str]) -> None:
         """Record a scalar summary at the most recent epoch step."""
@@ -216,6 +274,74 @@ def _validate_finite(value: float, field_name: str, *, positive: bool) -> None:
         raise TrackingError(f"tracking {field_name} must be a finite number.")
     if positive and value <= 0:
         raise TrackingError(f"tracking {field_name} must be positive.")
+
+
+def _validate_partition_pair(
+    partition: str, predictions: object, targets: object
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Validate one complete epoch's aligned detached prediction/target pair."""
+    for name, value in (("predictions", predictions), ("targets", targets)):
+        if not torch.is_tensor(value) or not value.is_floating_point():
+            raise TrackingError(f"tracking {partition} {name} must be a floating tensor.")
+        if value.ndim != 1 or value.numel() == 0:
+            raise TrackingError(
+                f"tracking {partition} predictions and targets must be nonempty one-dimensional tensors."
+            )
+        if not torch.isfinite(value).all():
+            raise TrackingError(f"tracking {partition} {name} must be finite.")
+    if predictions.shape != targets.shape:
+        raise TrackingError("tracking partition predictions and targets must be aligned.")
+    return predictions.detach(), targets.detach()
+
+
+def _finite_metric_value(value: object, field_name: str) -> float:
+    """Extract one required finite scalar metric value."""
+    if torch.is_tensor(value):
+        if value.numel() != 1 or value.requires_grad or value.is_complex():
+            raise TrackingError(f"tracking {field_name} must be a detached real scalar.")
+        value = value.item()
+    if isinstance(value, bool) or not isinstance(value, Real) or not math.isfinite(value):
+        raise TrackingError(f"tracking {field_name} must be a finite real scalar.")
+    return float(value)
+
+
+def _score_partition(
+    predictions: torch.Tensor,
+    targets: torch.Tensor,
+    score_fn: Callable[[torch.Tensor, torch.Tensor], object] | None,
+    partition: str,
+) -> float:
+    """Calculate the configured finite score from one complete partition."""
+    if score_fn is None:
+        denominator = torch.sum((targets - targets.mean()).square())
+        score = 1.0 - torch.sum((predictions - targets).square()) / denominator
+    else:
+        try:
+            score = score_fn(predictions.detach(), targets.detach())
+        except Exception as error:
+            raise TrackingError(
+                f"tracking {partition} score could not be calculated: {error}"
+            ) from error
+    return _finite_metric_value(score, f"{partition} score")
+
+
+def _pearson_r(predictions: torch.Tensor, targets: torch.Tensor) -> float | None:
+    """Return finite Pearson correlation, or ``None`` when it is undefined."""
+    if predictions.numel() < 2:
+        return None
+    prediction_centered = predictions - predictions.mean()
+    target_centered = targets - targets.mean()
+    prediction_variance = torch.sum(prediction_centered.square())
+    target_variance = torch.sum(target_centered.square())
+    if prediction_variance.item() == 0 or target_variance.item() == 0:
+        return None
+    pearson = torch.sum(prediction_centered * target_centered) / torch.sqrt(
+        prediction_variance * target_variance
+    )
+    try:
+        return _finite_metric_value(pearson, "pearson_r")
+    except TrackingError:
+        return None
 
 
 def _validate_summary_metrics(metrics: Mapping[str, float | int | str]) -> None:

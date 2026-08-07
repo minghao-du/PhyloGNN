@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 import math
@@ -146,6 +146,8 @@ def fit_leaf_regression(
     tracker: TrackerProtocol | None = None,
     _tracking_coordinator: _LeafExperimentCoordinator | None = None,
     _tracking_stage: _LeafTrackingStage | None = None,
+    _tracking_validation_indices: torch.Tensor | None = None,
+    _tracking_score_fn: Callable[[torch.Tensor, torch.Tensor], object] | None = None,
 ) -> LeafFitResult:
     """Fit one fresh leaf-regression model with optional scalar tracking.
 
@@ -201,6 +203,13 @@ def fit_leaf_regression(
             position_mask = data.position_mask.detach().clone().to(device)
             targets = data.targets.detach().clone().to(device)
             selected_indices = indices.to(device)
+            validation_indices = (
+                None
+                if _tracking_validation_indices is None
+                else _validate_indices(
+                    _tracking_validation_indices, leaf_count, "validation_indices"
+                ).to(device)
+            )
             model = _construct_model(data, model_class, model_config).to(device)
             trainable_parameters = [
                 parameter for parameter in model.parameters() if parameter.requires_grad
@@ -247,11 +256,20 @@ def fit_leaf_regression(
                         )
                 loss.backward()
                 optimizer.step()
-                loss_value = float(loss.detach().cpu())
-                losses.append(loss_value)
+                losses.append(float(loss.detach().cpu()))
                 coordinator.log_epoch(
                     tracking_stage,
-                    loss=loss_value,
+                    train_predictions=predictions[selected_indices].detach(),
+                    train_targets=targets[selected_indices].detach(),
+                    val_predictions=(
+                        None
+                        if validation_indices is None
+                        else predictions[validation_indices].detach()
+                    ),
+                    val_targets=(
+                        None if validation_indices is None else targets[validation_indices].detach()
+                    ),
+                    score_fn=_tracking_score_fn,
                     learning_rate=float(optimizer.param_groups[0]["lr"]),
                     epoch_time_sec=(
                         time.perf_counter() - epoch_started if epoch_started is not None else 0.0

@@ -19,6 +19,7 @@ from torch_geometric.loader import DataLoader
 
 from phylognn.training import TrainingConfig, load_training_config
 from phylognn.training.tracking import (
+    FIXED_METRIC_CATALOG,
     TrackingConfig,
     TrackingError,
     TrackingRunInfo,
@@ -27,7 +28,9 @@ from phylognn.training.tracking import (
     build_experiment_config,
     build_final_metrics,
     build_status_metrics,
+    filter_quantitative_metrics,
     sanitize_config_metadata,
+    validate_workflow_metrics,
 )
 from phylognn.training.trainer import Trainer
 
@@ -290,6 +293,38 @@ def test_tracking_builders_omit_nonfinite_quantitative_values():
         epoch_time_sec=float("nan"),
     ) == {"train/loss": 1.0, "val/mae": 0.25}
     assert build_final_metrics(best_val_loss=float("nan"), best_epoch=None) == {}
+
+
+def test_leaf_regression_epoch_metrics_are_fixed_finite_selectable_names():
+    """Leaf-regression epoch metrics use the shared finite allowlist contract."""
+    leaf_metric_names = (
+        "train/score",
+        "val/score",
+        "train/pearson_r",
+        "val/pearson_r",
+        "train/mae",
+        "val/mae",
+    )
+    train_metrics = {"loss": 1.0, "score": 0.8, "pearson_r": 0.9, "mae": 0.25}
+    val_metrics = {"loss": 1.5, "score": 0.7, "pearson_r": 0.85, "mae": 0.5}
+
+    payload = build_epoch_metrics(
+        train_metrics=train_metrics,
+        val_metrics=val_metrics,
+        lr=0.01,
+        epoch_time_sec=0.125,
+    )
+
+    assert all(name in FIXED_METRIC_CATALOG for name in leaf_metric_names)
+    assert (
+        validate_workflow_metrics(leaf_metric_names, workflow="leaf regression")
+        == leaf_metric_names
+    )
+    assert all(math.isfinite(payload[name]) for name in leaf_metric_names)
+    assert filter_quantitative_metrics(payload, ("train/score", "val/mae")) == {
+        "train/score": 0.8,
+        "val/mae": 0.5,
+    }
 
 
 @pytest.mark.parametrize(

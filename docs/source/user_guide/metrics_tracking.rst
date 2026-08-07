@@ -49,12 +49,24 @@ or event is omitted.
      - Meaning
    * - ``train/loss``
      - Training loss for a completed epoch.
+   * - ``train/score``
+     - Configured regression score calculated from all training predictions and targets in a completed leaf-regression epoch.
+   * - ``train/mae``
+     - Mean absolute error calculated from all training predictions and targets in a completed leaf-regression epoch.
+   * - ``train/pearson_r``
+     - Defined Pearson correlation for all training predictions and targets in a completed leaf-regression epoch.
    * - ``train/lr``
      - Current optimizer learning rate.
    * - ``train/epoch_time_sec``
      - Completed epoch duration in seconds.
    * - ``val/loss``
      - Validation loss when validation is available.
+   * - ``val/score``
+     - Configured regression score calculated from all validation predictions and targets in a completed leaf-regression epoch.
+   * - ``val/mae``
+     - Mean absolute error calculated from all validation predictions and targets in a completed leaf-regression epoch.
+   * - ``val/pearson_r``
+     - Defined Pearson correlation for all validation predictions and targets in a completed leaf-regression epoch.
    * - ``final/best_val_loss``
      - Best finite validation loss.
    * - ``final/best_epoch``
@@ -98,11 +110,13 @@ are explicit:
    TrackingConfig(metrics=())
 
    # Record only applicable names in this ordered allowlist.
-   TrackingConfig(metrics=("train/loss", "val/loss"))
+   TrackingConfig(metrics=("train/loss", "train/score", "val/loss", "val/score"))
 
 An allowlist may include fixed catalog names and, for a standard trainer,
 configured dynamic ``train/<name>`` and ``val/<name>`` names. A valid name for
-another workflow is simply absent from events where it does not apply. See
+another workflow is simply absent from events where it does not apply. For leaf
+regression, ``train/score``, ``train/mae``, ``train/pearson_r`` and their
+``val/`` equivalents select complete-partition epoch values. See
 :doc:`training_config` for the equivalent TOML syntax.
 
 Operational fields
@@ -167,15 +181,20 @@ sanitized scalar configuration and scalar events such as:
    stage/type = "cv_fold"
    stage/index = 1
    train/loss = 0.418
+   train/score = 0.731
+   train/mae = 0.216
+   train/pearson_r = 0.892
    cv/fold_score = 0.731
    status/state = "completed"
 
 Trees, leaf names or index lists, tensors, predictions, attention, model
 state, checkpoints, and artifacts are never uploaded. Tracking remains
 disabled unless the caller explicitly enables it, and an injected tracker does
-not change that selection rule. The :doc:`leaf_regression` guide explains the
-CV and refit stages; :doc:`../reference/leaf_regression` contains the three
-tracking-enabled API signatures.
+not change that selection rule. Leaf-regression epoch events are scalar-only:
+the tracker receives computed scalar metrics, never their source prediction or
+target tensors. The :doc:`leaf_regression` guide explains the CV and refit
+stages; :doc:`../reference/leaf_regression` contains the three tracking-enabled
+API signatures.
 
 Common failures
 ---------------
