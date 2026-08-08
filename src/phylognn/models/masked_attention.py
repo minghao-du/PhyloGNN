@@ -15,13 +15,20 @@ class MaskedAttentionPhyloRegressor(nn.Module):
         input_dim: Width of each position representation.
         hidden_dim: Width of the projected leaf representation.
         leaf_laplacian: Normalized leaf Laplacian with shape ``[N, N]``.
+        dropout_prob: Dropout probability applied to projected representations.
 
     The forward method accepts representations with shape ``[N, L, input_dim]``
     and a position mask with shape ``[N, L]``. It returns predictions ``[N]``
     and attention ``[N, L]`` whose masked positions are exactly zero.
     """
 
-    def __init__(self, input_dim: int, hidden_dim: int, leaf_laplacian: torch.Tensor) -> None:
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        leaf_laplacian: torch.Tensor,
+        dropout_prob: float = 0.3,
+    ) -> None:
         super().__init__()
         if isinstance(input_dim, bool) or not isinstance(input_dim, int) or input_dim <= 0:
             raise ValueError("`input_dim` must be a positive integer.")
@@ -42,10 +49,14 @@ class MaskedAttentionPhyloRegressor(nn.Module):
             raise ValueError("`leaf_laplacian` must have dtype torch.float32.")
         if not torch.isfinite(leaf_laplacian).all():
             raise ValueError("`leaf_laplacian` must contain only finite values.")
+        if not (0.0 <= dropout_prob < 1.0):
+            raise ValueError(f"`dropout_prob` must be in [0, 1), got {dropout_prob}.")
 
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
+        self.dropout_prob = dropout_prob
         self.position_projection = nn.Linear(input_dim, hidden_dim)
+        self.dropout = nn.Dropout(dropout_prob)
         self.attention_scorer = nn.Linear(hidden_dim, 1)
         self.regression_head = nn.Linear(hidden_dim, 1)
         self.raw_alpha = nn.Parameter(torch.tensor(math.log(0.1 / 0.9)))
@@ -85,7 +96,7 @@ class MaskedAttentionPhyloRegressor(nn.Module):
         if not torch.all(mask.any(dim=1)):
             raise ValueError("Every `position_mask` row must contain a valid position.")
 
-        projected = torch.tanh(self.position_projection(representations))
+        projected = self.dropout(torch.tanh(self.position_projection(representations)))
         scores = self.attention_scorer(projected).squeeze(-1)
         attention = torch.softmax(scores.masked_fill(~mask, float("-inf")), dim=1)
         attention = attention * mask.to(dtype=attention.dtype)

@@ -98,6 +98,32 @@ def test_masked_attention_regressor_registers_bounded_smoothing_laplacian(torch_
     assert model.leaf_laplacian.requires_grad is False
 
 
+@pytest.mark.parametrize("dropout_prob", [-0.1, 1.0, float("nan")])
+def test_masked_attention_regressor_rejects_invalid_dropout(dropout_prob, torch_module):
+    """Dropout probability follows PyTorch's [0, 1) contract."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    with pytest.raises(ValueError, match="dropout_prob"):
+        MaskedAttentionPhyloRegressor(2, 4, torch_module.eye(2), dropout_prob=dropout_prob)
+
+
+def test_masked_attention_regressor_applies_dropout_only_in_training(torch_module):
+    """Projected representations are stochastic in training and deterministic in evaluation."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    model = MaskedAttentionPhyloRegressor(2, 4, torch_module.eye(2), dropout_prob=0.5)
+    representations = torch_module.ones((2, 3, 2))
+    position_mask = torch_module.ones((2, 3), dtype=torch_module.bool)
+
+    model.eval()
+    eval_output = model(representations, position_mask)[0]
+    assert torch_module.equal(eval_output, model(representations, position_mask)[0])
+
+    model.train()
+    train_outputs = [model(representations, position_mask)[0] for _ in range(4)]
+    assert any(not torch_module.equal(train_outputs[0], output) for output in train_outputs[1:])
+
+
 def test_masked_attention_regressor_accepts_bool_convertible_mask(torch_module):
     """Integer masks are converted to boolean masks before attention pooling."""
     from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
