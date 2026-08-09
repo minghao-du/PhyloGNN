@@ -71,6 +71,7 @@ def test_dependency_profiles_match_release_metadata_contract():
     }
 
     assert dependencies == {
+        "entmax",
         "ete3",
         "numpy",
         "torch",

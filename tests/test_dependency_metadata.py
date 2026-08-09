@@ -61,6 +61,12 @@ AUDIT_CLASSIFICATIONS = {
         "Lazy tree I/O dependency for BEAST/NEXUS file workflows.",
     ),
     "ete3": AuditClassification("ete3", "core", "default"),
+    "entmax": AuditClassification(
+        "entmax",
+        "core",
+        "default",
+        "Maintained sparse-attention normalization dependency for the default model.",
+    ),
     "matplotlib": AuditClassification(
         "matplotlib",
         "optional",
@@ -118,6 +124,7 @@ AUDIT_CLASSIFICATIONS = {
 
 EXPECTED_PROFILES = {
     "default": {
+        "entmax",
         "ete3",
         "numpy",
         "torch",
@@ -135,6 +142,7 @@ EXPECTED_PROFILES = {
 }
 
 NEW_DEPENDENCY_VERSION_BOUNDS = {
+    "entmax": ">=1.3",
     "torch-scatter": ">=2.1.0",
     "torchmetrics": ">=1.0.0",
     "tqdm": ">=4.65.0",

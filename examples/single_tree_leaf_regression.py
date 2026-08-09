@@ -6,11 +6,9 @@ import torch
 from phylognn import LeafRegressionConfig, run_leaf_regression
 from phylognn.training import TrackingConfig
 
-# Tracking is opt-in. Uncomment the next line and provide a W&B project to
-# inspect fold and refit curves; the default remains local and credential-free.
-# Epoch events use scalar-only metrics. Predictions, targets, and other tensors
-# remain local. A train-only stage omits every val/* metric.
-# TRACKING_CONFIG: TrackingConfig | None = None
+# Tracking is opt-in. To inspect fold and refit curves with W&B, uncomment
+# this block and set a project. TrackingConfig(enabled=True, project="your-project")
+# is the minimal opt-in form; the metric allowlist keeps logging scalar-only.
 # TRACKING_CONFIG = TrackingConfig(
 #     enabled=True,
 #     project="your-project",
@@ -19,13 +17,9 @@ from phylognn.training import TrackingConfig
 #         "val/loss", "val/score", "val/mae", "val/pearson_r",
 #     ),
 # )
-TRACKING_CONFIG = TrackingConfig(
-      enabled=True,
-      project="phylognn-leaf-regression-test",
-      run_name="single-tree-leaf-regression",
-      group="leaf-regression-manual-check",
-      tags=("manual-check", "leaf-regression"),
-  )
+# The default is train-only, local, and credential-free; predictions and
+# targets are never sent to the tracking backend.
+TRACKING_CONFIG: TrackingConfig | None = None
 
 
 def main() -> None:

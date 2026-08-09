@@ -142,6 +142,31 @@ zero and ``mean_attention`` has shape ``[L]``. Prediction-only models return
 ``None`` for both attention fields; the workflow does not synthesize an
 interpretation value.
 
+Sparse attention normalization
+------------------------------
+
+The default model supports two attention normalization modes.  The default
+``"softmax"`` produces a dense weight distribution.  The alternative
+``"entmax15"`` uses the 1.5-entmax transform from the ``entmax`` package,
+which may assign exact zero weight to valid positions with low scores.
+
+Select sparse attention through the existing ``model_config`` mapping, which
+is forwarded to ``MaskedAttentionPhyloRegressor`` without adding a new
+workflow parameter:
+
+.. code-block:: python
+
+   result = run_leaf_regression(
+       tree, representations, position_mask, targets,
+       n_splits=3,
+       model_config={"attention_normalization": "entmax15"},
+   )
+
+Omitting ``model_config`` or omitting the key retains softmax behavior.
+Masked positions remain exactly zero in both modes.  Tensor shapes, row
+normalization, Laplacian smoothing, and the workflow output contract are
+unchanged.
+
 Errors and determinism
 ----------------------
 

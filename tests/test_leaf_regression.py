@@ -1947,3 +1947,49 @@ def test_invalid_workflow_contracts_restore_caller_rng_state(
     assert actual[0] == expected[0]
     assert actual[1] == expected[1]
     assert torch.equal(actual[2], expected[2])
+
+
+# ---------------------------------------------------------------------------
+# T003: Default-model workflow test with entmax15 attention normalization
+# ---------------------------------------------------------------------------
+
+
+def test_default_model_entmax15_workflow(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+    torch_module,
+):
+    """model_config forwards attention_normalization='entmax15' to the default model."""
+    from phylognn import LeafRegressionConfig, fit_leaf_regression, prepare_leaf_regression
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    result = fit_leaf_regression(
+        data,
+        training_config=LeafRegressionConfig(epochs=2, learning_rate=0.01, seed=42),
+        model_config={"attention_normalization": "entmax15"},
+    )
+
+    assert result.predictions.shape == (6,)
+    assert torch_module.isfinite(result.predictions).all()
+    assert result.attention is not None
+    assert result.attention.shape == (6, 4)
+    assert torch_module.isfinite(result.attention).all()
+    # Attention must be non-negative
+    assert (result.attention >= 0).all()
+    # Masked positions must be exactly zero
+    mask = leaf_regression_position_mask.to(dtype=torch_module.bool)
+    assert torch_module.equal(
+        result.attention[~mask],
+        torch_module.zeros_like(result.attention[~mask]),
+    )
+    # Each row sums to 1 within tolerance
+    assert torch_module.allclose(
+        result.attention.sum(dim=1), torch_module.ones(6), atol=1e-6, rtol=0
+    )

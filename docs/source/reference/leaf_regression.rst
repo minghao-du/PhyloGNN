@@ -38,6 +38,17 @@ prepared leaf constraint, returns predictions ``[N]`` and masked attention
 ``[N, L]``, and assigns exactly zero attention to padding.
 Custom models may instead return predictions alone.
 
+The default model accepts an ``attention_normalization`` constructor argument
+with values ``"softmax"`` (the default) and ``"entmax15"``.  The ``softmax``
+path retains the existing dense row-wise normalization.  The ``entmax15``
+path calls ``entmax.entmax15`` along the position dimension and may assign
+exact zero weight to valid positions with low scores; masked positions
+remain exactly zero regardless of the selected mode.  Tensor shapes
+``[N]`` predictions and ``[N, L]`` attention, non-negativity, row
+normalization within ``1e-6``, and the Laplacian smoothing contract are
+unchanged.  The selected mode is inspectable through
+``model.attention_normalization``.
+
 API
 ---
 

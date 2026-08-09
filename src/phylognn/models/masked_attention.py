@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import math
+from typing import Literal
 
 import torch
+from entmax import entmax15
 from torch import nn
+
+_SUPPORTED_ATTENTION_NORMALIZATIONS = ("softmax", "entmax15")
 
 
 class MaskedAttentionPhyloRegressor(nn.Module):
@@ -16,10 +20,20 @@ class MaskedAttentionPhyloRegressor(nn.Module):
         hidden_dim: Width of the projected leaf representation.
         leaf_laplacian: Normalized leaf Laplacian with shape ``[N, N]``.
         dropout_prob: Dropout probability applied to projected representations.
+        attention_normalization: Row-wise normalization applied to masked
+            attention scores. ``"softmax"`` (the default) produces a dense
+            distribution; ``"entmax15"`` uses the 1.5-entmax transform from the
+            ``entmax`` package and may assign exact zero weight to low-scoring
+            valid positions. The selected string is available as the
+            ``attention_normalization`` attribute.
 
     The forward method accepts representations with shape ``[N, L, input_dim]``
     and a position mask with shape ``[N, L]``. It returns predictions ``[N]``
-    and attention ``[N, L]`` whose masked positions are exactly zero.
+    and attention ``[N, L]``. Attention is finite, non-negative, row-normalized
+    within ``1e-6``, and exactly zero at masked positions; every mask row must
+    contain at least one valid position. Construction raises ``TypeError`` for
+    non-string ``attention_normalization`` values and ``ValueError`` for strings
+    other than ``"softmax"`` and ``"entmax15"``.
     """
 
     def __init__(
@@ -28,6 +42,7 @@ class MaskedAttentionPhyloRegressor(nn.Module):
         hidden_dim: int,
         leaf_laplacian: torch.Tensor,
         dropout_prob: float = 0.3,
+        attention_normalization: Literal["softmax", "entmax15"] = "softmax",
     ) -> None:
         super().__init__()
         if isinstance(input_dim, bool) or not isinstance(input_dim, int) or input_dim <= 0:
@@ -52,9 +67,23 @@ class MaskedAttentionPhyloRegressor(nn.Module):
         if not (0.0 <= dropout_prob < 1.0):
             raise ValueError(f"`dropout_prob` must be in [0, 1), got {dropout_prob}.")
 
+        if not isinstance(attention_normalization, str):
+            raise TypeError(
+                "`attention_normalization` must be a string, "
+                f"got {type(attention_normalization).__name__}. Accepted values: "
+                f"{', '.join(repr(v) for v in _SUPPORTED_ATTENTION_NORMALIZATIONS)}."
+            )
+        if attention_normalization not in _SUPPORTED_ATTENTION_NORMALIZATIONS:
+            raise ValueError(
+                "`attention_normalization` must be one of "
+                f"{', '.join(repr(v) for v in _SUPPORTED_ATTENTION_NORMALIZATIONS)}; "
+                f"got {attention_normalization!r}."
+            )
+
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.dropout_prob = dropout_prob
+        self.attention_normalization: str = attention_normalization
         self.position_projection = nn.Linear(input_dim, hidden_dim)
         self.dropout = nn.Dropout(dropout_prob)
         self.attention_scorer = nn.Linear(hidden_dim, 1)
@@ -98,7 +127,13 @@ class MaskedAttentionPhyloRegressor(nn.Module):
 
         projected = self.dropout(torch.tanh(self.position_projection(representations)))
         scores = self.attention_scorer(projected).squeeze(-1)
-        attention = torch.softmax(scores.masked_fill(~mask, float("-inf")), dim=1)
+        masked_scores = scores.masked_fill(~mask, float("-inf"))
+
+        if self.attention_normalization == "entmax15":
+            attention = entmax15(masked_scores, dim=1)
+        else:
+            attention = torch.softmax(masked_scores, dim=1)
+
         attention = attention * mask.to(dtype=attention.dtype)
         pooled = (attention.unsqueeze(-1) * projected).sum(dim=1)
         smoothed = pooled - torch.sigmoid(self.raw_alpha) * (self.leaf_laplacian @ pooled)
