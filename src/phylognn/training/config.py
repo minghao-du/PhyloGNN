@@ -22,6 +22,7 @@ except ModuleNotFoundError:  # pragma: no cover - project runtime is Python >=3.
 import torch.nn as nn
 
 from phylognn.models import GATBiLSTMNet
+from phylognn.training.losses import build_loss, format_loss_identifier, resolve_loss_selection
 from phylognn.training.metrics import MetricRegistry
 from phylognn.training.trainer import LossFn, MetricsMap, Trainer, TrainingConfig
 from phylognn.training.tracking import (
@@ -115,7 +116,7 @@ TRAINING_STR_KEYS = frozenset({"optimizer", "scheduler", "device", "save_dir"})
 TRAINING_BOOL_KEYS = frozenset(
     {"save_best_only", "verbose", "pin_memory", "train_shuffle", "non_blocking"}
 )
-LOSS_KEYS = frozenset({"name"})
+LOSS_KEYS = frozenset({"name", "params"})
 METRICS_KEYS = frozenset({"names"})
 TRACKING_KEYS = frozenset(
     {
@@ -132,10 +133,6 @@ TRACKING_KEYS = frozenset(
     }
 )
 
-LOSS_REGISTRY: Mapping[str, type[nn.Module]] = {
-    "mse": nn.MSELoss,
-    "mae": nn.L1Loss,
-}
 METRIC_REGISTRY = frozenset(MetricRegistry.names())
 
 
@@ -145,18 +142,22 @@ def load_training_config(
     model_overrides: Optional[Mapping[str, object]] = None,
     training_overrides: Optional[Mapping[str, object]] = None,
     loss: Optional[str] = None,
+    loss_params: Optional[Mapping[str, object]] = None,
     metrics: Optional[Sequence[str]] = None,
 ) -> ConfiguredTrainingSetup:
     """
     Load a TOML file and create model/training setup objects.
 
     The TOML file must contain `[model]`, `[model.params]`, and `[training]`
-    sections. It may also contain `[loss]` and `[metrics]`. Explicit keyword
-    overrides are applied after TOML values and must satisfy the same validation
-    rules, including model counters being positive non-bool Python integers.
-    Direct constructor `TypeError` and `ValueError` failures are wrapped as
-    `TrainingConfigError` with path context. Dataset construction, splits, and
-    data loaders are intentionally out of scope for this helper.
+    sections. It may also contain `[loss]`, `[loss.params]`, and `[metrics]`.
+    Explicit keyword overrides are applied after TOML values and must satisfy
+    the same validation rules, including model counters being positive
+    non-bool Python integers. Supplying `loss` replaces the entire `[loss]`
+    section (name and params together); `loss_params` alone overrides only the
+    file's params while keeping its name. Direct constructor `TypeError` and
+    `ValueError` failures are wrapped as `TrainingConfigError` with path
+    context. Dataset construction, splits, and data loaders are intentionally
+    out of scope for this helper.
 
     Raises:
         TrainingConfigError: If the file cannot be read, TOML is malformed,
@@ -188,7 +189,10 @@ def load_training_config(
         config_path=config_path,
     )
 
-    loss_name = _resolve_loss_name(raw_config, loss, config_path=config_path)
+    loss_name, loss_params_resolved = _resolve_loss_section(
+        raw_config, loss, loss_params, config_path=config_path
+    )
+    loss_identifier = format_loss_identifier(loss_name, loss_params_resolved)
     metric_names = _resolve_metric_names(raw_config, metrics, config_path=config_path)
 
     _validate_required_model_params(model_params, config_path=config_path)
@@ -213,7 +217,7 @@ def load_training_config(
             model_type=model_config["type"],
             model_params=model_params,
             training_values=asdict(training_config),
-            loss_name=loss_name,
+            loss_name=loss_identifier,
             metric_names=metric_names,
             tracking_config=tracking_config,
             config_path=config_path,
@@ -224,7 +228,7 @@ def load_training_config(
     return ConfiguredTrainingSetup(
         model=model,
         training_config=training_config,
-        loss_fn=LOSS_REGISTRY[loss_name](),
+        loss_fn=build_loss(loss_name, loss_params_resolved),
         metrics=_resolve_metric_specs(metric_names, output_dim=model_params.get("output_dim")),
         tracking_config=tracking_config,
         tracking_metadata=tracking_metadata,
@@ -237,13 +241,15 @@ def create_trainer_from_config(
     model_overrides: Optional[Mapping[str, object]] = None,
     training_overrides: Optional[Mapping[str, object]] = None,
     loss: Optional[str] = None,
+    loss_params: Optional[Mapping[str, object]] = None,
     metrics: Optional[Sequence[str]] = None,
 ) -> Trainer:
     """
     Create a `Trainer` from a TOML training configuration.
 
     This function creates the model, `TrainingConfig`, loss, and metrics, then
-    delegates to the existing `Trainer`. Data remains caller-provided through
+    delegates to the existing `Trainer`. `loss` and `loss_params` are forwarded
+    unchanged to `load_training_config`. Data remains caller-provided through
     `Trainer.fit(train_loader=...)`, `Trainer.fit(train_dataset=...)`, or the
     corresponding validation arguments.
     """
@@ -252,6 +258,7 @@ def create_trainer_from_config(
         model_overrides=model_overrides,
         training_overrides=training_overrides,
         loss=loss,
+        loss_params=loss_params,
         metrics=metrics,
     )
     return Trainer(
@@ -432,26 +439,46 @@ def _validate_training_values(training_values: dict[str, Any], *, config_path: P
             _raise_type_error(f"training.{key}", "a boolean", training_values[key], config_path)
 
 
-def _resolve_loss_name(
+def _resolve_loss_section(
     raw_config: Mapping[str, Any],
     explicit_loss: Optional[str],
+    explicit_loss_params: Optional[Mapping[str, object]],
     *,
     config_path: Path,
-) -> str:
-    if explicit_loss is not None:
-        loss_name = explicit_loss
-    else:
-        loss_config = raw_config.get("loss", {})
-        loss_name = _require_mapping(loss_config, "loss", config_path).get("name", "mse")
+) -> tuple[str, dict[str, float]]:
+    if explicit_loss_params is not None and not isinstance(explicit_loss_params, Mapping):
+        raise TrainingConfigError(f"{config_path}: `loss_params` must be a mapping or None.")
 
-    if not isinstance(loss_name, str):
-        raise TrainingConfigError(f"{config_path}: loss.name must be a string.")
-    if loss_name not in LOSS_REGISTRY:
-        valid = ", ".join(sorted(LOSS_REGISTRY))
-        raise TrainingConfigError(
-            f"{config_path}: loss.name must be one of ({valid}), got {loss_name!r}."
-        )
-    return loss_name
+    loss_config = _require_mapping(raw_config.get("loss", {}), "loss", config_path)
+    file_name = loss_config.get("name", "mse")
+
+    if explicit_loss is not None:
+        name = explicit_loss
+        params: Mapping[str, object] = {} if explicit_loss_params is None else explicit_loss_params
+        params_origin = "loss_params"
+    elif explicit_loss_params is not None:
+        name = file_name
+        params = explicit_loss_params
+        params_origin = "loss_params"
+    else:
+        name = file_name
+        params = _require_mapping(loss_config.get("params", {}), "loss.params", config_path)
+        params_origin = "[loss.params]"
+
+    def error_factory(message: str, category: type[Exception], *, rejection: str = "") -> Exception:
+        del category
+        if rejection == "name":
+            return TrainingConfigError(f"{config_path}: [loss] name: {message}")
+        if rejection == "params":
+            return TrainingConfigError(f"{config_path}: {params_origin}: {message}")
+        if params_origin == "loss_params":
+            return TrainingConfigError(f"{config_path}: loss_params: {message}")
+        # Parameter-value messages begin with their catalog parameter name, so
+        # this prefix produces a TOML path such as ``loss.params.delta``. That
+        # formatting convention is supplied by resolve_loss_selection.
+        return TrainingConfigError(f"{config_path}: loss.params.{message}")
+
+    return resolve_loss_selection(name, params, error_factory=error_factory)
 
 
 def _resolve_metric_names(

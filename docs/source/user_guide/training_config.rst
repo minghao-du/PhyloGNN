@@ -27,7 +27,22 @@ Optional sections
 -----------------
 
 `[loss]`
-   Selects a built-in loss by `name`. Supported names are `mse` and `mae`.
+   Selects a built-in loss by `name`. Supported names are `mse`, `mae`, and
+   `huber`. An optional nested `[loss.params]` table supplies parameters for
+   the selected loss:
+
+   .. code-block:: toml
+
+      [loss]
+      name = "huber"
+
+      [loss.params]
+      delta = 1.0
+
+   `huber` accepts `delta`, a strictly positive finite number defaulting to
+   `1.0` when omitted. `mse` and `mae` accept no parameters. Call
+   `phylognn.training.supported_loss_names()` to discover supported names
+   at runtime.
 
 `[metrics]`
    Selects built-in metrics by `names`, including `mse`, `mae`, `rmse`, `r2`,
@@ -37,6 +52,26 @@ Optional sections
    Enables optional experiment tracking. When `enabled=true`, `project` is
    required and the `wandb` extra must be installed. Its optional `metrics`
    array selects quantitative tracking metrics.
+
+Loss keyword overrides
+-----------------------
+
+``load_training_config`` and ``create_trainer_from_config`` accept keyword-only
+``loss`` and ``loss_params`` arguments that override the file's ``[loss]``
+section:
+
+.. code-block:: python
+
+   setup = load_training_config(
+       "config.toml",
+       loss="huber",
+       loss_params={"delta": 2.0},
+   )
+
+Supplying ``loss=`` replaces the whole loss section, including any file
+``[loss.params]``, which is discarded without error. Supplying ``loss_params=``
+alone overrides the file's params while keeping the file's loss name. Calls
+that pass only ``loss=`` continue to work as before.
 
 Tracking metric selection
 -------------------------

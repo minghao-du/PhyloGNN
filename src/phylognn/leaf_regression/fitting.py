@@ -16,9 +16,15 @@ import torch
 
 from phylognn.training.tracking import TrackerProtocol, TrackingConfig
 
+from phylognn.training.losses import build_loss, format_loss_identifier, resolve_loss_selection
+
 from .data import LeafRegressionData
 from .tracking import _LeafExperimentCoordinator, _LeafTrackingStage, _build_leaf_tracking_config
 from phylognn.models import MaskedAttentionPhyloRegressor
+
+
+def _leaf_regression_config_error_factory(message: str, category: type[Exception]) -> Exception:
+    return category(f"`loss`/`huber_delta`: {message}")
 
 
 @dataclass(frozen=True)
@@ -31,6 +37,11 @@ class LeafRegressionConfig:
         weight_decay: Finite nonnegative Adam weight decay.
         seed: Optional non-boolean integer for local RNG isolation.
         device: Optional value accepted by :class:`torch.device`.
+        loss: Supported loss identifier from the shared training loss catalog.
+            Defaults to ``"mse"``, preserving existing behavior.
+        huber_delta: Optional positive finite transition threshold, valid only
+            when ``loss="huber"``. Omitted means unset and resolves to ``1.0``
+            under Huber.
     """
 
     epochs: int = 100
@@ -38,6 +49,8 @@ class LeafRegressionConfig:
     weight_decay: float = 0.0
     seed: int | None = None
     device: torch.device | str | None = None
+    loss: str = "mse"
+    huber_delta: float | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.epochs, bool) or not isinstance(self.epochs, int) or self.epochs <= 0:
@@ -53,6 +66,12 @@ class LeafRegressionConfig:
                 torch.device(self.device)
             except (TypeError, RuntimeError) as error:
                 raise ValueError("`device` must be accepted by torch.device.") from error
+        params = {} if self.huber_delta is None else {"delta": self.huber_delta}
+        _, resolved_params = resolve_loss_selection(
+            self.loss, params, error_factory=_leaf_regression_config_error_factory
+        )
+        if self.huber_delta is not None:
+            object.__setattr__(self, "huber_delta", resolved_params["delta"])
 
 
 @dataclass(frozen=True)
@@ -167,6 +186,10 @@ def fit_leaf_regression(
         config = training_config or LeafRegressionConfig()
         if not isinstance(config, LeafRegressionConfig):
             raise TypeError("`training_config` must be a LeafRegressionConfig instance or None.")
+        loss_params = {} if config.huber_delta is None else {"delta": config.huber_delta}
+        loss_name, loss_params = resolve_loss_selection(config.loss, loss_params)
+        loss_module = build_loss(loss_name, loss_params)
+        loss_identifier = format_loss_identifier(loss_name, loss_params)
         leaf_count = len(data.leaf_names)
         indices = (
             torch.arange(leaf_count, dtype=torch.long)
@@ -192,6 +215,7 @@ def fit_leaf_regression(
                         "weight_decay": config.weight_decay,
                         "seed": config.seed,
                     },
+                    loss_identifier=loss_identifier,
                     model_class=model_class,
                     model_config=model_config,
                     score_fn=None,
@@ -223,11 +247,11 @@ def fit_leaf_regression(
                 representations.size(1),
                 position_mask,
             )
-            loss = torch.nn.functional.mse_loss(
-                predictions[selected_indices], targets[selected_indices]
-            )
+            loss = loss_module(predictions[selected_indices], targets[selected_indices])
             if not loss.requires_grad or not torch.isfinite(loss):
-                raise ValueError("The selected-leaf MSE loss must be finite and differentiable.")
+                raise ValueError(
+                    f"The selected-leaf {loss_identifier} loss must be finite and differentiable."
+                )
             optimizer = torch.optim.Adam(
                 trainable_parameters,
                 lr=config.learning_rate,
@@ -247,12 +271,11 @@ def fit_leaf_regression(
                         representations.size(1),
                         position_mask,
                     )
-                    loss = torch.nn.functional.mse_loss(
-                        predictions[selected_indices], targets[selected_indices]
-                    )
+                    loss = loss_module(predictions[selected_indices], targets[selected_indices])
                     if not loss.requires_grad or not torch.isfinite(loss):
                         raise ValueError(
-                            "The selected-leaf MSE loss must be finite and differentiable."
+                            f"The selected-leaf {loss_identifier} loss must be "
+                            "finite and differentiable."
                         )
                 loss.backward()
                 optimizer.step()
@@ -270,6 +293,7 @@ def fit_leaf_regression(
                         None if validation_indices is None else targets[validation_indices].detach()
                     ),
                     score_fn=_tracking_score_fn,
+                    loss_fn=loss_module,
                     learning_rate=float(optimizer.param_groups[0]["lr"]),
                     epoch_time_sec=(
                         time.perf_counter() - epoch_started if epoch_started is not None else 0.0

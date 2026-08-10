@@ -11,6 +11,7 @@ import warnings
 
 import torch
 
+from phylognn.training.losses import format_loss_identifier, resolve_loss_selection
 from phylognn.training.tracking import TrackerProtocol, TrackingConfig, TrackingError
 
 from .data import LeafRegressionData, prepare_leaf_regression
@@ -215,6 +216,8 @@ def cross_validate_leaf_regression(
             )
             _validate_scoring_contract(data.targets, folds, score_fn)
             if owns_tracking and coordinator.enabled:
+                loss_params = {} if config.huber_delta is None else {"delta": config.huber_delta}
+                loss_name, loss_params = resolve_loss_selection(config.loss, loss_params)
                 coordinator.start(
                     _build_leaf_tracking_config(
                         tracking_config=tracking_config or TrackingConfig(enabled=False),
@@ -228,6 +231,7 @@ def cross_validate_leaf_regression(
                             "weight_decay": config.weight_decay,
                             "seed": config.seed,
                         },
+                        loss_identifier=format_loss_identifier(loss_name, loss_params),
                         model_class=model_class,
                         model_config=model_config,
                         score_fn=score_fn,
@@ -350,6 +354,8 @@ def run_leaf_regression(
                 if config.device is not None
                 else data.representations.device
             )
+            loss_params = {} if config.huber_delta is None else {"delta": config.huber_delta}
+            loss_name, loss_params = resolve_loss_selection(config.loss, loss_params)
             start_config = _build_leaf_tracking_config(
                 tracking_config=tracking_config or TrackingConfig(enabled=False),
                 workflow_type="run",
@@ -362,6 +368,7 @@ def run_leaf_regression(
                     "weight_decay": config.weight_decay,
                     "seed": config.seed,
                 },
+                loss_identifier=format_loss_identifier(loss_name, loss_params),
                 model_class=model_class,
                 model_config=model_config,
                 score_fn=score_fn,
@@ -554,4 +561,6 @@ def _stage_config(config: LeafRegressionConfig, offset: int) -> LeafRegressionCo
         weight_decay=config.weight_decay,
         seed=config.seed + offset,
         device=config.device,
+        loss=config.loss,
+        huber_delta=config.huber_delta,
     )

@@ -298,7 +298,7 @@ def test_unknown_keys_fail_before_training(tmp_path: Path, text: str, pattern: s
     "text, pattern",
     [
         (_minimal_config().replace('"GATBiLSTMNet"', '"OtherModel"'), "model.type"),
-        (_minimal_config().replace('name = "mse"', 'name = "huber"'), "loss.name"),
+        (_minimal_config().replace('name = "mse"', 'name = "logcosh"'), r"\[loss\] name"),
         (_minimal_config().replace('"mae"', '"bad_metric"'), "unsupported metric"),
         (_minimal_config().replace('["mse", "mae"]', '["mse", "mse"]'), "duplicates"),
     ],
@@ -442,6 +442,270 @@ def test_explicit_overrides_win_over_toml_values(tmp_path: Path):
     assert setup.metrics == {"rmse": "rmse", "mape": "mape"}
 
 
+def test_loss_section_with_nested_params_selects_huber(tmp_path: Path):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace(
+            '[loss]\nname = "mse"',
+            '[loss]\nname = "huber"\n\n[loss.params]\ndelta = 2.0',
+        ),
+    )
+
+    setup = load_training_config(config_path)
+
+    assert type(setup.loss_fn).__name__ == "HuberLoss"
+    assert setup.loss_fn.delta == 2.0
+    assert setup.tracking_metadata["loss.name"] == "huber(delta=2.0)"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        _minimal_config(),
+        _minimal_config().replace('[loss]\nname = "mse"\n', ""),
+        _minimal_config().replace('name = "mse"', 'name = "mae"'),
+    ],
+)
+def test_loss_section_backward_compatibility_resolves_without_params(tmp_path: Path, text: str):
+    config_path = _write_config(tmp_path, text)
+
+    setup = load_training_config(config_path)
+
+    assert type(setup.loss_fn).__name__ in {"MSELoss", "L1Loss"}
+
+
+def test_loss_override_alone_replaces_file_section_without_error(tmp_path: Path):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace(
+            '[loss]\nname = "mse"',
+            '[loss]\nname = "huber"\n\n[loss.params]\ndelta = 2.0',
+        ),
+    )
+
+    setup = load_training_config(config_path, loss="mae")
+
+    assert type(setup.loss_fn).__name__ == "L1Loss"
+    assert setup.tracking_metadata["loss.name"] == "mae"
+
+
+@pytest.mark.parametrize(
+    ("loss_kwargs", "expected_loss_type", "expected_delta"),
+    [
+        ({"loss": "mae"}, "L1Loss", None),
+        ({"loss_params": {"delta": 3.0}}, "HuberLoss", 3.0),
+    ],
+)
+def test_loss_overrides_discard_malformed_file_params(
+    tmp_path: Path,
+    loss_kwargs: dict,
+    expected_loss_type: str,
+    expected_delta: float | None,
+):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace(
+            '[loss]\nname = "mse"',
+            '[loss]\nname = "huber"\nparams = "not-a-table"',
+        ),
+    )
+
+    setup = load_training_config(config_path, **loss_kwargs)
+
+    assert type(setup.loss_fn).__name__ == expected_loss_type
+    if expected_delta is not None:
+        assert setup.loss_fn.delta == expected_delta
+
+
+def test_loss_params_override_alone_keeps_file_name(tmp_path: Path):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace(
+            '[loss]\nname = "mse"',
+            '[loss]\nname = "huber"\n\n[loss.params]\ndelta = 2.0',
+        ),
+    )
+
+    setup = load_training_config(config_path, loss_params={"delta": 3.0})
+
+    assert type(setup.loss_fn).__name__ == "HuberLoss"
+    assert setup.loss_fn.delta == 3.0
+    assert setup.tracking_metadata["loss.name"] == "huber(delta=3.0)"
+
+
+def test_loss_and_loss_params_override_together(tmp_path: Path):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace(
+            '[loss]\nname = "mse"',
+            '[loss]\nname = "huber"\n\n[loss.params]\ndelta = 2.0',
+        ),
+    )
+
+    setup = load_training_config(config_path, loss="huber", loss_params={"delta": 0.5})
+
+    assert type(setup.loss_fn).__name__ == "HuberLoss"
+    assert setup.loss_fn.delta == 0.5
+    assert setup.tracking_metadata["loss.name"] == "huber(delta=0.5)"
+
+
+def test_huber_alone_resolves_default_delta(tmp_path: Path):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace('[loss]\nname = "mse"', '[loss]\nname = "huber"'),
+    )
+
+    setup = load_training_config(config_path)
+
+    assert type(setup.loss_fn).__name__ == "HuberLoss"
+    assert setup.loss_fn.delta == 1.0
+    assert setup.tracking_metadata["loss.name"] == "huber(delta=1.0)"
+
+
+def test_file_delta_resolves_without_override(tmp_path: Path):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace(
+            '[loss]\nname = "mse"', '[loss]\nname = "huber"\n\n[loss.params]\ndelta = 1.5'
+        ),
+    )
+
+    setup = load_training_config(config_path)
+
+    assert setup.loss_fn.delta == 1.5
+
+
+def test_loss_params_override_wins_over_file_delta(tmp_path: Path):
+    config_path = _write_config(
+        tmp_path,
+        _minimal_config().replace(
+            '[loss]\nname = "mse"', '[loss]\nname = "huber"\n\n[loss.params]\ndelta = 2.0'
+        ),
+    )
+
+    setup = load_training_config(config_path, loss_params={"delta": 3.0})
+
+    assert setup.loss_fn.delta == 3.0
+
+
+def test_existing_loss_only_override_call_remains_valid(tmp_path: Path):
+    config_path = _write_config(tmp_path, _minimal_config())
+
+    setup = load_training_config(config_path, loss="mae")
+
+    assert type(setup.loss_fn).__name__ == "L1Loss"
+
+
+@pytest.mark.parametrize(
+    "text, pattern",
+    [
+        (
+            _minimal_config().replace(
+                '[loss]\nname = "mse"', '[loss]\nname = "huber"\nparams = "not-a-table"'
+            ),
+            "loss.params",
+        ),
+        (
+            _minimal_config().replace(
+                '[loss]\nname = "mse"',
+                '[loss]\nname = "huber"\n\n[loss.params]\nbeta = 1.0',
+            ),
+            "unknown parameter.*huber",
+        ),
+        (
+            _minimal_config().replace(
+                '[loss]\nname = "mse"', '[loss]\nname = "mse"\n\n[loss.params]\ndelta = 1.0'
+            ),
+            "does not accept parameters",
+        ),
+        (
+            _minimal_config().replace(
+                '[loss]\nname = "mse"', '[loss]\nname = "mae"\n\n[loss.params]\ndelta = 1.0'
+            ),
+            "does not accept parameters",
+        ),
+        (
+            _minimal_config().replace(
+                '[loss]\nname = "mse"',
+                '[loss]\nname = "huber"\n\n[loss.params]\ndelta = "1.0"',
+            ),
+            "delta.*real number",
+        ),
+        (
+            _minimal_config().replace(
+                '[loss]\nname = "mse"', '[loss]\nname = "huber"\n\n[loss.params]\ndelta = true'
+            ),
+            "delta.*real number",
+        ),
+        (
+            _minimal_config().replace(
+                '[loss]\nname = "mse"',
+                '[loss]\nname = "huber"\n\n[loss.params]\ndelta = 0.0',
+            ),
+            "delta.*strictly positive",
+        ),
+        (
+            _minimal_config().replace(
+                '[loss]\nname = "mse"',
+                '[loss]\nname = "huber"\n\n[loss.params]\ndelta = -1.0',
+            ),
+            "delta.*strictly positive",
+        ),
+        (
+            _minimal_config().replace(
+                '[loss]\nname = "mse"',
+                '[loss]\nname = "huber"\n\n[loss.params]\ndelta = nan',
+            ),
+            "delta.*finite",
+        ),
+    ],
+)
+def test_loss_params_delta_validation_fails_before_training(
+    tmp_path: Path, text: str, pattern: str
+):
+    config_path = _write_config(tmp_path, text)
+
+    with pytest.raises(TrainingConfigError, match=pattern) as error:
+        load_training_config(config_path)
+
+    assert str(error.value).startswith(str(config_path))
+
+
+@pytest.mark.parametrize(
+    "loss_kwargs, pattern",
+    [
+        ({"loss": "mae", "loss_params": {"delta": 1.0}}, "does not accept parameters"),
+        ({"loss": "huber", "loss_params": {"beta": 1.0}}, "unknown parameter.*huber"),
+        ({"loss": "huber", "loss_params": {"delta": 0}}, "delta.*strictly positive"),
+        ({"loss": "huber", "loss_params": "not-a-mapping"}, "loss_params.*mapping"),
+    ],
+)
+def test_loss_params_keyword_override_delta_validation_fails_before_training(
+    tmp_path: Path, loss_kwargs: dict, pattern: str
+):
+    config_path = _write_config(tmp_path, _minimal_config())
+
+    with pytest.raises(TrainingConfigError, match=pattern) as error:
+        load_training_config(config_path, **loss_kwargs)
+
+    assert str(error.value).startswith(str(config_path))
+    assert isinstance(error.value, ValueError)
+
+
+@pytest.mark.parametrize("loss_name", ["mse", "huber"])
+def test_non_string_loss_param_key_has_loss_params_context(tmp_path: Path, loss_name: str):
+    """Non-string override keys become actionable TrainingConfigError messages."""
+    config_path = _write_config(tmp_path, _minimal_config())
+
+    with pytest.raises(
+        TrainingConfigError,
+        match=rf"loss_params: unknown parameter.*1.*loss '{loss_name}'",
+    ) as error:
+        load_training_config(config_path, loss=loss_name, loss_params={1: 2.0})
+
+    assert str(error.value).startswith(str(config_path))
+
+
 def test_legacy_metric_helper_names_are_not_registered(tmp_path: Path):
     config_path = _write_config(
         tmp_path,
@@ -565,3 +829,124 @@ def test_invalid_tracking_config_fails_before_training(
 
     with pytest.raises(TrainingConfigError, match=pattern):
         load_training_config(config_path)
+
+
+@pytest.mark.parametrize(
+    "loss_name",
+    ["mse", "mae"],
+)
+def test_loss_params_file_mismatch_error_identifies_huber(tmp_path: Path, loss_name: str):
+    """The file-surface rejection for params under a parameter-free loss names Huber."""
+    text = _minimal_config().replace(
+        '[loss]\nname = "mse"',
+        f'[loss]\nname = "{loss_name}"\n\n[loss.params]\ndelta = 1.0',
+    )
+    config_path = _write_config(tmp_path, text)
+
+    with pytest.raises(
+        TrainingConfigError,
+        match=r"does not accept parameters.*accepted by.*huber",
+    ):
+        load_training_config(config_path)
+
+
+def test_loss_params_keyword_override_mismatch_error_identifies_huber(tmp_path: Path):
+    """The keyword-override rejection for mae with delta names Huber."""
+    config_path = _write_config(tmp_path, _minimal_config())
+
+    with pytest.raises(
+        TrainingConfigError,
+        match=r"does not accept parameters.*accepted by.*huber",
+    ):
+        load_training_config(config_path, loss="mae", loss_params={"delta": 1.0})
+
+
+@pytest.mark.parametrize(
+    "text_or_kwargs, expected_prefix_fragment",
+    [
+        # Parameter-free loss with params → [loss.params] context
+        (
+            {
+                "text": '[loss]\nname = "mae"\n\n[loss.params]\ndelta = 1.0',
+                "kwargs": {},
+            },
+            r"\[loss\.params\]: loss 'mae' does not accept parameters",
+        ),
+        # Unknown parameter key → [loss.params] context
+        (
+            {
+                "text": '[loss]\nname = "huber"\n\n[loss.params]\nbeta = 1.0',
+                "kwargs": {},
+            },
+            r"\[loss\.params\]: unknown parameter\(s\) beta for loss 'huber'",
+        ),
+        # Out-of-range parameter value → loss.params.<param> context
+        (
+            {
+                "text": '[loss]\nname = "huber"\n\n[loss.params]\ndelta = -1.0',
+                "kwargs": {},
+            },
+            r"loss\.params\.delta for loss 'huber' must be strictly positive",
+        ),
+        # Unsupported loss name → [loss] name context
+        (
+            {
+                "text": '[loss]\nname = "logcosh"',
+                "kwargs": {},
+            },
+            r"\[loss\] name: unsupported loss 'logcosh'",
+        ),
+        # Non-string loss name → [loss] name context
+        (
+            {
+                "text": "[loss]\nname = 42",
+                "kwargs": {},
+            },
+            r"\[loss\] name: loss name must be a string",
+        ),
+        # Keyword override: parameter-free with params → loss_params context
+        (
+            {
+                "text": None,
+                "kwargs": {"loss": "mae", "loss_params": {"delta": 1.0}},
+            },
+            r"loss_params: loss 'mae' does not accept parameters",
+        ),
+        # Keyword override: unknown param → loss_params context
+        (
+            {
+                "text": None,
+                "kwargs": {"loss": "huber", "loss_params": {"beta": 1.0}},
+            },
+            r"loss_params: unknown parameter\(s\) beta for loss 'huber'",
+        ),
+        # Keyword override: out-of-range value → loss_params context
+        (
+            {
+                "text": None,
+                "kwargs": {"loss": "huber", "loss_params": {"delta": 0}},
+            },
+            r"loss_params: delta for loss 'huber' must be strictly positive",
+        ),
+    ],
+)
+def test_toml_surface_error_messages_carry_correct_section_context(
+    tmp_path: Path,
+    text_or_kwargs: dict,
+    expected_prefix_fragment: str,
+):
+    """Pin the corrected TOML-section context for all rejection classes.
+
+    Substring-only matching allowed the garbled ``loss.loss`` and
+    ``loss.unknown`` forms to survive earlier phases.  These assertions
+    match the full corrected prefix so the garbled forms cannot return.
+    """
+    base = _minimal_config()
+    if text_or_kwargs["text"] is not None:
+        base = base.replace('[loss]\nname = "mse"', text_or_kwargs["text"])
+    config_path = _write_config(tmp_path, base)
+
+    with pytest.raises(TrainingConfigError, match=expected_prefix_fragment) as error:
+        load_training_config(config_path, **text_or_kwargs["kwargs"])
+
+    assert str(error.value).startswith(str(config_path))

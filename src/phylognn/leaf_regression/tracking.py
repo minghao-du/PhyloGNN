@@ -135,6 +135,7 @@ class _LeafExperimentCoordinator:
         val_predictions: torch.Tensor | None = None,
         val_targets: torch.Tensor | None = None,
         score_fn: Callable[[torch.Tensor, torch.Tensor], object] | None = None,
+        loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
         learning_rate: float,
         epoch_time_sec: float,
     ) -> None:
@@ -144,7 +145,9 @@ class _LeafExperimentCoordinator:
         tensors. Validation tensors are supplied together for stages with a
         validation partition; omitted tensors produce a train-only event.
         ``score_fn`` is the configured regression score, with R-squared used
-        when it is omitted.
+        when it is omitted. ``loss_fn`` is the selected training loss module,
+        used to compute the tracked ``train/loss`` and ``val/loss`` values so
+        they cannot diverge from the optimized objective.
         """
         if not self.enabled:
             return
@@ -153,7 +156,7 @@ class _LeafExperimentCoordinator:
         _validate_finite(learning_rate, "learning_rate", positive=True)
         _validate_finite(epoch_time_sec, "epoch_time_sec", positive=False)
         train_metrics = self._build_partition_metrics(
-            "train", train_predictions, train_targets, score_fn
+            "train", train_predictions, train_targets, score_fn, loss_fn
         )
         if (val_predictions is None) != (val_targets is None):
             raise TrackingError(
@@ -162,7 +165,9 @@ class _LeafExperimentCoordinator:
         val_metrics = (
             None
             if val_predictions is None
-            else self._build_partition_metrics("val", val_predictions, val_targets, score_fn)
+            else self._build_partition_metrics(
+                "val", val_predictions, val_targets, score_fn, loss_fn
+            )
         )
         payload = build_epoch_metrics(
             train_metrics=train_metrics,
@@ -187,12 +192,11 @@ class _LeafExperimentCoordinator:
         predictions: torch.Tensor,
         targets: torch.Tensor,
         score_fn: Callable[[torch.Tensor, torch.Tensor], object] | None,
+        loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
     ) -> dict[str, float]:
         """Return the finite whole-partition metrics for one epoch event."""
         predictions, targets = _validate_partition_pair(partition, predictions, targets)
-        loss = _finite_metric_value(
-            torch.nn.functional.mse_loss(predictions, targets), f"{partition} loss"
-        )
+        loss = _finite_metric_value(loss_fn(predictions, targets), f"{partition} loss")
         score = _score_partition(predictions, targets, score_fn, partition)
         mae = _finite_metric_value(torch.mean(torch.abs(predictions - targets)), f"{partition} mae")
         metrics = {"loss": loss, "score": score, "mae": mae}
@@ -370,6 +374,7 @@ def _build_leaf_tracking_config(
     fold_count: int,
     refit: bool,
     training_values: Mapping[str, object],
+    loss_identifier: str,
     model_class: type[object] | None,
     model_config: Mapping[str, object] | None,
     score_fn: object,
@@ -387,7 +392,7 @@ def _build_leaf_tracking_config(
         model_type=model_type,
         model_params=model_params,
         training_values=training_values,
-        loss_name="mse",
+        loss_name=loss_identifier,
         metric_names=(score_name,),
         tracking_config=tracking_config,
     )

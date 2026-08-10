@@ -174,6 +174,7 @@ def test_leaf_tracking_coordinator_selects_injected_tracker_and_records_lifecycl
         fit_stage,
         train_predictions=torch.tensor([1.0, 3.0]),
         train_targets=torch.tensor([2.0, 4.0]),
+        loss_fn=torch.nn.functional.mse_loss,
         learning_rate=0.01,
         epoch_time_sec=0.2,
     )
@@ -184,6 +185,7 @@ def test_leaf_tracking_coordinator_selects_injected_tracker_and_records_lifecycl
         train_targets=torch.tensor([2.0, 4.0]),
         val_predictions=torch.tensor([1.0, 3.0]),
         val_targets=torch.tensor([2.0, 4.0]),
+        loss_fn=torch.nn.functional.mse_loss,
         learning_rate=0.01,
         epoch_time_sec=0.3,
     )
@@ -233,6 +235,7 @@ def test_leaf_tracking_coordinator_keeps_disabled_and_backend_selection_inert(mo
         disabled.start_stage("fit"),
         train_predictions=torch.tensor([1.0]),
         train_targets=torch.tensor([1.0]),
+        loss_fn=torch.nn.functional.mse_loss,
         learning_rate=0.1,
         epoch_time_sec=0.0,
     )
@@ -269,6 +272,7 @@ def test_leaf_tracking_epoch_metrics_warn_once_for_undefined_pearson_and_reject_
             train_predictions=torch.tensor([2.0]),
             train_targets=torch.tensor([1.0]),
             score_fn=lambda *_: 0.0,
+            loss_fn=torch.nn.functional.mse_loss,
             learning_rate=0.1,
             epoch_time_sec=0.0,
         )
@@ -279,6 +283,7 @@ def test_leaf_tracking_epoch_metrics_warn_once_for_undefined_pearson_and_reject_
             train_predictions=torch.tensor([3.0]),
             train_targets=torch.tensor([1.0]),
             score_fn=lambda *_: 0.0,
+            loss_fn=torch.nn.functional.mse_loss,
             learning_rate=0.1,
             epoch_time_sec=0.0,
         )
@@ -296,6 +301,7 @@ def test_leaf_tracking_epoch_metrics_warn_once_for_undefined_pearson_and_reject_
                 train_predictions=predictions,
                 train_targets=targets,
                 score_fn=score_fn,
+                loss_fn=torch.nn.functional.mse_loss,
                 learning_rate=0.1,
                 epoch_time_sec=0.0,
             )
@@ -377,6 +383,163 @@ def test_disabled_leaf_tracking_never_calls_injected_tracker_or_imports_backend(
     assert tracker.start_payloads == []
     assert tracker.metric_calls == []
     assert tracker.finish_calls == []
+
+
+def test_stage_config_forwards_loss_selection_to_every_fold_and_refit(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Every CV fold and the refit train with the selected loss, not a silent MSE fallback."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        prepare_leaf_regression,
+    )
+    from phylognn.leaf_regression.validation import _stage_config
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    folds = ([0, 1], [2, 3], [4, 5])
+    config = LeafRegressionConfig(epochs=1, learning_rate=0.01, seed=19, loss="mae")
+    result = cross_validate_leaf_regression(
+        data,
+        validation_folds=folds,
+        training_config=config,
+        score_fn=_fold_size_score,
+        refit=True,
+        model_class=_ConfiguredRegressor,
+        model_config={"offset": 0.2},
+    )
+
+    all_indices = torch.arange(len(data.leaf_names), dtype=torch.long)
+    for fold, fold_result in zip(folds, result.fold_results, strict=True):
+        train_indices = all_indices[~torch.isin(all_indices, torch.tensor(fold))]
+        expected_predictions = leaf_regression_representations[train_indices, 0, 0] * 0.1 + 0.2
+        expected_loss = torch.nn.functional.l1_loss(
+            expected_predictions, leaf_regression_targets[train_indices]
+        ).item()
+        assert fold_result.losses[0] == pytest.approx(expected_loss)
+
+    assert result.final_fit is not None
+    expected_refit_predictions = leaf_regression_representations[:, 0, 0] * 0.1 + 0.2
+    expected_refit_loss = torch.nn.functional.l1_loss(
+        expected_refit_predictions, leaf_regression_targets
+    ).item()
+    assert result.final_fit.losses[0] == pytest.approx(expected_refit_loss)
+
+    unseeded_config = LeafRegressionConfig(loss="huber", huber_delta=2.0)
+    assert _stage_config(unseeded_config, 3) is unseeded_config
+
+
+def test_stage_config_forwards_huber_delta_to_every_fold_and_refit(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Every CV fold and the refit train with the configured delta, not the `1.0` default."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        prepare_leaf_regression,
+    )
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    folds = ([0, 1], [2, 3], [4, 5])
+    config = LeafRegressionConfig(
+        epochs=1, learning_rate=0.01, seed=19, loss="huber", huber_delta=0.5
+    )
+    result = cross_validate_leaf_regression(
+        data,
+        validation_folds=folds,
+        training_config=config,
+        score_fn=_fold_size_score,
+        refit=True,
+        model_class=_ConfiguredRegressor,
+        model_config={"offset": 0.2},
+    )
+
+    all_indices = torch.arange(len(data.leaf_names), dtype=torch.long)
+    for fold, fold_result in zip(folds, result.fold_results, strict=True):
+        train_indices = all_indices[~torch.isin(all_indices, torch.tensor(fold))]
+        expected_predictions = leaf_regression_representations[train_indices, 0, 0] * 0.1 + 0.2
+        expected_loss = torch.nn.HuberLoss(delta=0.5)(
+            expected_predictions, leaf_regression_targets[train_indices]
+        ).item()
+        default_delta_loss = torch.nn.HuberLoss(delta=1.0)(
+            expected_predictions, leaf_regression_targets[train_indices]
+        ).item()
+        assert fold_result.losses[0] == pytest.approx(expected_loss)
+        assert fold_result.losses[0] != pytest.approx(default_delta_loss)
+
+    assert result.final_fit is not None
+    expected_refit_predictions = leaf_regression_representations[:, 0, 0] * 0.1 + 0.2
+    expected_refit_loss = torch.nn.HuberLoss(delta=0.5)(
+        expected_refit_predictions, leaf_regression_targets
+    ).item()
+    assert result.final_fit.losses[0] == pytest.approx(expected_refit_loss)
+
+
+def test_cross_validate_leaf_regression_is_deterministic_with_huber_delta(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Two identical Huber-delta CV runs reproduce folds, predictions, and loss histories."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        prepare_leaf_regression,
+    )
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    config = LeafRegressionConfig(
+        epochs=2, learning_rate=0.01, seed=23, loss="huber", huber_delta=0.5
+    )
+
+    def _run():
+        return cross_validate_leaf_regression(
+            data,
+            n_splits=3,
+            training_config=config,
+            refit=True,
+            model_class=_ConfiguredRegressor,
+            model_config={"offset": 0.2},
+        )
+
+    first_result = _run()
+    second_result = _run()
+
+    assert first_result.oof_predictions.tolist() == second_result.oof_predictions.tolist()
+    for first_fold, second_fold in zip(
+        first_result.fold_results, second_result.fold_results, strict=True
+    ):
+        assert torch.equal(first_fold.train_indices, second_fold.train_indices)
+        torch.testing.assert_close(first_fold.predictions, second_fold.predictions)
+        assert first_fold.losses == second_fold.losses
+    assert first_result.final_fit is not None
+    assert second_result.final_fit is not None
+    torch.testing.assert_close(
+        first_result.final_fit.predictions, second_result.final_fit.predictions
+    )
+    assert first_result.final_fit.losses == second_result.final_fit.losses
 
 
 def test_run_leaf_regression_records_three_folds_and_refit_in_one_run(
@@ -574,6 +737,179 @@ def test_run_leaf_regression_records_failure_interruption_and_cleanup_warning(
         if "status/state" in metrics
     ]
     assert statuses == ["failed"]
+
+
+@pytest.mark.parametrize(
+    "training_config_kwargs, expected_identifier",
+    [
+        ({}, "mse"),
+        ({"loss": "mae"}, "mae"),
+        ({"loss": "huber"}, "huber(delta=1.0)"),
+    ],
+)
+def test_loss_identifier_metadata_is_consistent_across_all_start_payload_entry_points(
+    training_config_kwargs,
+    expected_identifier,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """``loss.name`` carries the resolved identifier for fit, CV, and the full workflow."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        fit_leaf_regression,
+        prepare_leaf_regression,
+        run_leaf_regression,
+    )
+    from phylognn.training.tracking import TrackingConfig
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    tracking_config = TrackingConfig(enabled=True, project="phylognn")
+    config = LeafRegressionConfig(epochs=1, learning_rate=0.01, seed=7, **training_config_kwargs)
+
+    fit_tracker = _ObservableLeafTracker()
+    fit_leaf_regression(
+        data,
+        train_indices=[0, 2, 4],
+        training_config=config,
+        model_class=_ConfiguredRegressor,
+        model_config={"offset": 0.2},
+        tracking_config=tracking_config,
+        tracker=fit_tracker,
+    )
+    assert fit_tracker.start_payloads[0]["loss.name"] == expected_identifier
+    fit_epoch_metrics = next(
+        metrics for _, metrics in fit_tracker.metric_calls if "train/loss" in metrics
+    )
+    assert {"train/loss", "train/score", "train/mae"} <= fit_epoch_metrics.keys()
+
+    cv_tracker = _ObservableLeafTracker()
+    cross_validate_leaf_regression(
+        data,
+        validation_folds=([0, 1], [2, 3], [4, 5]),
+        training_config=config,
+        score_fn=_fold_size_score,
+        refit=False,
+        model_class=_ConfiguredRegressor,
+        model_config={"offset": 0.2},
+        tracking_config=tracking_config,
+        tracker=cv_tracker,
+    )
+    assert cv_tracker.start_payloads[0]["loss.name"] == expected_identifier
+    cv_epoch_metrics = next(
+        metrics for _, metrics in cv_tracker.metric_calls if "val/loss" in metrics
+    )
+    assert {"val/loss", "val/score", "val/mae"} <= cv_epoch_metrics.keys()
+
+    run_tracker = _ObservableLeafTracker()
+    run_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+        validation_folds=([0, 1], [2, 3], [4, 5]),
+        training_config=config,
+        score_fn=_fold_size_score,
+        model_class=_ConfiguredRegressor,
+        model_config={"offset": 0.2},
+        tracking_config=tracking_config,
+        tracker=run_tracker,
+    )
+    assert run_tracker.start_payloads[0]["loss.name"] == expected_identifier
+
+
+@pytest.mark.parametrize(
+    "huber_delta, expected_identifier",
+    [
+        (1, "huber(delta=1.0)"),
+        (1.0, "huber(delta=1.0)"),
+        (1.5, "huber(delta=1.5)"),
+    ],
+)
+def test_huber_delta_identifier_metadata_groups_and_distinguishes_across_entry_points(
+    huber_delta,
+    expected_identifier,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """`loss.name` groups numerically equal deltas and distinguishes differing ones."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        fit_leaf_regression,
+        prepare_leaf_regression,
+        run_leaf_regression,
+    )
+    from phylognn.training.tracking import TrackingConfig
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    tracking_config = TrackingConfig(enabled=True, project="phylognn")
+    config = LeafRegressionConfig(
+        epochs=1, learning_rate=0.01, seed=7, loss="huber", huber_delta=huber_delta
+    )
+    metadata_field_names = None
+
+    fit_tracker = _ObservableLeafTracker()
+    fit_leaf_regression(
+        data,
+        train_indices=[0, 2, 4],
+        training_config=config,
+        model_class=_ConfiguredRegressor,
+        model_config={"offset": 0.2},
+        tracking_config=tracking_config,
+        tracker=fit_tracker,
+    )
+    fit_payload = fit_tracker.start_payloads[0]
+    assert fit_payload["loss.name"] == expected_identifier
+    metadata_field_names = set(fit_payload)
+
+    cv_tracker = _ObservableLeafTracker()
+    cross_validate_leaf_regression(
+        data,
+        validation_folds=([0, 1], [2, 3], [4, 5]),
+        training_config=config,
+        score_fn=_fold_size_score,
+        refit=False,
+        model_class=_ConfiguredRegressor,
+        model_config={"offset": 0.2},
+        tracking_config=tracking_config,
+        tracker=cv_tracker,
+    )
+    cv_payload = cv_tracker.start_payloads[0]
+    assert cv_payload["loss.name"] == expected_identifier
+    assert set(cv_payload) == metadata_field_names
+
+    run_tracker = _ObservableLeafTracker()
+    run_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+        validation_folds=([0, 1], [2, 3], [4, 5]),
+        training_config=config,
+        score_fn=_fold_size_score,
+        model_class=_ConfiguredRegressor,
+        model_config={"offset": 0.2},
+        tracking_config=tracking_config,
+        tracker=run_tracker,
+    )
+    run_payload = run_tracker.start_payloads[0]
+    assert run_payload["loss.name"] == expected_identifier
+    assert set(run_payload) == metadata_field_names
 
 
 def test_fit_leaf_regression_tracking_records_direct_stage_and_lifecycle(
@@ -1432,6 +1768,132 @@ def test_fit_leaf_regression_returns_selected_indices_all_predictions_and_losses
     assert all(np.isfinite(loss) for loss in result.losses)
 
 
+@pytest.mark.parametrize(
+    "training_config_kwargs",
+    [
+        {"loss": "mse"},
+        {"loss": "mae"},
+        {"loss": "huber"},
+    ],
+)
+def test_fit_leaf_regression_supports_selectable_loss_and_preserves_result_contracts(
+    training_config_kwargs,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Every catalog loss trains with one finite loss per epoch and unchanged contracts."""
+    from phylognn import LeafRegressionConfig, fit_leaf_regression, prepare_leaf_regression
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    selected_indices = [5, 1, 3]
+    result = fit_leaf_regression(
+        data,
+        train_indices=selected_indices,
+        training_config=LeafRegressionConfig(
+            epochs=3, learning_rate=0.01, seed=19, **training_config_kwargs
+        ),
+        model_class=_ConfiguredRegressor,
+        model_config={"offset": 0.25},
+    )
+
+    assert torch.equal(result.train_indices, torch.tensor(selected_indices))
+    assert result.predictions.shape == (len(data.leaf_names),)
+    assert result.attention is not None
+    assert result.attention.shape == data.position_mask.shape
+    assert len(result.losses) == 3
+    assert all(np.isfinite(loss) for loss in result.losses)
+
+
+def test_fit_leaf_regression_default_loss_matches_explicit_mse_and_direct_computation(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """The default loss is exactly MSE, matching both an explicit selection and torch."""
+    from phylognn import LeafRegressionConfig, fit_leaf_regression, prepare_leaf_regression
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    selected_indices = [5, 1, 3]
+    default_result = fit_leaf_regression(
+        data,
+        train_indices=selected_indices,
+        training_config=LeafRegressionConfig(epochs=3, learning_rate=0.01, seed=19),
+        model_class=_ConfiguredRegressor,
+        model_config={"offset": 0.25},
+    )
+    explicit_mse_result = fit_leaf_regression(
+        data,
+        train_indices=selected_indices,
+        training_config=LeafRegressionConfig(epochs=3, learning_rate=0.01, seed=19, loss="mse"),
+        model_class=_ConfiguredRegressor,
+        model_config={"offset": 0.25},
+    )
+
+    assert default_result.losses == explicit_mse_result.losses
+    torch.testing.assert_close(default_result.predictions, explicit_mse_result.predictions)
+
+    initial_weight = torch.tensor(0.1)
+    offset = _ConfiguredRegressor.instances[-2].offset
+    first_epoch_predictions = (
+        leaf_regression_representations[selected_indices, 0, 0] * initial_weight + offset
+    )
+    expected_first_loss = torch.nn.functional.mse_loss(
+        first_epoch_predictions, leaf_regression_targets[selected_indices]
+    ).item()
+    assert default_result.losses[0] == pytest.approx(expected_first_loss)
+
+
+def test_run_leaf_regression_supports_mae_and_huber_losses_end_to_end(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """The complete workflow finishes with finite results for non-default losses."""
+    from phylognn import LeafRegressionConfig, run_leaf_regression
+
+    for loss_name in ("mae", "huber"):
+        result = run_leaf_regression(
+            leaf_regression_tree,
+            leaf_regression_representations,
+            leaf_regression_position_mask,
+            leaf_regression_targets,
+            n_splits=3,
+            training_config=LeafRegressionConfig(
+                epochs=2, learning_rate=0.01, seed=17, loss=loss_name
+            ),
+        )
+
+        assert {
+            "cv_score",
+            "fold_scores",
+            "oof_predictions",
+            "predictions",
+            "attention",
+            "mean_attention",
+        } == set(result.__dataclass_fields__)
+        assert np.isfinite(result.cv_score)
+        assert len(result.fold_scores) == 3
+        assert all(np.isfinite(score) for score in result.fold_scores)
+        assert torch.isfinite(result.oof_predictions).all()
+        assert result.oof_predictions.shape == leaf_regression_targets.shape
+        assert torch.isfinite(result.predictions).all()
+        assert result.predictions.shape == leaf_regression_targets.shape
+
+
 def test_prediction_only_model_propagates_none_attention_across_workflows(
     leaf_regression_position_mask,
     leaf_regression_representations,
@@ -1762,6 +2224,67 @@ def test_leaf_regression_config_rejects_invalid_values(kwargs, error):
         LeafRegressionConfig(**kwargs)
 
 
+@pytest.mark.parametrize(
+    "kwargs,error",
+    [
+        ({"loss": 42}, TypeError),
+        ({"loss": "huber", "huber_delta": True}, TypeError),
+        ({"loss": "huber", "huber_delta": "1.0"}, TypeError),
+        ({"loss": "logcosh"}, ValueError),
+        ({"loss": "MSE"}, ValueError),
+        ({"loss": "huber", "huber_delta": 0}, ValueError),
+        ({"loss": "huber", "huber_delta": -1.0}, ValueError),
+        ({"loss": "huber", "huber_delta": float("nan")}, ValueError),
+        ({"loss": "huber", "huber_delta": float("inf")}, ValueError),
+        ({"loss": "mse", "huber_delta": 1.0}, ValueError),
+        ({"loss": "mae", "huber_delta": 1.0}, ValueError),
+    ],
+)
+def test_leaf_regression_config_rejects_invalid_loss_selection(kwargs, error):
+    """Every invalid `loss`/`huber_delta` combination fails with its documented category."""
+    from phylognn import LeafRegressionConfig
+
+    with pytest.raises(error, match="loss.*huber_delta"):
+        LeafRegressionConfig(**kwargs)
+
+
+def test_leaf_regression_config_normalizes_and_defaults_huber_delta():
+    """A valid integer delta normalizes to float, and an omitted delta stays unset."""
+    from phylognn import LeafRegressionConfig
+
+    normalized_config = LeafRegressionConfig(loss="huber", huber_delta=2)
+    assert normalized_config.huber_delta == 2.0
+    assert isinstance(normalized_config.huber_delta, float)
+
+    omitted_config = LeafRegressionConfig(loss="huber")
+    assert omitted_config.huber_delta is None
+
+
+def test_leaf_regression_config_accepts_loss_selection_with_existing_defaults():
+    """The default config keeps MSE, and loss selections construct cleanly."""
+    from phylognn import LeafRegressionConfig
+
+    default_config = LeafRegressionConfig()
+    assert default_config.loss == "mse"
+    assert default_config.huber_delta is None
+
+    positional_config = LeafRegressionConfig(100, 1e-3, 0.0, None, None)
+    assert positional_config.loss == "mse"
+    assert positional_config.huber_delta is None
+
+    mae_config = LeafRegressionConfig(loss="mae")
+    assert mae_config.loss == "mae"
+    assert mae_config.huber_delta is None
+
+    huber_default_config = LeafRegressionConfig(loss="huber")
+    assert huber_default_config.loss == "huber"
+    assert huber_default_config.huber_delta is None
+
+    huber_explicit_config = LeafRegressionConfig(loss="huber", huber_delta=1.5)
+    assert huber_explicit_config.loss == "huber"
+    assert huber_explicit_config.huber_delta == 1.5
+
+
 def test_fit_leaf_regression_rejects_invalid_indices_and_model_definitions(
     leaf_regression_position_mask,
     leaf_regression_representations,
@@ -1993,3 +2516,15 @@ def test_default_model_entmax15_workflow(
     assert torch_module.allclose(
         result.attention.sum(dim=1), torch_module.ones(6), atol=1e-6, rtol=0
     )
+
+
+@pytest.mark.parametrize(
+    "loss",
+    ["mse", "mae"],
+)
+def test_leaf_regression_config_mismatch_error_identifies_huber(loss):
+    """The error for a non-Huber loss supplied with huber_delta names Huber."""
+    from phylognn import LeafRegressionConfig
+
+    with pytest.raises(ValueError, match=r"does not accept parameters.*accepted by.*huber"):
+        LeafRegressionConfig(loss=loss, huber_delta=1.0)

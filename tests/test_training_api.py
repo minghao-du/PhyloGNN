@@ -23,6 +23,7 @@ def test_training_package_uses_canonical_all_exports():
         "create_default_trainer",
         "create_trainer_from_config",
         "load_training_config",
+        "supported_loss_names",
     ]
     assert not hasattr(training, "all")
 

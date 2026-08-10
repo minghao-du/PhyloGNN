@@ -91,13 +91,36 @@ Datasets and splits
 TOML helpers
 ------------
 
-.. py:function:: load_training_config(path, *, model_overrides=None, training_overrides=None, loss=None, metrics=None)
+.. py:function:: load_training_config(path, *, model_overrides=None, training_overrides=None, loss=None, loss_params=None, metrics=None)
 
-   Load a TOML file and return `ConfiguredTrainingSetup`.
+   Load a TOML file and return `ConfiguredTrainingSetup`. `loss_params` is
+   shaped like `[loss.params]`; supplying `loss=` replaces the file's whole
+   loss section, including its parameters.
 
-.. py:function:: create_trainer_from_config(path, *, model_overrides=None, training_overrides=None, loss=None, metrics=None)
+.. py:function:: create_trainer_from_config(path, *, model_overrides=None, training_overrides=None, loss=None, loss_params=None, metrics=None)
 
-   Create a `Trainer` from a TOML configuration.
+   Create a `Trainer` from a TOML configuration, forwarding `loss_params`
+   unchanged.
+
+.. py:function:: supported_loss_names()
+
+   Return the supported loss identifiers as a sorted tuple:
+   `("huber", "mae", "mse")`.
+
+Supported losses
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Parameters
+   * - `mse`
+     - none
+   * - `mae`
+     - none
+   * - `huber`
+     - `delta` (positive finite float, default `1.0`)
 
 .. py:function:: create_default_trainer(model, **kwargs)
 

@@ -144,3 +144,21 @@ def test_public_runtime_facades_import_from_default_dependency_profile():
         module = importlib.import_module(module_name)
 
         assert module.__all__
+
+
+def test_supported_loss_names_is_exported_from_training_but_not_the_root_package():
+    """supported_loss_names belongs to phylognn.training, not the curated root surface."""
+    import phylognn
+    import phylognn.training
+
+    assert "supported_loss_names" in phylognn.training.__all__
+    assert "supported_loss_names" in dir(phylognn.training)
+    assert callable(phylognn.training.supported_loss_names)
+    assert "supported_loss_names" not in phylognn.__all__
+
+    try:
+        getattr(phylognn, "supported_loss_names")
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("Root package unexpectedly exposed supported_loss_names.")

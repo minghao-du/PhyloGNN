@@ -19,6 +19,32 @@ targets must already be in that final order. Mapping targets must have exactly
 the leaf-name keys and are aligned by the final leaf order. Preparation never
 reorders caller representation or mask rows.
 
+Loss selection
+--------------
+
+``LeafRegressionConfig.loss`` selects the optimization objective from the
+shared training loss catalog. It defaults to ``"mse"``, preserving prior
+behavior. Set it to ``"mae"`` or ``"huber"`` to change the objective on the
+programmatic fitting, cross-validation, and workflow entry points; use
+``phylognn.training.supported_loss_names()`` to discover the supported
+identifiers at runtime.
+
+``huber_delta`` sets the Huber transition threshold and is valid only when
+``loss="huber"``. It defaults to ``1.0`` when omitted under Huber and is
+rejected alongside any other loss. The tracked loss identifier encodes the
+effective delta (for example ``huber(delta=1.5)``), so runs that differ only
+in delta remain distinguishable while runs with a numerically equal delta
+group together:
+
+.. code-block:: python
+
+   from phylognn import LeafRegressionConfig, fit_leaf_regression
+
+   result = fit_leaf_regression(
+       data,
+       training_config=LeafRegressionConfig(loss="huber", huber_delta=1.5),
+   )
+
 Recommended workflow
 --------------------
 

@@ -2,6 +2,10 @@
 
 # ruff: noqa: E402
 
+from decimal import Decimal
+from fractions import Fraction
+
+import numpy as np
 import pytest
 
 from tests.support import require_modules
@@ -449,3 +453,270 @@ def test_save_best_only_without_validation_overwrites_latest_checkpoint(tmp_path
         weights_only=False,
     )
     assert checkpoint["current_epoch"] == 2
+
+
+# ---------------------------------------------------------------------------
+# T003: Shared loss catalog — names, case sensitivity, rejection table
+# ---------------------------------------------------------------------------
+
+from phylognn.training.losses import (
+    build_loss,
+    format_loss_identifier,
+    resolve_loss_selection,
+    supported_loss_names,
+)
+
+
+class TestLossCatalogDiscovery:
+    """T003: Public query and catalog immutability."""
+
+    def test_supported_loss_names_returns_sorted_tuple(self):
+        assert supported_loss_names() == ("huber", "mae", "mse")
+
+    def test_supported_loss_names_returns_fresh_tuple(self):
+        a = supported_loss_names()
+        b = supported_loss_names()
+        assert a is not b
+
+    def test_case_sensitive_lookup_rejects_uppercase(self):
+        with pytest.raises(ValueError, match="unsupported loss"):
+            resolve_loss_selection("MSE", None)
+
+
+class TestLossCatalogRejection:
+    """T003: Full rejection table from contracts/loss_catalog.md."""
+
+    @pytest.mark.parametrize("name", ["mse", "huber"])
+    def test_non_string_parameter_key_is_reported_as_unknown(self, name):
+        """Parameter keys must be named explicitly in shared-catalog errors."""
+        with pytest.raises(ValueError, match=rf"unknown parameter.*1.*loss '{name}'"):
+            resolve_loss_selection(name, {1: 2.0})
+
+    def test_unsupported_name_lists_supported_identifiers(self):
+        with pytest.raises(ValueError, match="huber.*mae.*mse"):
+            resolve_loss_selection("logcosh", None)
+
+    def test_non_string_name_raises_type_error(self):
+        with pytest.raises(TypeError, match="must be a string"):
+            resolve_loss_selection(42, None)
+
+    def test_unknown_parameter_key_rejected(self):
+        with pytest.raises(ValueError, match="unknown parameter.*beta"):
+            resolve_loss_selection("huber", {"beta": 1.0})
+
+    def test_parameter_supplied_for_parameter_free_loss(self):
+        with pytest.raises(ValueError, match="does not accept parameters"):
+            resolve_loss_selection("mse", {"delta": 1.0})
+
+    def test_mae_rejects_delta(self):
+        with pytest.raises(ValueError, match="does not accept parameters"):
+            resolve_loss_selection("mae", {"delta": 1.0})
+
+    def test_delta_boolean_rejected_as_wrong_type(self):
+        with pytest.raises(TypeError, match="must be a real number"):
+            resolve_loss_selection("huber", {"delta": True})
+
+    def test_delta_string_rejected_as_wrong_type(self):
+        with pytest.raises(TypeError, match="must be a real number"):
+            resolve_loss_selection("huber", {"delta": "1.0"})
+
+    def test_delta_zero_rejected(self):
+        with pytest.raises(ValueError, match="strictly positive"):
+            resolve_loss_selection("huber", {"delta": 0})
+
+    def test_delta_negative_rejected(self):
+        with pytest.raises(ValueError, match="strictly positive"):
+            resolve_loss_selection("huber", {"delta": -1.0})
+
+    def test_delta_nan_rejected(self):
+        with pytest.raises(ValueError, match="finite"):
+            resolve_loss_selection("huber", {"delta": float("nan")})
+
+    def test_delta_inf_rejected(self):
+        with pytest.raises(ValueError, match="finite"):
+            resolve_loss_selection("huber", {"delta": float("inf")})
+
+
+class TestLossCatalogResolution:
+    """T003: Valid resolution paths."""
+
+    def test_mse_with_none_params(self):
+        name, params = resolve_loss_selection("mse", None)
+        assert name == "mse"
+        assert params == {}
+
+    def test_mae_with_empty_params(self):
+        name, params = resolve_loss_selection("mae", {})
+        assert name == "mae"
+        assert params == {}
+
+    def test_huber_with_none_defaults_to_1(self):
+        name, params = resolve_loss_selection("huber", None)
+        assert name == "huber"
+        assert params == {"delta": 1.0}
+
+    def test_huber_with_explicit_delta(self):
+        name, params = resolve_loss_selection("huber", {"delta": 2.0})
+        assert name == "huber"
+        assert params == {"delta": 2.0}
+
+    def test_huber_integer_delta_normalized_to_float(self):
+        _, params = resolve_loss_selection("huber", {"delta": 2})
+        assert params["delta"] == 2.0
+        assert isinstance(params["delta"], float)
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (np.float32(1.5), 1.5),
+            (np.int64(2), 2.0),
+            (Fraction(3, 2), 1.5),
+        ],
+    )
+    def test_real_number_delta_types_normalize_on_both_surfaces(self, value, expected):
+        """Every accepted real-number delta normalizes to a plain float."""
+        from phylognn import LeafRegressionConfig
+
+        _, params = resolve_loss_selection("huber", {"delta": value})
+        config = LeafRegressionConfig(loss="huber", huber_delta=value)
+
+        assert params == {"delta": expected}
+        assert config.huber_delta == expected
+        assert isinstance(params["delta"], float)
+        assert isinstance(config.huber_delta, float)
+
+    @pytest.mark.parametrize("value", [Decimal("1.5"), True])
+    def test_non_real_delta_types_remain_rejected(self, value):
+        """Decimal and bool do not satisfy the accepted real-number contract."""
+        with pytest.raises(TypeError, match="must be a real number"):
+            resolve_loss_selection("huber", {"delta": value})
+
+
+class TestLossCatalogErrorFactory:
+    """T003: Custom error_factory wiring."""
+
+    def test_error_factory_receives_category_type_error(self):
+        class CustomError(Exception):
+            pass
+
+        def factory(msg, category):
+            assert category is TypeError
+            return CustomError(msg)
+
+        with pytest.raises(CustomError):
+            resolve_loss_selection(42, None, error_factory=factory)
+
+    def test_error_factory_receives_category_value_error(self):
+        class CustomError(Exception):
+            pass
+
+        def factory(msg, category):
+            assert category is ValueError
+            return CustomError(msg)
+
+        with pytest.raises(CustomError):
+            resolve_loss_selection("logcosh", None, error_factory=factory)
+
+    def test_two_argument_factory_type_error_propagates_after_one_call(self):
+        """A callback TypeError is not mistaken for a signature mismatch."""
+        calls = 0
+
+        def factory(msg, category):
+            nonlocal calls
+            calls += 1
+            raise TypeError("factory body failure")
+
+        with pytest.raises(TypeError, match="factory body failure"):
+            resolve_loss_selection("logcosh", None, error_factory=factory)
+
+        assert calls == 1
+
+    @pytest.mark.parametrize(
+        ("name", "params", "expected_rejection"),
+        [
+            ("logcosh", None, "name"),
+            ("mae", {"delta": 1.0}, "params"),
+            ("huber", {"delta": 0}, "param_value"),
+        ],
+    )
+    def test_error_factory_receives_structured_rejection(self, name, params, expected_rejection):
+        """Factories accepting the optional keyword receive the rejection class."""
+        seen = []
+
+        class CustomError(Exception):
+            pass
+
+        def factory(msg, category, *, rejection):
+            seen.append(rejection)
+            return CustomError(msg)
+
+        with pytest.raises(CustomError):
+            resolve_loss_selection(name, params, error_factory=factory)
+
+        assert seen == [expected_rejection]
+
+
+# ---------------------------------------------------------------------------
+# T009: Numeric pinning, mse equivalence, requires_grad, identifier text
+# ---------------------------------------------------------------------------
+
+
+class TestBuildLossNumerics:
+    """T009: Pinned numeric values and loss construction contracts."""
+
+    def test_huber_pinned_value(self):
+        """Predictions [0, 0], targets [1, 5], delta=2.0 -> 4.25."""
+        loss_fn = build_loss("huber", {"delta": 2.0})
+        predictions = torch.tensor([0.0, 0.0])
+        targets = torch.tensor([1.0, 5.0])
+        result = loss_fn(predictions, targets)
+        assert result.item() == pytest.approx(4.25)
+
+    def test_huber_mean_reduction_invariant_to_repetition(self):
+        """Repeating the residual pattern must not change the value (mean reduction)."""
+        loss_fn = build_loss("huber", {"delta": 2.0})
+        predictions_2 = torch.tensor([0.0, 0.0])
+        targets_2 = torch.tensor([1.0, 5.0])
+        predictions_4 = torch.tensor([0.0, 0.0, 0.0, 0.0])
+        targets_4 = torch.tensor([1.0, 5.0, 1.0, 5.0])
+        val_2 = loss_fn(predictions_2, targets_2).item()
+        val_4 = loss_fn(predictions_4, targets_4).item()
+        assert val_2 == pytest.approx(4.25)
+        assert val_4 == pytest.approx(4.25)
+
+    def test_mse_matches_functional(self):
+        """Built mse must be numerically identical to torch.nn.functional.mse_loss."""
+        loss_fn = build_loss("mse", {})
+        predictions = torch.tensor([1.0, 2.0, 3.0])
+        targets = torch.tensor([1.5, 2.5, 2.0])
+        expected = torch.nn.functional.mse_loss(predictions, targets)
+        assert loss_fn(predictions, targets).item() == pytest.approx(expected.item())
+
+    def test_requires_grad_propagates(self):
+        """The loss tensor must have requires_grad=True when predictions do."""
+        loss_fn = build_loss("huber", {"delta": 1.0})
+        predictions = torch.tensor([1.0, 2.0], requires_grad=True)
+        targets = torch.tensor([0.5, 2.5])
+        result = loss_fn(predictions, targets)
+        assert result.requires_grad is True
+
+
+class TestFormatLossIdentifier:
+    """T009: Identifier rendering tests."""
+
+    def test_mse_bare_name(self):
+        assert format_loss_identifier("mse", {}) == "mse"
+
+    def test_mae_bare_name(self):
+        assert format_loss_identifier("mae", {}) == "mae"
+
+    def test_huber_default_delta_from_int(self):
+        """Integer 1 and float 1.0 both render as huber(delta=1.0)."""
+        assert format_loss_identifier("huber", {"delta": 1}) == "huber(delta=1.0)"
+        assert format_loss_identifier("huber", {"delta": 1.0}) == "huber(delta=1.0)"
+
+    def test_huber_custom_delta(self):
+        assert format_loss_identifier("huber", {"delta": 1.5}) == "huber(delta=1.5)"
+
+    def test_huber_small_delta(self):
+        assert format_loss_identifier("huber", {"delta": 0.001}) == "huber(delta=0.001)"

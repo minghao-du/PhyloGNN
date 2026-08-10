@@ -24,6 +24,7 @@ _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
     "create_default_trainer": ("phylognn.training.trainer", "create_default_trainer"),
     "create_trainer_from_config": ("phylognn.training.config", "create_trainer_from_config"),
     "load_training_config": ("phylognn.training.config", "load_training_config"),
+    "supported_loss_names": ("phylognn.training.losses", "supported_loss_names"),
 }
 
 __all__ = [
@@ -42,6 +43,7 @@ __all__ = [
     "create_default_trainer",
     "create_trainer_from_config",
     "load_training_config",
+    "supported_loss_names",
 ]
 
 

@@ -447,3 +447,38 @@ def test_metric_tracking_documentation_contracts():
         "not uploaded",
     ):
         assert term in troubleshooting.lower()
+
+
+def test_loss_documentation_contracts():
+    config = _read(DOCS_SOURCE / "user_guide" / "training_config.rst")
+    leaf = _read(DOCS_SOURCE / "user_guide" / "leaf_regression.rst")
+    training_reference = _read(DOCS_SOURCE / "reference" / "training.rst")
+
+    assert "mse` and `mae`." not in config
+    for term in (
+        "`mse`, `mae`, and\n   `huber`",
+        "[loss.params]",
+        "delta = 1.0",
+        "supported_loss_names()",
+        "loss_params",
+        "replaces the whole loss section",
+    ):
+        assert term in config
+
+    for term in (
+        "LeafRegressionConfig.loss",
+        "huber_delta",
+        '``"mae"`` or ``"huber"``',
+        "defaults to ``1.0`` when omitted under Huber",
+        "tracked loss identifier encodes the",
+        "huber(delta=1.5)",
+    ):
+        assert term in leaf
+
+    for term in (
+        "supported_loss_names()",
+        "loss_params",
+        "Supported losses",
+        "delta` (positive finite float, default `1.0`)",
+    ):
+        assert term in training_reference
