@@ -230,6 +230,8 @@ def cross_validate_leaf_regression(
                             "learning_rate": config.learning_rate,
                             "weight_decay": config.weight_decay,
                             "seed": config.seed,
+                            "early_stopping": config.early_stopping,
+                            "early_stopping_patience": config.early_stopping_patience,
                         },
                         loss_identifier=format_loss_identifier(loss_name, loss_params),
                         model_class=model_class,
@@ -275,7 +277,7 @@ def cross_validate_leaf_regression(
                 tracking_stage = coordinator.start_stage("refit")
                 final_fit = fit_leaf_regression(
                     data,
-                    training_config=_stage_config(config, len(folds)),
+                    training_config=_stage_config(config, len(folds), refit=True),
                     model_class=model_class,
                     model_config=model_config,
                     _tracking_coordinator=coordinator,
@@ -367,6 +369,8 @@ def run_leaf_regression(
                     "learning_rate": config.learning_rate,
                     "weight_decay": config.weight_decay,
                     "seed": config.seed,
+                    "early_stopping": config.early_stopping,
+                    "early_stopping_patience": config.early_stopping_patience,
                 },
                 loss_identifier=format_loss_identifier(loss_name, loss_params),
                 model_class=model_class,
@@ -552,15 +556,20 @@ def _build_cv_summary_metrics(
     return summary
 
 
-def _stage_config(config: LeafRegressionConfig, offset: int) -> LeafRegressionConfig:
-    if config.seed is None:
+def _stage_config(
+    config: LeafRegressionConfig, offset: int, *, refit: bool = False
+) -> LeafRegressionConfig:
+    """Derive a stage config, disabling stopping only for the all-leaf refit."""
+    if config.seed is None and not refit:
         return config
     return LeafRegressionConfig(
         epochs=config.epochs,
         learning_rate=config.learning_rate,
         weight_decay=config.weight_decay,
-        seed=config.seed + offset,
+        seed=None if config.seed is None else config.seed + offset,
         device=config.device,
         loss=config.loss,
         huber_delta=config.huber_delta,
+        early_stopping=False if refit else config.early_stopping,
+        early_stopping_patience=config.early_stopping_patience,
     )

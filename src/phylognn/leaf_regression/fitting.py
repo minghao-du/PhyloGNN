@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+import copy
 from contextlib import contextmanager
 from dataclasses import dataclass
 import math
@@ -42,6 +43,10 @@ class LeafRegressionConfig:
         huber_delta: Optional positive finite transition threshold, valid only
             when ``loss="huber"``. Omitted means unset and resolves to ``1.0``
             under Huber.
+        early_stopping: Whether cross-validation folds may stop after their
+            validation loss stops improving. Direct fits reject ``True``.
+        early_stopping_patience: Positive number of consecutive non-improving
+            held-out losses tolerated by each cross-validation fold.
     """
 
     epochs: int = 100
@@ -51,6 +56,8 @@ class LeafRegressionConfig:
     device: torch.device | str | None = None
     loss: str = "mse"
     huber_delta: float | None = None
+    early_stopping: bool = False
+    early_stopping_patience: int = 20
 
     def __post_init__(self) -> None:
         if isinstance(self.epochs, bool) or not isinstance(self.epochs, int) or self.epochs <= 0:
@@ -66,6 +73,14 @@ class LeafRegressionConfig:
                 torch.device(self.device)
             except (TypeError, RuntimeError) as error:
                 raise ValueError("`device` must be accepted by torch.device.") from error
+        if not isinstance(self.early_stopping, bool):
+            raise ValueError("`early_stopping` must be a boolean.")
+        if (
+            isinstance(self.early_stopping_patience, bool)
+            or not isinstance(self.early_stopping_patience, int)
+            or self.early_stopping_patience <= 0
+        ):
+            raise ValueError("`early_stopping_patience` must be a positive non-boolean integer.")
         params = {} if self.huber_delta is None else {"delta": self.huber_delta}
         _, resolved_params = resolve_loss_selection(
             self.loss, params, error_factory=_leaf_regression_config_error_factory
@@ -171,6 +186,11 @@ def fit_leaf_regression(
     """Fit one fresh leaf-regression model with optional scalar tracking.
 
     Args:
+        training_config: Fit controls. With ``early_stopping=False``, this
+            performs exactly ``epochs`` optimizer steps without a held-out
+            validation forward. With ``early_stopping=True``, private
+            cross-validation plumbing must provide held-out validation indices;
+            direct fits raise :class:`ValueError` before model construction.
         tracking_config: Optional explicit tracking settings. Tracking remains
             disabled when omitted or disabled.
         tracker: Optional enabled-run tracker implementation for testing or a
@@ -186,6 +206,11 @@ def fit_leaf_regression(
         config = training_config or LeafRegressionConfig()
         if not isinstance(config, LeafRegressionConfig):
             raise TypeError("`training_config` must be a LeafRegressionConfig instance or None.")
+        if config.early_stopping and _tracking_validation_indices is None:
+            raise ValueError(
+                "`early_stopping=True` requires held-out validation indices and is unsupported "
+                "for a direct fit."
+            )
         loss_params = {} if config.huber_delta is None else {"delta": config.huber_delta}
         loss_name, loss_params = resolve_loss_selection(config.loss, loss_params)
         loss_module = build_loss(loss_name, loss_params)
@@ -214,6 +239,8 @@ def fit_leaf_regression(
                         "learning_rate": config.learning_rate,
                         "weight_decay": config.weight_decay,
                         "seed": config.seed,
+                        "early_stopping": config.early_stopping,
+                        "early_stopping_patience": config.early_stopping_patience,
                     },
                     loss_identifier=loss_identifier,
                     model_class=model_class,
@@ -258,6 +285,10 @@ def fit_leaf_regression(
                 weight_decay=config.weight_decay,
             )
             losses: list[float] = []
+            if config.early_stopping:
+                best_validation_loss = math.inf
+                best_model_state: dict[str, torch.Tensor] | None = None
+                consecutive_non_improvements = 0
             tracking_stage = _tracking_stage
             if tracking_stage is None:
                 tracking_stage = coordinator.start_stage("fit")
@@ -280,15 +311,42 @@ def fit_leaf_regression(
                 loss.backward()
                 optimizer.step()
                 losses.append(float(loss.detach().cpu()))
+                tracked_validation_predictions = (
+                    None if validation_indices is None else predictions[validation_indices].detach()
+                )
+                if config.early_stopping:
+                    model.eval()
+                    with torch.no_grad():
+                        validation_predictions, _ = _normalize_model_output(
+                            model(representations, position_mask),
+                            leaf_count,
+                            representations.size(1),
+                            position_mask,
+                        )
+                        validation_loss = loss_module(
+                            validation_predictions[validation_indices],
+                            targets[validation_indices],
+                        )
+                    if not torch.isfinite(validation_loss):
+                        raise ValueError(
+                            f"The held-out validation {loss_identifier} loss must be finite."
+                        )
+                    tracked_validation_predictions = validation_predictions[
+                        validation_indices
+                    ].detach()
+                    validation_loss_value = float(validation_loss.detach().cpu())
+                    if validation_loss_value < best_validation_loss:
+                        best_validation_loss = validation_loss_value
+                        best_model_state = copy.deepcopy(model.state_dict())
+                        consecutive_non_improvements = 0
+                    else:
+                        consecutive_non_improvements += 1
+                    model.train()
                 coordinator.log_epoch(
                     tracking_stage,
                     train_predictions=predictions[selected_indices].detach(),
                     train_targets=targets[selected_indices].detach(),
-                    val_predictions=(
-                        None
-                        if validation_indices is None
-                        else predictions[validation_indices].detach()
-                    ),
+                    val_predictions=tracked_validation_predictions,
                     val_targets=(
                         None if validation_indices is None else targets[validation_indices].detach()
                     ),
@@ -299,6 +357,15 @@ def fit_leaf_regression(
                         time.perf_counter() - epoch_started if epoch_started is not None else 0.0
                     ),
                 )
+                if (
+                    config.early_stopping
+                    and consecutive_non_improvements >= config.early_stopping_patience
+                ):
+                    break
+            if config.early_stopping:
+                if best_model_state is None:
+                    raise RuntimeError("Early stopping did not observe a held-out validation loss.")
+                model.load_state_dict(best_model_state)
             model.eval()
             with torch.no_grad():
                 predictions, attention = _normalize_model_output(

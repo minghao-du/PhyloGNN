@@ -9,6 +9,158 @@ import pytest
 import torch
 
 
+class _ScriptedLossRegressor(torch.nn.Module):
+    """Return stateful scripted outputs for best-state restoration tests."""
+
+    instances: list["_ScriptedLossRegressor"] = []
+
+    def __init__(self, prediction_script: tuple[tuple[float, ...], ...]) -> None:
+        super().__init__()
+        self.register_buffer(
+            "prediction_script", torch.tensor(prediction_script, dtype=torch.float32)
+        )
+        self.register_buffer("script_index", torch.zeros((), dtype=torch.long))
+        self.weight = torch.nn.Parameter(torch.tensor(0.0))
+        type(self).instances.append(self)
+
+    def forward(
+        self, representations: torch.Tensor, position_mask: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        script_index = min(self.script_index.item(), self.prediction_script.size(0) - 1)
+        predictions = self.prediction_script[script_index].to(representations) + self.weight
+        position_weights = torch.arange(
+            1, position_mask.size(1) + 1, dtype=representations.dtype, device=representations.device
+        )
+        attention = position_mask.to(dtype=representations.dtype) * (
+            position_weights * (1 + torch.sigmoid(self.weight)) + script_index
+        )
+        attention = attention / attention.sum(dim=1, keepdim=True)
+        self.script_index.add_(1)
+        return predictions, attention
+
+
+class _RefitDurationRegressor(torch.nn.Module):
+    """Use construction-ordered prediction scripts for fold/refit duration tests."""
+
+    instances: list["_RefitDurationRegressor"] = []
+    configured_stage_scripts: tuple[tuple[tuple[float, ...], ...], ...] = ()
+
+    def __init__(
+        self, stage_scripts: tuple[tuple[tuple[float, ...], ...], ...] | None = None
+    ) -> None:
+        super().__init__()
+        stage_scripts = stage_scripts or type(self).configured_stage_scripts
+        stage_index = len(type(self).instances)
+        if stage_index >= len(stage_scripts):
+            raise AssertionError("The test did not provide a script for this model stage.")
+        self.prediction_script = torch.tensor(stage_scripts[stage_index], dtype=torch.float32)
+        self.script_index = torch.zeros((), dtype=torch.long)
+        self.weight = torch.nn.Parameter(torch.tensor(0.0))
+        type(self).instances.append(self)
+
+    def forward(self, representations: torch.Tensor, position_mask: torch.Tensor) -> torch.Tensor:
+        del position_mask
+        script_index = min(self.script_index.item(), self.prediction_script.size(0) - 1)
+        self.script_index.add_(1)
+        return self.prediction_script[script_index].to(representations) + self.weight * 0
+
+
+class _ConstructionSentinelRegressor(torch.nn.Module):
+    """Record construction so preflight failures can prove no model was created."""
+
+    construction_count = 0
+
+    def __init__(self) -> None:
+        super().__init__()
+        type(self).construction_count += 1
+        self.weight = torch.nn.Parameter(torch.tensor(0.1))
+
+    def forward(self, representations: torch.Tensor, position_mask: torch.Tensor) -> torch.Tensor:
+        del position_mask
+        return representations[:, 0, 0] * self.weight
+
+
+def test_scripted_loss_regressor_restores_predictions_and_attention_from_state_dict():
+    """The scripted double supports complete best-state restoration assertions."""
+    model = _ScriptedLossRegressor(((0.0, 1.0), (2.0, 3.0)))
+    representations = torch.zeros((2, 3, 1), dtype=torch.float32)
+    position_mask = torch.tensor([[True, True, True], [True, True, False]])
+
+    saved_state = copy.deepcopy(model.state_dict())
+    first_predictions, first_attention = model(representations, position_mask)
+    second_predictions, second_attention = model(representations, position_mask)
+    model.load_state_dict(saved_state)
+    restored_predictions, restored_attention = model(representations, position_mask)
+
+    torch.testing.assert_close(restored_predictions, first_predictions)
+    torch.testing.assert_close(restored_attention, first_attention)
+    assert not torch.equal(first_predictions, second_predictions)
+    assert not torch.equal(first_attention, second_attention)
+
+
+# Fixed outputs captured before leaf-regression early stopping was introduced.
+_FIXED_EPOCH_BASELINE = {
+    "config": {"epochs": 3, "learning_rate": 0.01, "seed": 29, "offset": 0.25},
+    "fit": {
+        "losses": (1.223833441734314, 1.2234065532684326, 1.2230627536773682),
+        "predictions": (
+            0.37962841987609863,
+            0.25,
+            0.28888851404190063,
+            0.3666655719280243,
+            0.340739905834198,
+            0.26296284794807434,
+        ),
+    },
+    "manual_cv": {
+        "fold_losses": (
+            (1.2744998931884766, 1.2670848369598389, 1.2597417831420898),
+            (1.7557499408721924, 1.7540873289108276, 1.7525019645690918),
+            (0.6412500143051147, 0.636947512626648, 0.6327426433563232),
+        ),
+        "fold_scores": (1.163437008857727, 0.17477791011333466, 2.4195008277893066),
+        "cv_score": 1.2525719155867894,
+        "oof_predictions": (
+            0.37999051809310913,
+            0.25,
+            0.27101603150367737,
+            0.3130480647087097,
+            0.29901647567749023,
+            0.2570023536682129,
+        ),
+    },
+    "automatic_cv": {
+        "validation_folds": ((5, 4), (2, 1), (3, 0)),
+        "fold_losses": (
+            (0.6412500143051147, 0.636947512626648, 0.6327426433563232),
+            (1.728524923324585, 1.7277626991271973, 1.7271199226379395),
+            (1.301724910736084, 1.2968096733093262, 1.2919245958328247),
+        ),
+        "fold_scores": (2.4195008277893066, 0.21520331501960754, 1.0942392349243164),
+        "cv_score": 1.2429811259110768,
+        "oof_predictions": (
+            0.37999409437179565,
+            0.25,
+            0.2889195680618286,
+            0.3669946789741516,
+            0.29901647567749023,
+            0.2570023536682129,
+        ),
+    },
+    "workflow": {
+        "cv_score": 1.2525719155867894,
+        "predictions": (
+            0.37962841987609863,
+            0.25,
+            0.28888851404190063,
+            0.3666655719280243,
+            0.340739905834198,
+            0.26296284794807434,
+        ),
+    },
+}
+
+
 class _ConfiguredRegressor(torch.nn.Module):
     instances: list["_ConfiguredRegressor"] = []
 
@@ -138,6 +290,19 @@ class _ObservableLeafTracker:
     def terminal_payloads(self):
         """Return terminal status payloads in the order they were logged."""
         return [payload for payload in self.ordered_payloads if "status/state" in payload]
+
+    def assert_stage_epochs(
+        self, stage_type: str, stage_index: int, expected_epochs: list[int]
+    ) -> None:
+        """Assert the ordered epoch numbers emitted for one tracked stage."""
+        actual_epochs = [
+            payload["stage/epoch"]
+            for payload in self.ordered_payloads
+            if payload.get("stage/type") == stage_type
+            and payload.get("stage/index") == stage_index
+            and "stage/epoch" in payload
+        ]
+        assert actual_epochs == expected_epochs
 
 
 class _InterruptingRegressor(torch.nn.Module):
@@ -2283,6 +2448,645 @@ def test_leaf_regression_config_accepts_loss_selection_with_existing_defaults():
     huber_explicit_config = LeafRegressionConfig(loss="huber", huber_delta=1.5)
     assert huber_explicit_config.loss == "huber"
     assert huber_explicit_config.huber_delta == 1.5
+
+
+def test_leaf_regression_config_defaults_and_appends_early_stopping_controls():
+    """Early-stopping controls preserve all existing positional arguments."""
+    from phylognn import LeafRegressionConfig
+
+    default_config = LeafRegressionConfig()
+    assert default_config.early_stopping is False
+    assert default_config.early_stopping_patience == 20
+
+    positional_config = LeafRegressionConfig(100, 1e-3, 0.0, None, None, "mse", None, True, 3)
+    assert positional_config.early_stopping is True
+    assert positional_config.early_stopping_patience == 3
+
+
+@pytest.mark.parametrize("value", [1, 0, "true", None])
+def test_leaf_regression_config_rejects_non_boolean_early_stopping(value):
+    """The early-stopping switch accepts only exact booleans."""
+    from phylognn import LeafRegressionConfig
+
+    with pytest.raises(ValueError, match="early_stopping"):
+        LeafRegressionConfig(early_stopping=value)
+
+
+@pytest.mark.parametrize("value", [True, False, 0, -1, 1.5, "20", None])
+def test_leaf_regression_config_rejects_invalid_early_stopping_patience_when_disabled(value):
+    """Patience remains validated even when early stopping is disabled."""
+    from phylognn import LeafRegressionConfig
+
+    with pytest.raises(ValueError, match="early_stopping_patience"):
+        LeafRegressionConfig(early_stopping=False, early_stopping_patience=value)
+
+
+def test_fit_leaf_regression_rejects_enabled_early_stopping_before_tracking_or_construction(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Direct fits cannot enable stopping because they have no held-out leaves."""
+    from phylognn import LeafRegressionConfig, fit_leaf_regression, prepare_leaf_regression
+    from phylognn.training.tracking import TrackingConfig
+
+    _ConstructionSentinelRegressor.construction_count = 0
+    tracker = _ObservableLeafTracker()
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+
+    with pytest.raises(ValueError, match="early_stopping"):
+        fit_leaf_regression(
+            data,
+            training_config=LeafRegressionConfig(early_stopping=True),
+            model_class=_ConstructionSentinelRegressor,
+            tracking_config=TrackingConfig(enabled=True, project="phylognn"),
+            tracker=tracker,
+        )
+
+    assert _ConstructionSentinelRegressor.construction_count == 0
+    assert tracker.start_payloads == []
+
+
+@pytest.mark.parametrize("validation_folds", [None, ([0, 1, 2], [3, 4, 5])])
+def test_early_stopping_uses_post_epoch_validation_with_strict_improvement_and_reset(
+    validation_folds,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Equal validation losses consume patience after an improvement resets it."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        prepare_leaf_regression,
+    )
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    targets = tuple(leaf_regression_targets.tolist())
+    script = (targets, tuple(value + 1 for value in targets), targets, targets) * 2
+    result = cross_validate_leaf_regression(
+        data,
+        n_splits=2,
+        validation_folds=validation_folds,
+        training_config=LeafRegressionConfig(
+            epochs=8,
+            learning_rate=1e-30,
+            seed=5,
+            early_stopping=True,
+            early_stopping_patience=2,
+        ),
+        refit=False,
+        model_class=_ScriptedLossRegressor,
+        model_config={"prediction_script": script},
+    )
+
+    assert tuple(len(fold_result.losses) for fold_result in result.fold_results) == (4, 4)
+
+
+def test_early_stopping_respects_patience_greater_than_epoch_limit_and_rejects_nonfinite_losses(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Finite folds retain their epoch cap; non-finite losses fail explicitly."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        prepare_leaf_regression,
+    )
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    targets = tuple(leaf_regression_targets.tolist())
+    stable_script = (targets,) * 12
+    full_result = cross_validate_leaf_regression(
+        data,
+        n_splits=2,
+        training_config=LeafRegressionConfig(
+            epochs=3,
+            learning_rate=1e-30,
+            early_stopping=True,
+            early_stopping_patience=4,
+        ),
+        refit=False,
+        model_class=_ScriptedLossRegressor,
+        model_config={"prediction_script": stable_script},
+    )
+    assert tuple(len(fold_result.losses) for fold_result in full_result.fold_results) == (3, 3)
+
+    with pytest.raises(ValueError, match="finite"):
+        cross_validate_leaf_regression(
+            data,
+            n_splits=2,
+            training_config=LeafRegressionConfig(epochs=1, early_stopping=True),
+            refit=False,
+            model_class=_InvalidOutputRegressor,
+            model_config={"kind": "nonfinite"},
+        )
+
+    with pytest.raises(ValueError, match="validation.*finite"):
+        cross_validate_leaf_regression(
+            data,
+            n_splits=2,
+            training_config=LeafRegressionConfig(
+                epochs=1,
+                learning_rate=1e-30,
+                early_stopping=True,
+            ),
+            refit=False,
+            model_class=_ScriptedLossRegressor,
+            model_config={"prediction_script": (targets, (1e30,) * len(targets))},
+        )
+
+
+def test_early_stopping_restores_each_fold_best_state_for_predictions_attention_and_oof(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Fold outputs and OOF assignments use each fold's selected best state."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        prepare_leaf_regression,
+    )
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    targets = tuple(leaf_regression_targets.tolist())
+    script = (
+        targets,
+        targets,
+        targets,
+        tuple(value + 2 for value in targets),
+        tuple(value + 4 for value in targets),
+    )
+    result = cross_validate_leaf_regression(
+        data,
+        validation_folds=([0, 1, 2], [3, 4, 5]),
+        training_config=LeafRegressionConfig(
+            epochs=6,
+            learning_rate=1e-30,
+            seed=7,
+            early_stopping=True,
+            early_stopping_patience=1,
+        ),
+        refit=False,
+        model_class=_ScriptedLossRegressor,
+        model_config={"prediction_script": script},
+        score_fn=torch.nn.functional.mse_loss,
+    )
+
+    assert tuple(len(fold_result.losses) for fold_result in result.fold_results) == (2, 2)
+    assert all(fold_result.attention is not None for fold_result in result.fold_results)
+    torch.testing.assert_close(result.oof_predictions, leaf_regression_targets)
+    assert result.fold_scores == (0.0, 0.0)
+    expected_attention = leaf_regression_position_mask.to(dtype=torch.float32)
+    expected_attention *= torch.arange(1, expected_attention.size(1) + 1) * 1.5 + 2
+    expected_attention /= expected_attention.sum(dim=1, keepdim=True)
+    for fold_result in result.fold_results:
+        torch.testing.assert_close(fold_result.predictions, leaf_regression_targets)
+        torch.testing.assert_close(fold_result.attention, expected_attention)
+
+
+def test_early_stopping_plateau_reduces_cv_epochs_and_returns_complete_oof_without_refit(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """A controlled plateau shortens automatic CV while retaining every OOF value."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        prepare_leaf_regression,
+    )
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    targets = tuple(leaf_regression_targets.tolist())
+    configured_epochs = 10
+    result = cross_validate_leaf_regression(
+        data,
+        n_splits=3,
+        training_config=LeafRegressionConfig(
+            epochs=configured_epochs,
+            learning_rate=1e-30,
+            seed=13,
+            early_stopping=True,
+            early_stopping_patience=2,
+        ),
+        refit=False,
+        model_class=_ScriptedLossRegressor,
+        model_config={"prediction_script": (targets,) * 12},
+    )
+
+    completed_epochs = sum(len(fold_result.losses) for fold_result in result.fold_results)
+    configured_total = configured_epochs * len(result.fold_results)
+    assert completed_epochs <= configured_total * 0.8
+    assert result.final_fit is None
+    assert result.oof_predictions.shape == leaf_regression_targets.shape
+    assert torch.isfinite(result.oof_predictions).all()
+
+
+@pytest.mark.parametrize(
+    ("fold_modes", "expected_fold_epochs"),
+    [
+        (("improving", "improving", "improving"), (5, 5, 5)),
+        (("improving", "plateau", "improving"), (5, 2, 5)),
+        (("plateau", "plateau", "plateau"), (2, 2, 2)),
+    ],
+)
+def test_early_stopping_refit_runs_full_duration_after_any_fold_stop_pattern(
+    fold_modes,
+    expected_fold_epochs,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """The final all-leaf refit never inherits a fold counter or stopping epoch."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        prepare_leaf_regression,
+    )
+
+    configured_epochs = 5
+    targets = tuple(leaf_regression_targets.tolist())
+
+    def _fold_script(mode):
+        validation_offsets = (
+            tuple(float(configured_epochs - epoch) for epoch in range(configured_epochs))
+            if mode == "improving"
+            else (1.0,) * configured_epochs
+        )
+        return tuple(
+            tuple(
+                target + (validation_offsets[index // 2] if index % 2 else 0.0)
+                for target in targets
+            )
+            for index in range(configured_epochs * 2)
+        )
+
+    _RefitDurationRegressor.instances = []
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    result = cross_validate_leaf_regression(
+        data,
+        validation_folds=([0, 1], [2, 3], [4, 5]),
+        training_config=LeafRegressionConfig(
+            epochs=configured_epochs,
+            learning_rate=1e-30,
+            early_stopping=True,
+            early_stopping_patience=1,
+        ),
+        model_class=_RefitDurationRegressor,
+        model_config={
+            "stage_scripts": tuple(_fold_script(mode) for mode in fold_modes)
+            + (_fold_script("improving"),)
+        },
+    )
+
+    assert (
+        tuple(len(fold_result.losses) for fold_result in result.fold_results)
+        == expected_fold_epochs
+    )
+    assert result.final_fit is not None
+    assert len(result.final_fit.losses) == configured_epochs
+
+
+def test_run_leaf_regression_keeps_full_duration_refit_after_early_stopped_folds(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """The recommended workflow stops folds but always completes its final refit."""
+    from phylognn import LeafRegressionConfig, run_leaf_regression
+    from phylognn.training.tracking import TrackingConfig
+
+    configured_epochs = 5
+    targets = tuple(leaf_regression_targets.tolist())
+    plateau_script = tuple(
+        tuple(target + (1.0 if index % 2 else 0.0) for target in targets)
+        for index in range(configured_epochs * 2)
+    )
+    tracker = _ObservableLeafTracker()
+    _RefitDurationRegressor.instances = []
+    _RefitDurationRegressor.configured_stage_scripts = (plateau_script,) * 4
+
+    result = run_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+        validation_folds=([0, 1], [2, 3], [4, 5]),
+        training_config=LeafRegressionConfig(
+            epochs=configured_epochs,
+            learning_rate=1e-30,
+            early_stopping=True,
+            early_stopping_patience=1,
+        ),
+        model_class=_RefitDurationRegressor,
+        tracking_config=TrackingConfig(enabled=True, project="phylognn"),
+        tracker=tracker,
+    )
+
+    for fold_index in range(1, 4):
+        tracker.assert_stage_epochs("cv_fold", fold_index, [1, 2])
+    tracker.assert_stage_epochs("refit", 1, list(range(1, configured_epochs + 1)))
+    assert result.predictions.shape == leaf_regression_targets.shape
+
+
+@pytest.mark.parametrize("explicitly_disabled", [False, True])
+def test_early_stopping_omitted_or_disabled_preserves_fixed_epoch_baselines(
+    explicitly_disabled,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Disabled stopping retains pre-feature results across every public workflow."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        fit_leaf_regression,
+        prepare_leaf_regression,
+        run_leaf_regression,
+    )
+
+    baseline_config = _FIXED_EPOCH_BASELINE["config"]
+    config_kwargs = {
+        "epochs": baseline_config["epochs"],
+        "learning_rate": baseline_config["learning_rate"],
+        "seed": baseline_config["seed"],
+    }
+    if explicitly_disabled:
+        config_kwargs["early_stopping"] = False
+    config = LeafRegressionConfig(**config_kwargs)
+    model_kwargs = {
+        "model_class": _ConfiguredRegressor,
+        "model_config": {"offset": baseline_config["offset"]},
+    }
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    expected_attention = leaf_regression_position_mask.to(dtype=torch.float32)
+    expected_attention /= expected_attention.sum(dim=1, keepdim=True)
+
+    fit_result = fit_leaf_regression(data, training_config=config, **model_kwargs)
+    assert fit_result.losses == pytest.approx(_FIXED_EPOCH_BASELINE["fit"]["losses"])
+    torch.testing.assert_close(
+        fit_result.predictions,
+        torch.tensor(_FIXED_EPOCH_BASELINE["fit"]["predictions"]),
+    )
+    torch.testing.assert_close(fit_result.attention, expected_attention)
+
+    manual_result = cross_validate_leaf_regression(
+        data,
+        validation_folds=([0, 1], [2, 3], [4, 5]),
+        training_config=config,
+        score_fn=torch.nn.functional.mse_loss,
+        refit=False,
+        **model_kwargs,
+    )
+    manual_baseline = _FIXED_EPOCH_BASELINE["manual_cv"]
+    for result, expected_losses in zip(
+        manual_result.fold_results, manual_baseline["fold_losses"], strict=True
+    ):
+        assert result.losses == pytest.approx(expected_losses)
+        torch.testing.assert_close(result.attention, expected_attention)
+    assert manual_result.fold_scores == pytest.approx(manual_baseline["fold_scores"])
+    assert manual_result.cv_score == pytest.approx(manual_baseline["cv_score"])
+    torch.testing.assert_close(
+        manual_result.oof_predictions,
+        torch.tensor(manual_baseline["oof_predictions"]),
+    )
+
+    automatic_result = cross_validate_leaf_regression(
+        data,
+        n_splits=3,
+        training_config=config,
+        score_fn=torch.nn.functional.mse_loss,
+        refit=False,
+        **model_kwargs,
+    )
+    automatic_baseline = _FIXED_EPOCH_BASELINE["automatic_cv"]
+    assert tuple(tuple(fold.tolist()) for fold in automatic_result.validation_folds) == (
+        automatic_baseline["validation_folds"]
+    )
+    for result, expected_losses in zip(
+        automatic_result.fold_results, automatic_baseline["fold_losses"], strict=True
+    ):
+        assert result.losses == pytest.approx(expected_losses)
+        torch.testing.assert_close(result.attention, expected_attention)
+    assert automatic_result.fold_scores == pytest.approx(automatic_baseline["fold_scores"])
+    assert automatic_result.cv_score == pytest.approx(automatic_baseline["cv_score"])
+    torch.testing.assert_close(
+        automatic_result.oof_predictions,
+        torch.tensor(automatic_baseline["oof_predictions"]),
+    )
+
+    workflow_result = run_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+        validation_folds=([0, 1], [2, 3], [4, 5]),
+        training_config=config,
+        score_fn=torch.nn.functional.mse_loss,
+        **model_kwargs,
+    )
+    workflow_baseline = _FIXED_EPOCH_BASELINE["workflow"]
+    assert workflow_result.cv_score == pytest.approx(workflow_baseline["cv_score"])
+    assert workflow_result.fold_scores == pytest.approx(manual_baseline["fold_scores"])
+    torch.testing.assert_close(
+        workflow_result.oof_predictions,
+        torch.tensor(manual_baseline["oof_predictions"]),
+    )
+    torch.testing.assert_close(
+        workflow_result.predictions,
+        torch.tensor(workflow_baseline["predictions"]),
+    )
+    torch.testing.assert_close(workflow_result.attention, expected_attention)
+    torch.testing.assert_close(workflow_result.mean_attention, expected_attention.mean(dim=0))
+
+
+def test_early_stopping_continuously_improving_folds_complete_all_epochs(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Strictly improving held-out losses never consume early-stopping patience."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        prepare_leaf_regression,
+    )
+
+    configured_epochs = 4
+    targets = tuple(leaf_regression_targets.tolist())
+    prediction_script = tuple(
+        (
+            targets
+            if index % 2 == 0
+            else tuple(target + configured_epochs - index // 2 for target in targets)
+        )
+        for index in range(configured_epochs * 2)
+    )
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+
+    result = cross_validate_leaf_regression(
+        data,
+        validation_folds=([0, 1, 2], [3, 4, 5]),
+        training_config=LeafRegressionConfig(
+            epochs=configured_epochs,
+            learning_rate=1e-30,
+            early_stopping=True,
+            early_stopping_patience=1,
+        ),
+        refit=False,
+        model_class=_ScriptedLossRegressor,
+        model_config={"prediction_script": prediction_script},
+    )
+
+    assert tuple(len(fold_result.losses) for fold_result in result.fold_results) == (
+        configured_epochs,
+        configured_epochs,
+    )
+
+
+def test_early_stopping_tracking_records_config_and_actual_stage_epochs(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """All tracked entry points expose stopping config and completed stage durations."""
+    from phylognn import (
+        LeafRegressionConfig,
+        cross_validate_leaf_regression,
+        fit_leaf_regression,
+        prepare_leaf_regression,
+        run_leaf_regression,
+    )
+    from phylognn.training.tracking import TrackingConfig
+
+    configured_epochs = 4
+    targets = tuple(leaf_regression_targets.tolist())
+    plateau_script = (targets,) * (configured_epochs * 2)
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    tracking_config = TrackingConfig(enabled=True, project="phylognn")
+
+    direct_tracker = _ObservableLeafTracker()
+    _RefitDurationRegressor.instances = []
+    _RefitDurationRegressor.configured_stage_scripts = (plateau_script,)
+    fit_leaf_regression(
+        data,
+        training_config=LeafRegressionConfig(
+            epochs=configured_epochs,
+            early_stopping_patience=3,
+        ),
+        model_class=_RefitDurationRegressor,
+        tracking_config=tracking_config,
+        tracker=direct_tracker,
+    )
+    assert direct_tracker.start_payloads[0]["training.early_stopping"] is False
+    assert direct_tracker.start_payloads[0]["training.early_stopping_patience"] == 3
+
+    cross_validation_tracker = _ObservableLeafTracker()
+    _RefitDurationRegressor.instances = []
+    _RefitDurationRegressor.configured_stage_scripts = (plateau_script,) * 3
+    cross_validate_leaf_regression(
+        data,
+        validation_folds=([0, 1], [2, 3], [4, 5]),
+        training_config=LeafRegressionConfig(
+            epochs=configured_epochs,
+            learning_rate=1e-30,
+            early_stopping=True,
+            early_stopping_patience=1,
+        ),
+        score_fn=torch.nn.functional.mse_loss,
+        refit=False,
+        model_class=_RefitDurationRegressor,
+        tracking_config=tracking_config,
+        tracker=cross_validation_tracker,
+    )
+    assert cross_validation_tracker.start_payloads[0]["training.early_stopping"] is True
+    assert cross_validation_tracker.start_payloads[0]["training.early_stopping_patience"] == 1
+    for fold_index in range(1, 4):
+        cross_validation_tracker.assert_stage_epochs("cv_fold", fold_index, [1, 2])
+
+    workflow_tracker = _ObservableLeafTracker()
+    _RefitDurationRegressor.instances = []
+    _RefitDurationRegressor.configured_stage_scripts = (plateau_script,) * 4
+    run_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+        validation_folds=([0, 1], [2, 3], [4, 5]),
+        training_config=LeafRegressionConfig(
+            epochs=configured_epochs,
+            learning_rate=1e-30,
+            early_stopping=True,
+            early_stopping_patience=1,
+        ),
+        score_fn=torch.nn.functional.mse_loss,
+        model_class=_RefitDurationRegressor,
+        tracking_config=tracking_config,
+        tracker=workflow_tracker,
+    )
+    assert workflow_tracker.start_payloads[0]["training.early_stopping"] is True
+    assert workflow_tracker.start_payloads[0]["training.early_stopping_patience"] == 1
+    for fold_index in range(1, 4):
+        workflow_tracker.assert_stage_epochs("cv_fold", fold_index, [1, 2])
+    workflow_tracker.assert_stage_epochs("refit", 1, list(range(1, configured_epochs + 1)))
 
 
 def test_fit_leaf_regression_rejects_invalid_indices_and_model_definitions(
