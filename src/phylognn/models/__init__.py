@@ -17,6 +17,10 @@ _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
         "phylognn.models.masked_attention",
         "MaskedAttentionPhyloRegressor",
     ),
+    "SparseQueryPhyloRegressor": (
+        "phylognn.models.sparse_query",
+        "SparseQueryPhyloRegressor",
+    ),
     "TemporalBiLSTMEncoder": ("phylognn.models.layers", "TemporalBiLSTMEncoder"),
 }
 
@@ -26,6 +30,7 @@ __all__ = [
     "GATBiLSTMNet",
     "GATNodeRegressor",
     "MaskedAttentionPhyloRegressor",
+    "SparseQueryPhyloRegressor",
     "TemporalBiLSTMEncoder",
 ]
 
