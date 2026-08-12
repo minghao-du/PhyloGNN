@@ -575,6 +575,19 @@ def test_secret_metadata_rejected_and_paths_are_sanitized():
     with pytest.raises(TrackingError, match="sensitive"):
         sanitize_config_metadata({"wandb.token": "secret"})
 
+    model_config = sanitize_config_metadata(
+        {
+            "model.params.token_dim": 64,
+            "model.params.api_key_size": 16,
+            "model.params.secret_dim": 8,
+        }
+    )
+    assert model_config == {
+        "model.params.api_key_size": 16,
+        "model.params.secret_dim": 8,
+        "model.params.token_dim": 64,
+    }
+
     sanitized = sanitize_config_metadata(
         {
             "data.config_file": "/Users/me/private/training.toml",

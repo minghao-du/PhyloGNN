@@ -435,7 +435,8 @@ def _sanitize_sequence_value(key: str, value: object) -> ScalarValue:
 
 def _reject_secret_key(key: str) -> None:
     normalized = key.lower().replace("-", "_")
-    if any(part in normalized for part in SECRET_KEY_PARTS):
+    key_parts = normalized.split(".")
+    if any(part in SECRET_KEY_PARTS for part in key_parts):
         raise TrackingError(f"tracking metadata key {key!r} may contain sensitive information.")
 
 
