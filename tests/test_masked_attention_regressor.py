@@ -131,12 +131,337 @@ def test_masked_attention_regressor_accepts_bool_convertible_mask(torch_module):
     model = MaskedAttentionPhyloRegressor(2, 3, torch_module.eye(2))
     predictions, attention = model(
         torch_module.ones((2, 3, 2)),
-        torch_module.tensor([[1, 0, 1], [0, 1, 0]]),
+        torch_module.tensor([[1, 0, 0], [1, 1, 0]]),
     )
 
     assert predictions.shape == (2,)
-    assert torch_module.equal(attention[0, 1:2], torch_module.zeros(1))
-    assert torch_module.equal(attention[1, [0, 2]], torch_module.zeros(2))
+    assert torch_module.equal(attention[0, 1:], torch_module.zeros(2))
+    assert torch_module.equal(attention[1, 2:], torch_module.zeros(1))
+
+
+@pytest.mark.parametrize("chunk_size", [1, 2, 8])
+def test_chunk_size_accepts_positive_non_boolean_integers(chunk_size, torch_module):
+    """The raw position projection chunk bound is an explicit model setting."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    model = MaskedAttentionPhyloRegressor(2, 3, torch_module.eye(2), chunk_size=chunk_size)
+
+    assert model.chunk_size == chunk_size
+
+
+def test_chunk_size_none_preserves_full_batch_default(torch_module):
+    """Omitting chunking keeps the source-compatible full-batch default."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    assert MaskedAttentionPhyloRegressor(2, 3, torch_module.eye(2)).chunk_size is None
+
+
+@pytest.mark.parametrize("chunk_size", [True, False, 0, -1, 1.5, "2"])
+def test_chunk_size_rejects_invalid_controls(chunk_size, torch_module):
+    """Invalid controls fail during construction before model execution."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    with pytest.raises(ValueError, match="chunk_size"):
+        MaskedAttentionPhyloRegressor(2, 3, torch_module.eye(2), chunk_size=chunk_size)
+
+
+@pytest.mark.parametrize(
+    ("representations", "position_mask", "message"),
+    [
+        (torch.ones(2, 3), torch.ones(2, 3, dtype=torch.bool), "shape"),
+        (torch.ones(2, 3, 2, dtype=torch.int64), torch.ones(2, 3, dtype=torch.bool), "dtype"),
+        (torch.ones(2, 3, 2), torch.full((2, 3), float("nan")), "position_mask"),
+        (torch.ones(2, 3, 2), torch.full((2, 3), 0.5), "position_mask"),
+    ],
+)
+def test_chunk_contract_rejects_invalid_shape_dtype_and_masks(
+    representations, position_mask, message, torch_module
+):
+    """Global input contracts fail before the raw projection is consumed."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    model = MaskedAttentionPhyloRegressor(2, 3, torch_module.eye(2), chunk_size=2)
+
+    with pytest.raises((TypeError, ValueError), match=message):
+        model(representations, position_mask)
+
+
+def test_chunk_contract_accepts_strict_numeric_binary_masks(
+    chunked_sequence_representations, chunked_right_padded_mask, torch_module
+):
+    """Finite numeric zero/one masks are accepted and normalized to boolean."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    model = MaskedAttentionPhyloRegressor(
+        2, 3, torch_module.eye(4), dropout_prob=0.0, chunk_size=2
+    ).eval()
+    predictions, attention = model(
+        chunked_sequence_representations, chunked_right_padded_mask.to(torch.float32)
+    )
+
+    assert predictions.shape == (4,)
+    assert attention.shape == (4, 3)
+
+
+@pytest.mark.parametrize("chunk_size", [1, 3, None, 8])
+def test_chunked_position_projection_preserves_full_batch_outputs_and_order(
+    chunk_size,
+    chunked_leaf_laplacian,
+    chunked_right_padded_mask,
+    chunked_sequence_representations,
+    torch_module,
+):
+    """Chunking only projection preserves ordered full-batch predictions and attention."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    torch_module.manual_seed(7)
+    full_model = MaskedAttentionPhyloRegressor(
+        2, 3, chunked_leaf_laplacian, dropout_prob=0.0
+    ).eval()
+    chunked_model = MaskedAttentionPhyloRegressor(
+        2, 3, chunked_leaf_laplacian, dropout_prob=0.0, chunk_size=chunk_size
+    ).eval()
+    chunked_model.load_state_dict(full_model.state_dict())
+
+    expected_predictions, expected_attention = full_model(
+        chunked_sequence_representations, chunked_right_padded_mask
+    )
+    actual_predictions, actual_attention = chunked_model(
+        chunked_sequence_representations, chunked_right_padded_mask
+    )
+
+    assert torch_module.allclose(actual_predictions, expected_predictions, atol=1e-6, rtol=0)
+    assert torch_module.allclose(actual_attention, expected_attention, atol=1e-6, rtol=0)
+    assert torch_module.equal(
+        actual_attention[~chunked_right_padded_mask],
+        torch_module.zeros_like(actual_attention[~chunked_right_padded_mask]),
+    )
+
+
+def test_chunked_position_projection_bounds_raw_work_and_runs_downstream_once(
+    chunked_leaf_laplacian,
+    chunked_right_padded_mask,
+    chunked_sequence_representations,
+    monkeypatch,
+):
+    """Chunking retains one complete-batch attention, pooling, and prediction pass."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    model = MaskedAttentionPhyloRegressor(
+        2, 3, chunked_leaf_laplacian, dropout_prob=0.0, chunk_size=3
+    ).eval()
+    projection_batch_sizes = []
+    attention_batch_sizes = []
+    prediction_batch_sizes = []
+    phylogeny_batch_sizes = []
+    hooks = [
+        model.position_projection.register_forward_hook(
+            lambda _module, inputs, _output: projection_batch_sizes.append(inputs[0].size(0))
+        ),
+        model.attention_scorer.register_forward_hook(
+            lambda _module, inputs, _output: attention_batch_sizes.append(inputs[0].size(0))
+        ),
+        model.regression_head.register_forward_hook(
+            lambda _module, inputs, _output: prediction_batch_sizes.append(inputs[0].size(0))
+        ),
+    ]
+    original_matmul = torch.Tensor.__matmul__
+
+    def record_laplacian_matmul(left, right):
+        if left is model.leaf_laplacian:
+            phylogeny_batch_sizes.append(right.size(0))
+        return original_matmul(left, right)
+
+    monkeypatch.setattr(torch.Tensor, "__matmul__", record_laplacian_matmul)
+    try:
+        model(chunked_sequence_representations, chunked_right_padded_mask)
+    finally:
+        for hook in hooks:
+            hook.remove()
+
+    assert projection_batch_sizes == [3, 1]
+    assert attention_batch_sizes == [4]
+    assert prediction_batch_sizes == [4]
+    assert phylogeny_batch_sizes == [4]
+
+
+def test_chunked_position_projection_checks_finiteness_per_chunk(
+    chunked_leaf_laplacian,
+    chunked_right_padded_mask,
+    chunked_sequence_representations,
+    monkeypatch,
+):
+    """Finiteness and position projection work are bounded by the configured chunk size."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    model = MaskedAttentionPhyloRegressor(
+        2, 3, chunked_leaf_laplacian, dropout_prob=0.0, chunk_size=3
+    ).eval()
+    finite_check_batch_sizes = []
+    projection_batch_sizes = []
+    original_isfinite = torch.isfinite
+
+    def record_finiteness(tensor):
+        if tensor.ndim == 3:
+            finite_check_batch_sizes.append(tensor.size(0))
+        return original_isfinite(tensor)
+
+    monkeypatch.setattr(torch, "isfinite", record_finiteness)
+    hook = model.position_projection.register_forward_hook(
+        lambda _module, inputs, _output: projection_batch_sizes.append(inputs[0].size(0))
+    )
+    try:
+        model(chunked_sequence_representations, chunked_right_padded_mask)
+    finally:
+        hook.remove()
+
+    assert finite_check_batch_sizes == [3, 1]
+    assert projection_batch_sizes == [3, 1]
+
+
+def test_position_projection_rejects_nonfinite_values_when_their_chunk_is_consumed(
+    chunked_leaf_laplacian,
+    chunked_right_padded_mask,
+    chunked_sequence_representations,
+    monkeypatch,
+):
+    """A non-finite trailing chunk cannot reach the raw position projection."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    model = MaskedAttentionPhyloRegressor(
+        2, 3, chunked_leaf_laplacian, dropout_prob=0.0, chunk_size=3
+    ).eval()
+    representations = chunked_sequence_representations.clone()
+    representations[-1, 0, 0] = float("inf")
+    finite_check_batch_sizes = []
+    projection_batch_sizes = []
+    original_isfinite = torch.isfinite
+
+    def record_finiteness(tensor):
+        if tensor.ndim == 3:
+            finite_check_batch_sizes.append(tensor.size(0))
+        return original_isfinite(tensor)
+
+    monkeypatch.setattr(torch, "isfinite", record_finiteness)
+    hook = model.position_projection.register_forward_hook(
+        lambda _module, inputs, _output: projection_batch_sizes.append(inputs[0].size(0))
+    )
+    try:
+        with pytest.raises(ValueError, match="representations.*finite"):
+            model(representations, chunked_right_padded_mask)
+    finally:
+        hook.remove()
+
+    assert finite_check_batch_sizes == [3, 1]
+    assert projection_batch_sizes == [3]
+
+
+@pytest.mark.parametrize(
+    ("position_mask", "message"),
+    [
+        (torch.ones((4, 3), dtype=torch.bool), "representations"),
+        (
+            torch.tensor(
+                [
+                    [True, True, True],
+                    [True, True, False],
+                    [True, False, False],
+                    [False, False, False],
+                ]
+            ),
+            "position_mask",
+        ),
+        (
+            torch.tensor(
+                [[True, True, True], [True, False, True], [True, False, False], [True, True, True]]
+            ),
+            "position_mask",
+        ),
+        (torch.full((4, 3), float("nan")), "position_mask"),
+        (torch.full((4, 3), 2.0), "position_mask"),
+    ],
+)
+def test_masked_attention_chunk_contract_rejects_empty_and_invalid_mask_rows(
+    chunked_leaf_laplacian,
+    chunked_sequence_representations,
+    position_mask,
+    message,
+):
+    """Global representation and mask contracts fail before raw projection starts."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    model = MaskedAttentionPhyloRegressor(
+        2, 3, chunked_leaf_laplacian, dropout_prob=0.0, chunk_size=2
+    ).eval()
+    representations = chunked_sequence_representations
+    if message == "representations":
+        representations = representations[:0]
+        position_mask = position_mask[:0]
+
+    with pytest.raises((TypeError, ValueError), match=message):
+        model(representations, position_mask)
+
+
+@pytest.mark.parametrize(
+    ("representations", "position_mask", "message"),
+    [
+        (torch.ones((3, 3, 2)), torch.ones((3, 3), dtype=torch.bool), "leaf count"),
+        (torch.ones((4, 3, 3)), torch.ones((4, 3), dtype=torch.bool), "input_dim"),
+        (torch.ones((4, 3, 2), dtype=torch.float64), torch.ones((4, 3), dtype=torch.bool), "dtype"),
+    ],
+)
+def test_masked_attention_rejects_global_contracts_before_projection(
+    representations, position_mask, message
+):
+    """Leaf count and shape validation must precede every raw projection call."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    model = MaskedAttentionPhyloRegressor(2, 3, torch.eye(4), dropout_prob=0.0, chunk_size=2).eval()
+    projection_calls = []
+    hook = model.position_projection.register_forward_hook(
+        lambda _module, _inputs, _output: projection_calls.append(True)
+    )
+    try:
+        with pytest.raises(ValueError, match=message):
+            model(representations, position_mask)
+    finally:
+        hook.remove()
+
+    assert projection_calls == []
+
+
+def test_masked_attention_rejects_laplacian_device_mismatch_before_projection():
+    """The Laplacian and raw representations must share a device before projection."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    model = MaskedAttentionPhyloRegressor(2, 3, torch.eye(4), dropout_prob=0.0, chunk_size=2).eval()
+    model._buffers["leaf_laplacian"] = torch.eye(4, device="meta")
+    representations = torch.ones((4, 3, 2))
+    position_mask = torch.ones((4, 3), dtype=torch.bool)
+    projection_calls = []
+    hook = model.position_projection.register_forward_hook(
+        lambda _module, _inputs, _output: projection_calls.append(True)
+    )
+    try:
+        with pytest.raises(ValueError, match="same device.*leaf_laplacian"):
+            model(representations, position_mask)
+    finally:
+        hook.remove()
+
+    assert projection_calls == []
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires CUDA for device mismatch")
+def test_chunk_contract_rejects_mask_on_different_device():
+    """Representations and masks must share a device before raw projection."""
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+
+    model = MaskedAttentionPhyloRegressor(2, 3, torch.eye(2)).cuda()
+    representations = torch.ones((2, 3, 2), device="cuda")
+    mask = torch.ones((2, 3), dtype=torch.bool)
+
+    with pytest.raises(ValueError, match="same device|device"):
+        model(representations, mask)
 
 
 @pytest.mark.parametrize(
@@ -288,10 +613,10 @@ class TestMaskedAttentionNormalizationModes:
         """A row with exactly one valid position assigns it weight 1."""
         model = _build_deterministic_model(2, 4, mode, scorer_weight=1.0)
         representations = torch.randn(2, 3, 2)
-        mask = torch.tensor([[True, False, False], [False, True, False]])
+        mask = torch.tensor([[True, False, False], [True, False, False]])
         _, attention = model(representations, mask)
         assert torch.allclose(attention[0, 0], torch.tensor(1.0), atol=1e-6)
-        assert torch.allclose(attention[1, 1], torch.tensor(1.0), atol=1e-6)
+        assert torch.allclose(attention[1, 0], torch.tensor(1.0), atol=1e-6)
 
     def test_tied_scores(self, mode, torch_module):
         """When scores are tied, attention should be uniform over valid positions."""
@@ -320,11 +645,11 @@ class TestMaskedAttentionNormalizationModes:
         """Integer masks are handled correctly as in the base tests."""
         model = _build_deterministic_model(2, 4, mode, scorer_weight=1.0)
         representations = torch.randn(2, 3, 2)
-        int_mask = torch.tensor([[1, 0, 1], [0, 1, 0]])
+        int_mask = torch.tensor([[1, 0, 0], [1, 1, 0]])
         predictions, attention = model(representations, int_mask)
         assert predictions.shape == (2,)
         assert torch.equal(attention[0, 1:2], torch.zeros(1))
-        assert torch.equal(attention[1, [0, 2]], torch.zeros(2))
+        assert torch.equal(attention[1, 2:], torch.zeros(1))
 
     def test_independently_recomputed_downstream(self, mode, torch_module):
         """Independently recompute pooling, Laplacian smoothing, and regression head."""

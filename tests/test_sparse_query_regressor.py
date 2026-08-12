@@ -127,17 +127,21 @@ def test_zero_cnn_blocks_and_softmax_support_ablation():
     assert torch.all(attention.masked_select(mask.unsqueeze(1)) > 0)
 
 
-def test_floating_dtypes_are_supported_without_silent_conversion():
-    """Moving the model to float64 should preserve float64 through both stages."""
-    model = _make_model(leaf_laplacian=torch.eye(3, dtype=torch.float64)).double().eval()
+def test_sparse_encoder_requires_float32_representations_before_raw_encoding():
+    """The documented raw representation dtype fails before the adapter runs."""
+    model = _make_model().eval()
     representations, mask = _inputs(dtype=torch.float64)
+    adapter_calls = []
+    hook = model.adapter.register_forward_hook(
+        lambda _module, _inputs, _output: adapter_calls.append(True)
+    )
+    try:
+        with pytest.raises(ValueError, match="dtype torch.float32"):
+            model.encode_sequences(representations, mask)
+    finally:
+        hook.remove()
 
-    embeddings, attention = model.encode_sequences(representations, mask)
-    prediction = model.predict_from_embeddings(embeddings)[0]
-
-    assert embeddings.dtype == torch.float64
-    assert attention.dtype == torch.float64
-    assert prediction.dtype == torch.float64
+    assert adapter_calls == []
 
 
 @pytest.mark.parametrize(
@@ -166,6 +170,411 @@ def test_binary_numeric_position_mask_is_accepted():
 
     assert embeddings.shape == (3, 7)
     assert torch.isfinite(attention).all()
+
+
+@pytest.mark.parametrize("chunk_size", [1, 2, 8])
+def test_chunk_size_accepts_positive_non_boolean_integers(chunk_size):
+    """The raw position encoder chunk bound is an explicit model setting."""
+    model = _make_model(chunk_size=chunk_size)
+
+    assert model.chunk_size == chunk_size
+
+
+def test_chunk_size_none_preserves_full_batch_default():
+    """Omitting chunking keeps the source-compatible full-batch default."""
+    assert _make_model().chunk_size is None
+
+
+@pytest.mark.parametrize("chunk_size", [True, False, 0, -1, 1.5, "2"])
+def test_chunk_size_rejects_invalid_controls(chunk_size):
+    """Invalid controls fail during construction before model execution."""
+    with pytest.raises(ValueError, match="chunk_size"):
+        _make_model(chunk_size=chunk_size)
+
+
+@pytest.mark.parametrize(
+    ("representations", "position_mask", "message"),
+    [
+        (torch.ones(3, 6), torch.ones(3, 6, dtype=torch.bool), "shape"),
+        (torch.ones(3, 6, 6, dtype=torch.int64), torch.ones(3, 6, dtype=torch.bool), "dtype"),
+        (torch.ones(3, 6, 6), torch.full((3, 6), float("nan")), "position_mask"),
+        (torch.ones(3, 6, 6), torch.full((3, 6), 0.5), "position_mask"),
+    ],
+)
+def test_chunk_contract_rejects_invalid_shape_dtype_and_masks(
+    representations, position_mask, message
+):
+    """Global input contracts fail before the raw encoder is consumed."""
+    with pytest.raises((TypeError, ValueError), match=message):
+        _make_model(chunk_size=2).encode_sequences(representations, position_mask)
+
+
+def test_chunk_contract_accepts_strict_numeric_binary_masks(
+    chunked_sequence_representations, chunked_right_padded_mask
+):
+    """Finite numeric zero/one masks are accepted and normalized to boolean."""
+    model = _make_model(
+        input_dim=2,
+        leaf_laplacian=torch.eye(4),
+        chunk_size=2,
+        adapter_rank=3,
+        token_dim=4,
+        num_queries=2,
+        slot_dim=3,
+        species_dim=5,
+        sequence_hidden_dim=3,
+        phylogeny_hidden_dim=3,
+    ).eval()
+    embeddings, attention = model.encode_sequences(
+        chunked_sequence_representations, chunked_right_padded_mask.to(torch.float32)
+    )
+
+    assert embeddings.shape[0] == attention.shape[0] == 4
+
+
+@pytest.mark.parametrize("chunk_size", [1, 3, None, 8])
+def test_chunked_raw_encoding_preserves_full_batch_outputs_and_order(
+    chunk_size, chunked_sequence_representations, chunked_right_padded_mask
+):
+    """Chunking only the raw encoder preserves one ordered full-batch result."""
+    kwargs = {
+        "input_dim": 2,
+        "leaf_laplacian": torch.eye(4),
+        "adapter_rank": 3,
+        "token_dim": 4,
+        "num_queries": 2,
+        "slot_dim": 3,
+        "species_dim": 5,
+        "sequence_hidden_dim": 3,
+        "phylogeny_hidden_dim": 3,
+    }
+    torch.manual_seed(7)
+    full_model = _make_model(**kwargs).eval()
+    chunked_model = _make_model(**kwargs, chunk_size=chunk_size).eval()
+    chunked_model.load_state_dict(full_model.state_dict())
+
+    expected_embeddings, expected_attention = full_model.encode_sequences(
+        chunked_sequence_representations, chunked_right_padded_mask
+    )
+    actual_embeddings, actual_attention = chunked_model.encode_sequences(
+        chunked_sequence_representations, chunked_right_padded_mask
+    )
+    expected_predictions, _ = full_model(
+        chunked_sequence_representations, chunked_right_padded_mask
+    )
+    actual_predictions, _ = chunked_model(
+        chunked_sequence_representations, chunked_right_padded_mask
+    )
+
+    assert torch.allclose(actual_embeddings, expected_embeddings, atol=1e-6, rtol=0)
+    assert torch.allclose(actual_attention, expected_attention, atol=1e-6, rtol=0)
+    assert torch.allclose(actual_predictions, expected_predictions, atol=1e-6, rtol=0)
+    assert torch.equal(
+        actual_attention.masked_select(~chunked_right_padded_mask.unsqueeze(1)),
+        torch.zeros_like(actual_attention.masked_select(~chunked_right_padded_mask.unsqueeze(1))),
+    )
+
+
+def test_chunked_sparse_encoder_bounds_raw_work_and_runs_downstream_once(
+    chunked_sequence_representations, chunked_right_padded_mask
+):
+    """Chunking retains one complete-batch attention, pooling, and prediction pass."""
+    model = _make_model(
+        input_dim=2,
+        leaf_laplacian=torch.eye(4),
+        adapter_rank=3,
+        token_dim=4,
+        num_queries=2,
+        slot_dim=3,
+        species_dim=5,
+        sequence_hidden_dim=3,
+        phylogeny_hidden_dim=3,
+        chunk_size=3,
+    ).eval()
+    adapter_batch_sizes = []
+    cnn_batch_sizes = []
+    attention_batch_sizes = []
+    pooling_batch_sizes = []
+    prediction_batch_sizes = []
+    phylogeny_batch_sizes = []
+    hooks = [
+        model.adapter.register_forward_hook(
+            lambda _module, inputs, _output: adapter_batch_sizes.append(inputs[0].size(0))
+        ),
+        model.cnn_blocks[0].register_forward_hook(
+            lambda _module, inputs, _output: cnn_batch_sizes.append(inputs[0].size(0))
+        ),
+        *[
+            projection.register_forward_hook(
+                lambda _module, inputs, _output: attention_batch_sizes.append(inputs[0].size(0))
+            )
+            for projection in model.key_projections
+        ],
+        model.representation_head.register_forward_hook(
+            lambda _module, inputs, _output: pooling_batch_sizes.append(inputs[0].size(0))
+        ),
+        model.sequence_head.register_forward_hook(
+            lambda _module, inputs, _output: prediction_batch_sizes.append(inputs[0].size(0))
+        ),
+        model.phylogeny_output.register_forward_hook(
+            lambda _module, inputs, _output: phylogeny_batch_sizes.append(inputs[0].size(0))
+        ),
+    ]
+    try:
+        model(chunked_sequence_representations, chunked_right_padded_mask)
+    finally:
+        for hook in hooks:
+            hook.remove()
+
+    assert adapter_batch_sizes == [3, 1]
+    assert cnn_batch_sizes == [3, 1]
+    assert attention_batch_sizes == [4, 4]
+    assert pooling_batch_sizes == [4]
+    assert prediction_batch_sizes == [4]
+    assert phylogeny_batch_sizes == [4]
+
+
+def test_chunked_sparse_encoder_checks_finiteness_and_raw_work_per_chunk(
+    chunked_sequence_representations, chunked_right_padded_mask, monkeypatch
+):
+    """Finiteness, adapter, and CNN work never consume more than one raw chunk."""
+    model = _make_model(
+        input_dim=2,
+        leaf_laplacian=torch.eye(4),
+        adapter_rank=3,
+        token_dim=4,
+        num_queries=2,
+        slot_dim=3,
+        species_dim=5,
+        sequence_hidden_dim=3,
+        phylogeny_hidden_dim=3,
+        chunk_size=3,
+    ).eval()
+    finite_check_batch_sizes = []
+    adapter_batch_sizes = []
+    cnn_batch_sizes = []
+    original_isfinite = torch.isfinite
+
+    def record_finiteness(tensor):
+        if tensor.ndim == 3:
+            finite_check_batch_sizes.append(tensor.size(0))
+        return original_isfinite(tensor)
+
+    monkeypatch.setattr(torch, "isfinite", record_finiteness)
+    hooks = [
+        model.adapter.register_forward_hook(
+            lambda _module, inputs, _output: adapter_batch_sizes.append(inputs[0].size(0))
+        ),
+        model.cnn_blocks[0].register_forward_hook(
+            lambda _module, inputs, _output: cnn_batch_sizes.append(inputs[0].size(0))
+        ),
+    ]
+    try:
+        model.encode_sequences(chunked_sequence_representations, chunked_right_padded_mask)
+    finally:
+        for hook in hooks:
+            hook.remove()
+
+    assert finite_check_batch_sizes == [3, 1]
+    assert adapter_batch_sizes == [3, 1]
+    assert cnn_batch_sizes == [3, 1]
+
+
+def test_sparse_encoder_rejects_nonfinite_values_when_their_chunk_is_consumed(
+    chunked_sequence_representations, chunked_right_padded_mask, monkeypatch
+):
+    """A late invalid chunk fails before that chunk reaches the raw encoder."""
+    model = _make_model(
+        input_dim=2,
+        leaf_laplacian=torch.eye(4),
+        adapter_rank=3,
+        token_dim=4,
+        num_queries=2,
+        slot_dim=3,
+        species_dim=5,
+        sequence_hidden_dim=3,
+        phylogeny_hidden_dim=3,
+        chunk_size=3,
+    ).eval()
+    representations = chunked_sequence_representations.clone()
+    representations[-1, 0, 0] = float("nan")
+    finite_check_batch_sizes = []
+    adapter_batch_sizes = []
+    original_isfinite = torch.isfinite
+
+    def record_finiteness(tensor):
+        if tensor.ndim == 3:
+            finite_check_batch_sizes.append(tensor.size(0))
+        return original_isfinite(tensor)
+
+    monkeypatch.setattr(torch, "isfinite", record_finiteness)
+    hook = model.adapter.register_forward_hook(
+        lambda _module, inputs, _output: adapter_batch_sizes.append(inputs[0].size(0))
+    )
+    try:
+        with pytest.raises(ValueError, match="representations.*finite"):
+            model.encode_sequences(representations, chunked_right_padded_mask)
+    finally:
+        hook.remove()
+
+    assert finite_check_batch_sizes == [3, 1]
+    assert adapter_batch_sizes == [3]
+
+
+@pytest.mark.parametrize(
+    ("position_mask", "message"),
+    [
+        (torch.ones((4, 3), dtype=torch.bool), "representations"),
+        (
+            torch.tensor(
+                [
+                    [True, True, True],
+                    [True, True, False],
+                    [True, False, False],
+                    [False, False, False],
+                ]
+            ),
+            "position_mask",
+        ),
+        (
+            torch.tensor(
+                [[True, True, True], [True, False, True], [True, False, False], [True, True, True]]
+            ),
+            "position_mask",
+        ),
+        (torch.full((4, 3), float("inf")), "position_mask"),
+        (torch.full((4, 3), 0.5), "position_mask"),
+    ],
+)
+def test_sparse_chunk_contract_rejects_empty_and_invalid_mask_rows(
+    chunked_sequence_representations, position_mask, message
+):
+    """Global representation and mask contracts fail before raw encoding starts."""
+    model = _make_model(
+        input_dim=2,
+        leaf_laplacian=torch.eye(4),
+        adapter_rank=3,
+        token_dim=4,
+        num_queries=2,
+        slot_dim=3,
+        species_dim=5,
+        sequence_hidden_dim=3,
+        phylogeny_hidden_dim=3,
+        chunk_size=2,
+    ).eval()
+    representations = chunked_sequence_representations
+    if message == "representations":
+        representations = representations[:0]
+        position_mask = position_mask[:0]
+
+    with pytest.raises((TypeError, ValueError), match=message):
+        model.encode_sequences(representations, position_mask)
+
+
+@pytest.mark.parametrize(
+    ("representations", "position_mask", "message"),
+    [
+        (torch.ones((3, 3, 2)), torch.ones((3, 3), dtype=torch.bool), "leaf count"),
+        (torch.ones((4, 3, 3)), torch.ones((4, 3), dtype=torch.bool), "input_dim"),
+    ],
+)
+def test_sparse_encoder_rejects_global_contracts_before_adapter(
+    representations, position_mask, message
+):
+    """Leaf count and shape validation must precede every raw encoder call."""
+    model = _make_model(
+        input_dim=2,
+        leaf_laplacian=torch.eye(4),
+        adapter_rank=3,
+        token_dim=4,
+        num_queries=2,
+        slot_dim=3,
+        species_dim=5,
+        sequence_hidden_dim=3,
+        phylogeny_hidden_dim=3,
+        chunk_size=2,
+    ).eval()
+    adapter_calls = []
+    hook = model.adapter.register_forward_hook(
+        lambda _module, _inputs, _output: adapter_calls.append(True)
+    )
+    try:
+        with pytest.raises(ValueError, match=message):
+            model.encode_sequences(representations, position_mask)
+    finally:
+        hook.remove()
+
+    assert adapter_calls == []
+
+
+def test_sparse_encoder_rejects_laplacian_device_mismatch_before_adapter():
+    """The graph operator must share the raw representation device before encoding."""
+    model = _make_model(
+        input_dim=2,
+        leaf_laplacian=torch.eye(4),
+        adapter_rank=3,
+        token_dim=4,
+        num_queries=2,
+        slot_dim=3,
+        species_dim=5,
+        sequence_hidden_dim=3,
+        phylogeny_hidden_dim=3,
+        chunk_size=2,
+    ).eval()
+    model._buffers["leaf_laplacian"] = torch.eye(4, device="meta")
+    representations = torch.ones((4, 3, 2))
+    position_mask = torch.ones((4, 3), dtype=torch.bool)
+    adapter_calls = []
+    hook = model.adapter.register_forward_hook(
+        lambda _module, _inputs, _output: adapter_calls.append(True)
+    )
+    try:
+        with pytest.raises(ValueError, match="same device.*leaf_laplacian"):
+            model.encode_sequences(representations, position_mask)
+    finally:
+        hook.remove()
+
+    assert adapter_calls == []
+
+
+def test_sparse_encoder_rejects_laplacian_dtype_mismatch_before_adapter():
+    """The graph operator must share the raw representation dtype before encoding."""
+    model = _make_model(
+        input_dim=2,
+        leaf_laplacian=torch.eye(4),
+        adapter_rank=3,
+        token_dim=4,
+        num_queries=2,
+        slot_dim=3,
+        species_dim=5,
+        sequence_hidden_dim=3,
+        phylogeny_hidden_dim=3,
+        chunk_size=2,
+    ).eval()
+    model._buffers["leaf_laplacian"] = torch.eye(4, dtype=torch.float64)
+    representations = torch.ones((4, 3, 2))
+    position_mask = torch.ones((4, 3), dtype=torch.bool)
+    adapter_calls = []
+    hook = model.adapter.register_forward_hook(
+        lambda _module, _inputs, _output: adapter_calls.append(True)
+    )
+    try:
+        with pytest.raises(ValueError, match="same dtype.*leaf_laplacian"):
+            model.encode_sequences(representations, position_mask)
+    finally:
+        hook.remove()
+
+    assert adapter_calls == []
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="requires CUDA for device mismatch")
+def test_chunk_contract_rejects_mask_on_different_device():
+    """Representations and masks must share a device before chunk execution."""
+    model = _make_model().cuda()
+    representations, mask = _inputs()
+
+    with pytest.raises(ValueError, match="same device|device"):
+        model.encode_sequences(representations.cuda(), mask)
 
 
 @pytest.mark.parametrize(

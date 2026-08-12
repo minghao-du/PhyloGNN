@@ -9,6 +9,156 @@ import pytest
 import torch
 
 
+def test_prepare_leaf_regression_defers_representation_finiteness_to_model(
+    leaf_regression_tree,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+):
+    """Data construction validates structure but leaves raw finiteness to models."""
+    from phylognn.leaf_regression import prepare_leaf_regression
+
+    representations = leaf_regression_representations.clone()
+    representations[0, 0, 0] = float("nan")
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+
+    assert torch.isnan(data.representations[0, 0, 0])
+
+
+@pytest.mark.parametrize("mask", [torch.ones(6, 4), torch.tensor([[1, 0, 0, 0]] * 6)])
+def test_prepare_leaf_regression_canonicalizes_numeric_binary_masks(
+    mask,
+    leaf_regression_tree,
+    leaf_regression_representations,
+    leaf_regression_targets,
+):
+    """Accepted numeric zero/one masks become boolean data fields."""
+    from phylognn.leaf_regression import prepare_leaf_regression
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        mask,
+        leaf_regression_targets,
+    )
+
+    assert data.position_mask.dtype == torch.bool
+
+
+@pytest.mark.parametrize(
+    "position_mask",
+    [torch.ones(6, 4, dtype=torch.float32), torch.tensor([[1, 0, 0, 0]] * 6)],
+)
+def test_leaf_regression_data_construction_canonicalizes_numeric_binary_masks(
+    position_mask,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Direct data construction stores accepted numeric masks as bool tensors."""
+    from phylognn.leaf_regression import LeafRegressionData, prepare_leaf_regression
+
+    prepared = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+
+    data = LeafRegressionData(
+        leaf_names=prepared.leaf_names,
+        representations=prepared.representations,
+        position_mask=position_mask,
+        targets=prepared.targets,
+        leaf_laplacian=prepared.leaf_laplacian,
+    )
+
+    assert data.position_mask.dtype == torch.bool
+    assert torch.equal(data.position_mask, position_mask.to(dtype=torch.bool))
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "match"),
+    [
+        ("representations", torch.ones(6, 4), "representations"),
+        ("position_mask", torch.ones(6, 3, dtype=torch.bool), "position_mask"),
+        ("position_mask", torch.full((6, 4), 0.5), "position_mask"),
+    ],
+)
+def test_leaf_regression_data_validates_structure_and_mask_contracts(
+    field,
+    value,
+    match,
+    leaf_regression_tree,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+):
+    """Malformed structural fields fail at the data boundary."""
+    from phylognn.leaf_regression import prepare_leaf_regression
+
+    kwargs = {
+        "representations": leaf_regression_representations,
+        "position_mask": leaf_regression_position_mask,
+        "targets": leaf_regression_targets,
+    }
+    kwargs[field] = value
+    with pytest.raises((TypeError, ValueError), match=match):
+        prepare_leaf_regression(leaf_regression_tree, **kwargs)
+
+
+def test_prepare_leaf_regression_rejects_non_contiguous_right_padding(
+    leaf_regression_tree,
+    leaf_regression_representations,
+    leaf_regression_targets,
+):
+    """Preparation rejects internal mask gaps before any model can be constructed."""
+    from phylognn.leaf_regression import prepare_leaf_regression
+
+    mask = torch.tensor([[1, 0, 1, 0]] * 6, dtype=torch.bool)
+    with pytest.raises(ValueError, match="contiguous right padding"):
+        prepare_leaf_regression(
+            leaf_regression_tree,
+            leaf_regression_representations,
+            mask,
+            leaf_regression_targets,
+        )
+
+
+def test_leaf_regression_data_rejects_non_contiguous_right_padding(
+    leaf_regression_tree,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+):
+    """Direct data construction applies the same right-padding contract."""
+    from phylognn.leaf_regression import LeafRegressionData, prepare_leaf_regression
+
+    prepared = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    mask = torch.tensor([[1, 0, 1, 0]] * 6, dtype=torch.bool)
+
+    with pytest.raises(ValueError, match="contiguous right padding"):
+        LeafRegressionData(
+            leaf_names=prepared.leaf_names,
+            representations=prepared.representations,
+            position_mask=mask,
+            targets=prepared.targets,
+            leaf_laplacian=prepared.leaf_laplacian,
+        )
+
+
 class _ScriptedLossRegressor(torch.nn.Module):
     """Return stateful scripted outputs for best-state restoration tests."""
 
@@ -2247,7 +2397,6 @@ def test_cross_validation_preserves_manual_folds_and_matches_recommended_workflo
     [
         (torch.ones((6, 4), dtype=torch.float32), None, None, None, "representations"),
         (torch.ones((6, 4, 3), dtype=torch.int64), None, None, None, "representations"),
-        (torch.full((6, 4, 3), float("nan")), None, None, None, "representations"),
         (None, torch.ones((6, 4), dtype=torch.float32) * 2, None, None, "position_mask"),
         (None, torch.tensor([[1.0, float("nan"), 0.0, 0.0]] * 6), None, None, "position_mask"),
         (None, torch.zeros((6, 4), dtype=torch.int64), None, None, "position_mask"),
@@ -3320,6 +3469,224 @@ def test_default_model_entmax15_workflow(
     assert torch_module.allclose(
         result.attention.sum(dim=1), torch_module.ones(6), atol=1e-6, rtol=0
     )
+
+
+@pytest.mark.parametrize("model_name", ["default", "sparse_query"])
+def test_fit_leaf_regression_forwards_chunk_size_to_selected_sequence_model(
+    model_name,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """The existing model configuration forwards chunking without result changes."""
+    from phylognn import LeafRegressionConfig, fit_leaf_regression, prepare_leaf_regression
+    from phylognn.leaf_regression.fitting import _construct_model
+    from phylognn.models import SparseQueryPhyloRegressor
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    model_class = None
+    model_config: dict[str, object] = {"chunk_size": 2, "dropout_prob": 0.0}
+    if model_name == "sparse_query":
+        model_class = SparseQueryPhyloRegressor
+        model_config = {
+            "input_dim": data.representations.size(-1),
+            "leaf_laplacian": data.leaf_laplacian,
+            "adapter_rank": 3,
+            "token_dim": 4,
+            "num_cnn_blocks": 1,
+            "cnn_kernel_sizes": (3,),
+            "num_queries": 2,
+            "slot_dim": 3,
+            "species_dim": 5,
+            "sequence_hidden_dim": 3,
+            "phylogeny_hidden_dim": 3,
+            "adapter_dropout_prob": 0.0,
+            "cnn_dropout_prob": 0.0,
+            "representation_dropout_prob": 0.0,
+            "sequence_dropout_prob": 0.0,
+            "phylogeny_dropout_prob": 0.0,
+            "chunk_size": 2,
+        }
+
+    model = _construct_model(data, model_class, model_config)
+    assert model.chunk_size == 2
+
+    if model_name == "default":
+        result = fit_leaf_regression(
+            data,
+            training_config=LeafRegressionConfig(epochs=1, learning_rate=0.01, seed=42),
+            model_config=model_config,
+        )
+
+        assert result.predictions.shape == (6,)
+        assert result.attention is not None
+        assert result.attention.shape[0] == 6
+        assert len(result.losses) == 1
+
+
+class _RepresentationStorageRegressor(torch.nn.Module):
+    """Record the representation tensor received by one fitting call."""
+
+    instances: list["_RepresentationStorageRegressor"] = []
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = torch.nn.Parameter(torch.tensor(0.1))
+        self.representation_data_ptr: int | None = None
+        self.representation_version: int | None = None
+        type(self).instances.append(self)
+
+    def forward(self, representations: torch.Tensor, position_mask: torch.Tensor) -> torch.Tensor:
+        del position_mask
+        self.representation_data_ptr = representations.data_ptr()
+        self.representation_version = representations._version
+        return representations[:, 0, 0] * self.weight
+
+
+def _snapshot_leaf_regression_data(data):
+    """Capture caller-owned values and representation storage metadata."""
+    return {
+        "representations": data.representations.detach().clone(),
+        "representation_data_ptr": data.representations.data_ptr(),
+        "representation_version": data.representations._version,
+        "position_mask": data.position_mask.detach().clone(),
+        "targets": data.targets.detach().clone(),
+        "leaf_laplacian": data.leaf_laplacian.detach().clone(),
+    }
+
+
+def _assert_leaf_regression_data_matches_snapshot(data, snapshot):
+    """Assert fitting did not mutate any caller-owned data field."""
+    assert torch.equal(data.representations, snapshot["representations"])
+    assert data.representations.data_ptr() == snapshot["representation_data_ptr"]
+    assert data.representations._version == snapshot["representation_version"]
+    assert torch.equal(data.position_mask, snapshot["position_mask"])
+    assert torch.equal(data.targets, snapshot["targets"])
+    assert torch.equal(data.leaf_laplacian, snapshot["leaf_laplacian"])
+
+
+def test_fit_leaf_regression_uses_same_storage_representation_alias_on_target_device(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """A same-device fit avoids a redundant representations clone."""
+    from phylognn import LeafRegressionConfig, fit_leaf_regression, prepare_leaf_regression
+
+    _RepresentationStorageRegressor.instances.clear()
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    snapshot = _snapshot_leaf_regression_data(data)
+    train_indices = torch.tensor([0, 2, 4], dtype=torch.long)
+    indices_snapshot = train_indices.detach().clone()
+    indices_data_ptr = train_indices.data_ptr()
+    indices_version = train_indices._version
+
+    fit_leaf_regression(
+        data,
+        train_indices=train_indices,
+        training_config=LeafRegressionConfig(epochs=1, learning_rate=0.01, seed=17),
+        model_class=_RepresentationStorageRegressor,
+    )
+
+    model = _RepresentationStorageRegressor.instances[-1]
+    assert model.representation_data_ptr == snapshot["representation_data_ptr"]
+    assert model.representation_version == snapshot["representation_version"]
+    _assert_leaf_regression_data_matches_snapshot(data, snapshot)
+    assert torch.equal(train_indices, indices_snapshot)
+    assert train_indices.data_ptr() == indices_data_ptr
+    assert train_indices._version == indices_version
+
+
+def test_prepare_representations_detaches_on_target_device_and_transfers_otherwise():
+    """Representation preparation aliases locally and accepts transfer results remotely."""
+    from phylognn.leaf_regression.fitting import _prepare_representations
+
+    representations = torch.ones((2, 3, 4), dtype=torch.float32)
+
+    local = _prepare_representations(representations, torch.device("cpu"))
+    transferred = _prepare_representations(representations, torch.device("meta"))
+
+    assert local.data_ptr() == representations.data_ptr()
+    assert local._version == representations._version
+    assert local.requires_grad is False
+    assert transferred.device.type == "meta"
+    assert transferred is not representations
+
+
+@pytest.mark.parametrize("failure", ["invalid_indices", "model_output"])
+def test_fit_leaf_regression_preserves_caller_data_after_validation_failure(
+    failure,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Pre-update validation failures cannot mutate caller-owned fit inputs."""
+    from phylognn import LeafRegressionConfig, fit_leaf_regression, prepare_leaf_regression
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    snapshot = _snapshot_leaf_regression_data(data)
+    kwargs = {
+        "training_config": LeafRegressionConfig(epochs=1, learning_rate=0.01, seed=17),
+    }
+    if failure == "invalid_indices":
+        kwargs["train_indices"] = [len(data.leaf_names)]
+        expected_error = "train_indices"
+    else:
+        kwargs["model_class"] = _InvalidOutputRegressor
+        kwargs["model_config"] = {"kind": "shape"}
+        expected_error = "predictions"
+
+    with pytest.raises((TypeError, ValueError), match=expected_error):
+        fit_leaf_regression(data, **kwargs)
+
+    _assert_leaf_regression_data_matches_snapshot(data, snapshot)
+
+
+def test_fit_leaf_regression_keeps_default_sequence_model_configuration_compatible(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Omitting chunk_size retains the default full-batch sequence-model path."""
+    from phylognn import LeafRegressionConfig, fit_leaf_regression, prepare_leaf_regression
+    from phylognn.leaf_regression.fitting import _construct_model
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    model = _construct_model(data, None, {"dropout_prob": 0.0})
+    result = fit_leaf_regression(
+        data,
+        training_config=LeafRegressionConfig(epochs=1, learning_rate=0.01, seed=17),
+        model_config={"dropout_prob": 0.0},
+    )
+
+    assert model.chunk_size is None
+    assert result.predictions.shape == (len(data.leaf_names),)
+    assert result.attention is not None
+    assert result.attention.shape == data.position_mask.shape
 
 
 @pytest.mark.parametrize(

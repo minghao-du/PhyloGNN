@@ -21,9 +21,11 @@ class LeafRegressionData:
 
     Args:
         leaf_names: Nonempty, unique leaf names with shape ``[N]``.
-        representations: Finite float32 position representations ``[N, L, D]``.
-        position_mask: Boolean valid-position mask ``[N, L]`` with at least one
-            valid position per leaf.
+        representations: Float32 position representations ``[N, L, D]``. Models
+            validate finite values as they consume raw encoder chunks.
+        position_mask: Boolean or strict numeric zero/one valid-position mask
+            ``[N, L]`` with at least one valid position per leaf and contiguous
+            right padding. Accepted numeric masks are stored as ``torch.bool``.
         targets: Finite float32 targets ``[N]`` in ``leaf_names`` order.
         leaf_laplacian: Finite float32 leaf constraint ``[N, N]`` in the same
             order.
@@ -39,13 +41,15 @@ class LeafRegressionData:
     leaf_laplacian: torch.Tensor
 
     def __post_init__(self) -> None:
+        position_mask = _normalize_position_mask(self.position_mask)
         _validate_data_fields(
             self.leaf_names,
             self.representations,
-            self.position_mask,
+            position_mask,
             self.targets,
             self.leaf_laplacian,
         )
+        object.__setattr__(self, "position_mask", position_mask)
 
 
 def _validate_data_fields(
@@ -74,15 +78,11 @@ def _validate_data_fields(
         raise ValueError(
             "`representations` must have nonempty shape [N, L, D] aligned to `leaf_names`."
         )
-    if not torch.isfinite(representations).all():
-        raise ValueError("`representations` must contain only finite values.")
-
-    if not torch.is_tensor(position_mask) or position_mask.dtype != torch.bool:
-        raise TypeError("`position_mask` must be a bool torch.Tensor.")
     if position_mask.shape != representations.shape[:2]:
         raise ValueError("`position_mask` must have shape [N, L] matching `representations`.")
     if not torch.all(position_mask.any(dim=1)):
         raise ValueError("Every `position_mask` row must contain a valid position.")
+    _validate_contiguous_right_padding(position_mask)
 
     if not torch.is_tensor(targets) or targets.dtype != torch.float32:
         raise TypeError("`targets` must be a float32 torch.Tensor.")
@@ -122,12 +122,11 @@ def prepare_leaf_regression(
         or representations_tensor.size(2) == 0
     ):
         raise ValueError("`representations` must have nonempty shape [N, L, D] aligned to leaves.")
-    if not torch.isfinite(representations_tensor).all():
-        raise ValueError("`representations` must contain only finite values.")
     if position_mask_tensor.shape != representations_tensor.shape[:2]:
         raise ValueError("`position_mask` must have shape [N, L] matching `representations`.")
     if not torch.all(position_mask_tensor.any(dim=1)):
         raise ValueError("Every `position_mask` row must contain a valid position.")
+    _validate_contiguous_right_padding(position_mask_tensor)
 
     return LeafRegressionData(
         leaf_names=names,
@@ -177,6 +176,13 @@ def _as_position_mask(value: object) -> torch.Tensor:
         mask = torch.as_tensor(value)
     except (TypeError, ValueError) as error:
         raise TypeError("`position_mask` must be tensor-like.") from error
+    return _normalize_position_mask(mask)
+
+
+def _normalize_position_mask(mask: torch.Tensor) -> torch.Tensor:
+    """Validate a tensor mask and canonicalize accepted numeric values to bool."""
+    if not torch.is_tensor(mask):
+        raise TypeError("`position_mask` must be a torch.Tensor.")
     if mask.dtype == torch.bool:
         return mask
     if mask.is_complex() or not (mask.is_floating_point() or mask.dtype != torch.bool):
@@ -186,6 +192,12 @@ def _as_position_mask(value: object) -> torch.Tensor:
     if not torch.all((mask == 0) | (mask == 1)):
         raise ValueError("`position_mask` numeric values must be exactly 0 or 1.")
     return mask.to(dtype=torch.bool)
+
+
+def _validate_contiguous_right_padding(position_mask: torch.Tensor) -> None:
+    """Reject position masks that mark a valid token after padding starts."""
+    if position_mask.size(1) > 1 and torch.any((~position_mask[:, :-1]) & position_mask[:, 1:]):
+        raise ValueError("`position_mask` rows must use contiguous right padding.")
 
 
 def _as_targets(targets: Mapping[str, float] | object, leaf_names: tuple[str, ...]) -> torch.Tensor:

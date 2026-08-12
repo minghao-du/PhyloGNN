@@ -81,6 +81,35 @@ def leaf_regression_position_mask():
 
 
 @pytest.fixture
+def chunked_sequence_representations():
+    """Provide deterministic float32 representations with shape ``[4, 3, 2]``."""
+    return torch.tensor(
+        [
+            [[0.0, 0.1], [0.2, 0.3], [0.4, 0.5]],
+            [[1.0, 1.1], [1.2, 1.3], [1.4, 1.5]],
+            [[2.0, 2.1], [2.2, 2.3], [2.4, 2.5]],
+            [[3.0, 3.1], [3.2, 3.3], [3.4, 3.5]],
+        ],
+        dtype=torch.float32,
+    )
+
+
+@pytest.fixture
+def chunked_right_padded_mask():
+    """Provide deterministic right-padded masks aligned to the chunk fixture."""
+    return torch.tensor(
+        [[True, True, True], [True, True, False], [True, False, False], [True, True, True]],
+        dtype=torch.bool,
+    )
+
+
+@pytest.fixture
+def chunked_leaf_laplacian():
+    """Provide a finite four-leaf Laplacian for chunking contract tests."""
+    return torch.eye(4, dtype=torch.float32)
+
+
+@pytest.fixture
 def leaf_regression_targets():
     """Provide finite, non-constant leaf-aligned regression targets."""
     return torch.tensor([-1.0, -0.4, 0.2, 0.9, 1.5, 2.1], dtype=torch.float32)

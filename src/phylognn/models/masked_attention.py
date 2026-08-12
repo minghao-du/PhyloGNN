@@ -26,14 +26,24 @@ class MaskedAttentionPhyloRegressor(nn.Module):
             ``entmax`` package and may assign exact zero weight to low-scoring
             valid positions. The selected string is available as the
             ``attention_normalization`` attribute.
+        chunk_size: Optional positive, non-boolean integer limiting the number
+            of leaves processed by the raw position projection per invocation.
+            ``None`` preserves full-batch raw encoding.
 
     The forward method accepts representations with shape ``[N, L, input_dim]``
     and a position mask with shape ``[N, L]``. It returns predictions ``[N]``
-    and attention ``[N, L]``. Attention is finite, non-negative, row-normalized
-    within ``1e-6``, and exactly zero at masked positions; every mask row must
-    contain at least one valid position. Construction raises ``TypeError`` for
-    non-string ``attention_normalization`` values and ``ValueError`` for strings
-    other than ``"softmax"`` and ``"entmax15"``.
+    and attention ``[N, L]``. The canonical raw position encoder is
+    ``position_projection``; chunk outputs are concatenated in input leaf order,
+    then attention, pooling, regression, and Laplacian work run once over the
+    complete batch. Numeric binary masks are normalized to boolean on their
+    existing device, and representation finiteness is checked per consumed
+    chunk. With dropout disabled, full and chunked outputs compare with
+    ``torch.allclose(..., atol=1e-6, rtol=0)``. Attention is finite,
+    non-negative, row-normalized within ``1e-6``, and exactly zero at masked
+    positions; every mask row must contain at least one valid position.
+    Construction raises ``TypeError`` for non-string ``attention_normalization``
+    values and ``ValueError`` for strings other than ``"softmax"`` and
+    ``"entmax15"``.
     """
 
     def __init__(
@@ -43,6 +53,7 @@ class MaskedAttentionPhyloRegressor(nn.Module):
         leaf_laplacian: torch.Tensor,
         dropout_prob: float = 0.3,
         attention_normalization: Literal["softmax", "entmax15"] = "softmax",
+        chunk_size: int | None = None,
     ) -> None:
         super().__init__()
         if isinstance(input_dim, bool) or not isinstance(input_dim, int) or input_dim <= 0:
@@ -79,11 +90,16 @@ class MaskedAttentionPhyloRegressor(nn.Module):
                 f"{', '.join(repr(v) for v in _SUPPORTED_ATTENTION_NORMALIZATIONS)}; "
                 f"got {attention_normalization!r}."
             )
+        if chunk_size is not None and (
+            isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or chunk_size <= 0
+        ):
+            raise ValueError("`chunk_size` must be a positive integer.")
 
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.dropout_prob = dropout_prob
         self.attention_normalization: str = attention_normalization
+        self.chunk_size = chunk_size
         self.position_projection = nn.Linear(input_dim, hidden_dim)
         self.dropout = nn.Dropout(dropout_prob)
         self.attention_scorer = nn.Linear(hidden_dim, 1)
@@ -94,7 +110,12 @@ class MaskedAttentionPhyloRegressor(nn.Module):
     def forward(
         self, representations: torch.Tensor, position_mask: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Return one prediction and an attention distribution for each leaf."""
+        """Return one prediction and attention distribution for each leaf.
+
+        Global shape, dtype, device, and mask contracts are validated before
+        raw position encoding. The downstream attention and graph computation
+        remains a single full-batch pass after any chunked projection.
+        """
         if not torch.is_tensor(representations):
             raise TypeError("`representations` must be a torch.Tensor.")
         if not torch.is_tensor(position_mask):
@@ -106,26 +127,46 @@ class MaskedAttentionPhyloRegressor(nn.Module):
             )
         if representations.size(-1) != self.input_dim:
             raise ValueError("`representations` last dimension must match `input_dim`.")
+        if representations.size(0) == 0 or representations.size(1) == 0:
+            raise ValueError("`representations` must have nonempty shape [N, L, D].")
         if representations.dtype != torch.float32:
             raise ValueError("`representations` must have dtype torch.float32.")
-        if not torch.isfinite(representations).all():
-            raise ValueError("`representations` must contain only finite values.")
         if position_mask.shape != representations.shape[:2]:
             raise ValueError(
                 "`position_mask` must have shape [N, L] matching `representations`; "
                 f"got {tuple(position_mask.shape)}."
             )
+        if position_mask.device != representations.device:
+            raise ValueError("`position_mask` must be on the same device as `representations`.")
         if representations.size(0) != self.leaf_laplacian.size(0):
             raise ValueError(
                 "`representations` leaf count must match `leaf_laplacian`; "
                 f"got {representations.size(0)} and {self.leaf_laplacian.size(0)}."
             )
+        if representations.device != self.leaf_laplacian.device:
+            raise ValueError("`representations` must be on the same device as `leaf_laplacian`.")
 
+        if position_mask.dtype != torch.bool:
+            if position_mask.is_complex():
+                raise TypeError("`position_mask` must contain boolean or real numeric values.")
+            if not torch.isfinite(position_mask).all():
+                raise ValueError("`position_mask` must contain only finite values.")
+            if not torch.all((position_mask == 0) | (position_mask == 1)):
+                raise ValueError("`position_mask` must contain only zero and one.")
         mask = position_mask.to(dtype=torch.bool)
         if not torch.all(mask.any(dim=1)):
             raise ValueError("Every `position_mask` row must contain a valid position.")
+        if mask.size(1) > 1 and torch.any((~mask[:, :-1]) & mask[:, 1:]):
+            raise ValueError("`position_mask` rows must use contiguous right padding.")
 
-        projected = self.dropout(torch.tanh(self.position_projection(representations)))
+        chunk_size = self.chunk_size or representations.size(0)
+        projected_chunks = []
+        for start in range(0, representations.size(0), chunk_size):
+            chunk = representations[start : start + chunk_size]
+            if not torch.isfinite(chunk).all():
+                raise ValueError("`representations` must contain only finite values.")
+            projected_chunks.append(self.dropout(torch.tanh(self.position_projection(chunk))))
+        projected = torch.cat(projected_chunks, dim=0)
         scores = self.attention_scorer(projected).squeeze(-1)
         masked_scores = scores.masked_fill(~mask, float("-inf"))
 

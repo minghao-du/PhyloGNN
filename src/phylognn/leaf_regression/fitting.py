@@ -186,15 +186,28 @@ def fit_leaf_regression(
     """Fit one fresh leaf-regression model with optional scalar tracking.
 
     Args:
+        data: Validated leaf-regression inputs. Position masks, targets, indices,
+            and Laplacian inputs are isolated from fitting mutations.
         training_config: Fit controls. With ``early_stopping=False``, this
             performs exactly ``epochs`` optimizer steps without a held-out
             validation forward. With ``early_stopping=True``, private
             cross-validation plumbing must provide held-out validation indices;
             direct fits raise :class:`ValueError` before model construction.
+        model_config: Optional constructor settings for the selected model. For
+            the built-in sequence regressor, ``chunk_size`` is forwarded to the
+            model; omitting it retains full-batch sequence encoding. Chunked
+            raw position encodings are concatenated in input leaf order before
+            attention, pooling, prediction, and Laplacian work run once over
+            the complete batch. Result, checkpoint, history, and tracking
+            formats are unchanged.
         tracking_config: Optional explicit tracking settings. Tracking remains
             disabled when omitted or disabled.
         tracker: Optional enabled-run tracker implementation for testing or a
             custom backend.
+
+    Representations already on the target device are passed as a detached
+    same-storage alias to avoid an unconditional full-size clone. Fitting and
+    supported models must not write in place through that alias.
     """
     coordinator = _tracking_coordinator or _LeafExperimentCoordinator(
         tracking_config, tracker=tracker
@@ -250,7 +263,7 @@ def fit_leaf_regression(
                 )
             )
         with _local_rng(config.seed, device):
-            representations = data.representations.detach().clone().to(device)
+            representations = _prepare_representations(data.representations, device)
             position_mask = data.position_mask.detach().clone().to(device)
             targets = data.targets.detach().clone().to(device)
             selected_indices = indices.to(device)
@@ -393,6 +406,13 @@ def fit_leaf_regression(
         raise
 
 
+def _prepare_representations(representations: torch.Tensor, device: torch.device) -> torch.Tensor:
+    """Detach local representations or transfer them to the fitting device."""
+    if representations.device == device:
+        return representations.detach()
+    return representations.to(device)
+
+
 def _validate_indices(
     value: Sequence[int] | torch.Tensor, leaf_count: int, field_name: str
 ) -> torch.Tensor:
@@ -429,6 +449,7 @@ def _construct_model(
             input_dim=data.representations.size(-1),
             hidden_dim=options.pop("hidden_dim", 32),
             leaf_laplacian=data.leaf_laplacian.detach().clone(),
+            chunk_size=options.pop("chunk_size", None),
             **options,
         )
     if not isinstance(model_class, type) or not issubclass(model_class, torch.nn.Module):

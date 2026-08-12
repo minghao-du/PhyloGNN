@@ -112,10 +112,19 @@ class SparseQueryPhyloRegressor(nn.Module):
         attention_normalization: ``"entmax15"`` for sparse attention or
             ``"softmax"`` for the dense ablation.
         phylogeny_gate_init: Initial phylogenetic residual gate in ``(0, 1)``.
+        chunk_size: Optional positive, non-boolean integer limiting the number
+            of leaves processed by the raw position encoder per invocation.
+            ``None`` preserves full-batch raw encoding.
 
     Position masks must be nonempty right-padded rows. Boolean masks and numeric
-    masks containing exactly zero and one are accepted. Attention has shape
-    ``[B, num_queries, L]`` and is exactly zero at padding positions.
+    masks containing exactly zero and one are accepted and normalized to boolean
+    on their existing device. Raw position encoder chunks are concatenated in
+    input leaf order; attention, pooling, prediction, and Laplacian work then
+    run once over the complete batch. With dropout disabled, equivalent full
+    and chunked outputs use ``torch.allclose(..., atol=1e-6, rtol=0)``.
+    Attention has shape ``[B, num_queries, L]`` and is exactly zero at padding
+    positions. Invalid shape, dtype, device, mask, and finite-value inputs are
+    rejected before dependent computation.
     """
 
     def __init__(
@@ -138,6 +147,7 @@ class SparseQueryPhyloRegressor(nn.Module):
         phylogeny_dropout_prob: float = 0.3,
         attention_normalization: Literal["softmax", "entmax15"] = "entmax15",
         phylogeny_gate_init: float = 0.05,
+        chunk_size: int | None = None,
     ) -> None:
         super().__init__()
         for name, value in (
@@ -176,6 +186,8 @@ class SparseQueryPhyloRegressor(nn.Module):
             or not 0.0 < float(phylogeny_gate_init) < 1.0
         ):
             raise ValueError("`phylogeny_gate_init` must be a finite number in (0, 1).")
+        if chunk_size is not None:
+            _validate_positive_integer(chunk_size, "chunk_size")
         self._validate_laplacian(leaf_laplacian)
 
         self.input_dim = input_dim
@@ -189,6 +201,7 @@ class SparseQueryPhyloRegressor(nn.Module):
         self.sequence_hidden_dim = sequence_hidden_dim
         self.phylogeny_hidden_dim = phylogeny_hidden_dim
         self.attention_normalization: str = attention_normalization
+        self.chunk_size = chunk_size
 
         self.adapter = nn.Sequential(
             nn.LayerNorm(input_dim),
@@ -267,9 +280,11 @@ class SparseQueryPhyloRegressor(nn.Module):
                 f"got {tuple(position_mask.shape)}."
             )
         if position_mask.dtype != torch.bool:
-            if position_mask.is_complex() or not torch.all(
-                (position_mask == 0) | (position_mask == 1)
-            ):
+            if position_mask.is_complex():
+                raise TypeError("`position_mask` must contain boolean or real numeric values.")
+            if not torch.isfinite(position_mask).all():
+                raise ValueError("`position_mask` must contain only finite values.")
+            if not torch.all((position_mask == 0) | (position_mask == 1)):
                 raise ValueError("`position_mask` must contain only zero and one.")
         mask = position_mask.to(dtype=torch.bool)
         if not torch.all(mask.any(dim=1)):
@@ -286,7 +301,14 @@ class SparseQueryPhyloRegressor(nn.Module):
     def encode_sequences(
         self, representations: torch.Tensor, position_mask: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Encode a sequence mini-batch into species embeddings and attention."""
+        """Encode all leaves into ordered species embeddings and attention.
+
+        The canonical raw position encoder is the adapter and CNN stack. When
+        chunking is enabled, only that stage consumes contiguous leaf chunks;
+        the concatenated embeddings then pass through attention and pooling once
+        for the complete batch. Numeric binary masks are normalized to boolean,
+        and representation finiteness is checked as each chunk is consumed.
+        """
         if not torch.is_tensor(representations):
             raise TypeError("`representations` must be a torch.Tensor.")
         if representations.ndim != 3:
@@ -296,18 +318,45 @@ class SparseQueryPhyloRegressor(nn.Module):
             )
         if representations.size(-1) != self.input_dim:
             raise ValueError("`representations` last dimension must match `input_dim`.")
-        if not representations.is_floating_point():
-            raise ValueError("`representations` must have a floating-point dtype.")
-        if not torch.isfinite(representations).all():
-            raise ValueError("`representations` must contain only finite values.")
-        mask = self._resolve_position_mask(position_mask, representations.shape[:2])
-        if mask.device != representations.device:
+        if representations.size(0) == 0 or representations.size(1) == 0:
+            raise ValueError("`representations` must have nonempty shape [B, L, D].")
+        if representations.dtype != torch.float32:
+            raise ValueError("`representations` must have dtype torch.float32.")
+        if representations.size(0) != self.leaf_laplacian.size(0):
+            raise ValueError(
+                "`representations` leaf count must match `leaf_laplacian`; "
+                f"got {representations.size(0)} and {self.leaf_laplacian.size(0)}."
+            )
+        if representations.device != self.leaf_laplacian.device:
+            raise ValueError("`representations` must be on the same device as `leaf_laplacian`.")
+        if representations.dtype != self.leaf_laplacian.dtype:
+            raise ValueError("`representations` must have the same dtype as `leaf_laplacian`.")
+        if not torch.is_tensor(position_mask):
+            raise TypeError("`position_mask` must be a torch.Tensor.")
+        if position_mask.shape != representations.shape[:2]:
+            raise ValueError(
+                "`position_mask` must have shape [B, L] matching `representations`; "
+                f"got {tuple(position_mask.shape)}."
+            )
+        if position_mask.device != representations.device:
             raise ValueError("`position_mask` must be on the same device as `representations`.")
+        mask = self._resolve_position_mask(position_mask, representations.shape[:2])
 
+        chunk_size = self.chunk_size or representations.size(0)
+        encoded_chunks = []
+        for start in range(0, representations.size(0), chunk_size):
+            stop = start + chunk_size
+            chunk = representations[start:stop]
+            if not torch.isfinite(chunk).all():
+                raise ValueError("`representations` must contain only finite values.")
+            chunk_mask = mask[start:stop]
+            chunk_mask_values = chunk_mask.unsqueeze(-1).to(dtype=representations.dtype)
+            chunk_tokens = self.adapter(chunk) * chunk_mask_values
+            for block in self.cnn_blocks:
+                chunk_tokens = block(chunk_tokens, chunk_mask)
+            encoded_chunks.append(chunk_tokens)
+        tokens = torch.cat(encoded_chunks, dim=0)
         mask_values = mask.unsqueeze(-1).to(dtype=representations.dtype)
-        tokens = self.adapter(representations) * mask_values
-        for block in self.cnn_blocks:
-            tokens = block(tokens, mask)
 
         attentions = []
         slots = []
