@@ -54,11 +54,13 @@ def test_models_subpackage_hides_low_level_layers():
         "GATBiLSTMNet",
         "GATNodeRegressor",
         "MaskedAttentionPhyloRegressor",
+        "OneHotPhyloRegressor",
         "SparseQueryPhyloRegressor",
         "TemporalBiLSTMEncoder",
     ]
     assert models.TemporalBiLSTMEncoder.__name__ == "TemporalBiLSTMEncoder"
     assert models.MaskedAttentionPhyloRegressor.__name__ == "MaskedAttentionPhyloRegressor"
+    assert models.OneHotPhyloRegressor.__name__ == "OneHotPhyloRegressor"
     assert models.SparseQueryPhyloRegressor.__name__ == "SparseQueryPhyloRegressor"
     for hidden_name in {
         "GATBlock",

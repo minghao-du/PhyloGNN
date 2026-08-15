@@ -15,6 +15,7 @@ def test_models_package_exports_supported_model_surface():
         "GATBiLSTMNet",
         "GATNodeRegressor",
         "MaskedAttentionPhyloRegressor",
+        "OneHotPhyloRegressor",
         "SparseQueryPhyloRegressor",
         "TemporalBiLSTMEncoder",
     ]
@@ -34,6 +35,7 @@ def test_models_package_rejects_low_level_helpers_from_facade():
 
     assert models.TemporalBiLSTMEncoder.__name__ == "TemporalBiLSTMEncoder"
     assert models.MaskedAttentionPhyloRegressor.__name__ == "MaskedAttentionPhyloRegressor"
+    assert models.OneHotPhyloRegressor.__name__ == "OneHotPhyloRegressor"
     assert models.SparseQueryPhyloRegressor.__name__ == "SparseQueryPhyloRegressor"
 
     for hidden_name in {"GATBlock", "ResidualGATBlock", "ResidualGATStack", "MLPHead"}:
