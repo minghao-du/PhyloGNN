@@ -57,6 +57,7 @@ def test_models_subpackage_hides_low_level_layers():
         "OneHotPhyloRegressor",
         "SparseQueryPhyloRegressor",
         "TemporalBiLSTMEncoder",
+        "PGLSRegressionHead",
     ]
     assert models.TemporalBiLSTMEncoder.__name__ == "TemporalBiLSTMEncoder"
     assert models.MaskedAttentionPhyloRegressor.__name__ == "MaskedAttentionPhyloRegressor"

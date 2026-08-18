@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping, Sequence
 import copy
 from contextlib import contextmanager
 from dataclasses import dataclass
+import inspect
 import math
 from numbers import Real
 import random
@@ -94,7 +95,8 @@ class LeafFitResult:
     """Detached results from one leaf-regression fit.
 
     Args:
-        predictions: Finite floating all-leaf predictions ``[N]``.
+        predictions: Finite floating all-leaf predictions. Legacy fits use
+            ``[N]``; PGLS fits use ``[N, T]``.
         attention: Optional finite floating attention ``[N, L]``.
         train_indices: Nonempty unique long indices ``[K]``.
         losses: Finite Python loss values, one per optimization epoch.
@@ -109,11 +111,11 @@ class LeafFitResult:
     losses: tuple[float, ...]
 
     def __post_init__(self) -> None:
-        predictions = _detached_finite_float_tensor(self.predictions, "predictions", dimensions=1)
+        predictions = _detached_finite_predictions(self.predictions)
         attention = None
         if self.attention is not None:
             attention = _detached_finite_float_tensor(self.attention, "attention", dimensions=2)
-            if attention.size(0) != predictions.numel():
+            if attention.size(0) != predictions.size(0):
                 raise ValueError("`attention` must have shape [N, L] matching `predictions`.")
         train_indices = _detached_long_indices(self.train_indices, "train_indices")
         losses = _validate_losses(self.losses)
@@ -148,6 +150,16 @@ def _detached_finite_float_tensor(
     return value.detach().clone()
 
 
+def _detached_finite_predictions(value: object) -> torch.Tensor:
+    if not torch.is_tensor(value) or not value.is_floating_point():
+        raise TypeError("`predictions` must be a floating torch.Tensor.")
+    if value.ndim not in (1, 2) or value.numel() == 0:
+        raise ValueError("`predictions` must have nonempty shape [N] or [N, T].")
+    if not torch.isfinite(value).all():
+        raise ValueError("`predictions` must contain only finite values.")
+    return value.detach().clone()
+
+
 def _detached_long_indices(value: object, field_name: str) -> torch.Tensor:
     if not torch.is_tensor(value) or value.dtype != torch.long:
         raise TypeError(f"`{field_name}` must be a torch.long Tensor.")
@@ -176,6 +188,10 @@ def fit_leaf_regression(
     training_config: LeafRegressionConfig | None = None,
     model_class: type[torch.nn.Module] | None = None,
     model_config: Mapping[str, object] | None = None,
+    pgls_head: torch.nn.Module | None = None,
+    pgls_loss: torch.nn.Module | None = None,
+    covariances: list[torch.Tensor] | None = None,
+    batch: torch.Tensor | None = None,
     tracking_config: TrackingConfig | None = None,
     tracker: TrackerProtocol | None = None,
     _tracking_coordinator: _LeafExperimentCoordinator | None = None,
@@ -183,7 +199,7 @@ def fit_leaf_regression(
     _tracking_validation_indices: torch.Tensor | None = None,
     _tracking_score_fn: Callable[[torch.Tensor, torch.Tensor], object] | None = None,
 ) -> LeafFitResult:
-    """Fit one fresh leaf-regression model with optional scalar tracking.
+    """Fit one fresh leaf-regression model with optional PGLS composition.
 
     Args:
         data: Validated leaf-regression inputs. Position masks, targets, indices,
@@ -200,6 +216,18 @@ def fit_leaf_regression(
             attention, pooling, prediction, and Laplacian work run once over
             the complete batch. Result, checkpoint, history, and tracking
             formats are unchanged.
+        pgls_head: Optional final projection consuming ordered ``[N, D]`` leaf
+            features and returning trait predictions ``[N, T]``.
+        pgls_loss: Optional loss accepting predictions, targets, per-tree
+            ``covariances``, and a leaf-to-tree ``batch`` vector.
+        covariances: Optional covariance matrix list in ascending tree-ID order.
+        batch: Optional int64 vector mapping each leaf to its covariance matrix.
+
+            These four PGLS arguments must be supplied together. When omitted,
+            the existing scalar model-output and configured-loss path is used.
+            PGLS backbones receive the complete target-device-prepared
+            ``representations`` and ``position_mask`` tensors through
+            ``forward_leaf_representations`` before fit indices are selected.
         tracking_config: Optional explicit tracking settings. Tracking remains
             disabled when omitted or disabled.
         tracker: Optional enabled-run tracker implementation for testing or a
@@ -224,10 +252,27 @@ def fit_leaf_regression(
                 "`early_stopping=True` requires held-out validation indices and is unsupported "
                 "for a direct fit."
             )
-        loss_params = {} if config.huber_delta is None else {"delta": config.huber_delta}
-        loss_name, loss_params = resolve_loss_selection(config.loss, loss_params)
-        loss_module = build_loss(loss_name, loss_params)
-        loss_identifier = format_loss_identifier(loss_name, loss_params)
+        pgls_values = (pgls_head, pgls_loss, covariances, batch)
+        if any(value is not None for value in pgls_values) and not all(
+            value is not None for value in pgls_values
+        ):
+            raise ValueError(
+                "`pgls_head`, `pgls_loss`, `covariances`, and `batch` must all be provided "
+                "or all omitted."
+            )
+        pgls_enabled = all(value is not None for value in pgls_values)
+        if pgls_enabled:
+            if not isinstance(pgls_head, torch.nn.Module):
+                raise TypeError("`pgls_head` must be a torch.nn.Module.")
+            if not isinstance(pgls_loss, torch.nn.Module):
+                raise TypeError("`pgls_loss` must be a torch.nn.Module.")
+            loss_module = pgls_loss
+            loss_identifier = "pgls"
+        else:
+            loss_params = {} if config.huber_delta is None else {"delta": config.huber_delta}
+            loss_name, loss_params = resolve_loss_selection(config.loss, loss_params)
+            loss_module = build_loss(loss_name, loss_params)
+            loss_identifier = format_loss_identifier(loss_name, loss_params)
         leaf_count = len(data.leaf_names)
         indices = (
             torch.arange(leaf_count, dtype=torch.long)
@@ -239,6 +284,8 @@ def fit_leaf_regression(
             if config.device is not None
             else data.representations.device
         )
+        if pgls_enabled:
+            _validate_pgls_metadata(covariances, batch, leaf_count, device)
         if owns_tracking and coordinator.enabled:
             coordinator.start(
                 _build_leaf_tracking_config(
@@ -278,16 +325,31 @@ def fit_leaf_regression(
             trainable_parameters = [
                 parameter for parameter in model.parameters() if parameter.requires_grad
             ]
+            if pgls_enabled:
+                trainable_parameters.extend(
+                    parameter for parameter in pgls_head.parameters() if parameter.requires_grad
+                )
             if not trainable_parameters:
                 raise ValueError("The model must have trainable parameters.")
             model.train()
-            predictions, _ = _normalize_model_output(
-                model(representations, position_mask),
+            if pgls_enabled:
+                pgls_head.train()
+            predictions, _ = _forward_fit_predictions(
+                model,
+                representations,
+                position_mask,
                 leaf_count,
                 representations.size(1),
-                position_mask,
+                pgls_head=pgls_head if pgls_enabled else None,
             )
-            loss = loss_module(predictions[selected_indices], targets[selected_indices])
+            loss = _fit_partition_loss(
+                predictions,
+                targets,
+                selected_indices,
+                loss_module,
+                covariances=covariances if pgls_enabled else None,
+                batch=batch if pgls_enabled else None,
+            )
             if not loss.requires_grad or not torch.isfinite(loss):
                 raise ValueError(
                     f"The selected-leaf {loss_identifier} loss must be finite and differentiable."
@@ -301,6 +363,7 @@ def fit_leaf_regression(
             if config.early_stopping:
                 best_validation_loss = math.inf
                 best_model_state: dict[str, torch.Tensor] | None = None
+                best_pgls_head_state: dict[str, torch.Tensor] | None = None
                 consecutive_non_improvements = 0
             tracking_stage = _tracking_stage
             if tracking_stage is None:
@@ -309,13 +372,22 @@ def fit_leaf_regression(
                 epoch_started = time.perf_counter() if coordinator.enabled else None
                 optimizer.zero_grad()
                 if epoch:
-                    predictions, _ = _normalize_model_output(
-                        model(representations, position_mask),
+                    predictions, _ = _forward_fit_predictions(
+                        model,
+                        representations,
+                        position_mask,
                         leaf_count,
                         representations.size(1),
-                        position_mask,
+                        pgls_head=pgls_head if pgls_enabled else None,
                     )
-                    loss = loss_module(predictions[selected_indices], targets[selected_indices])
+                    loss = _fit_partition_loss(
+                        predictions,
+                        targets,
+                        selected_indices,
+                        loss_module,
+                        covariances=covariances if pgls_enabled else None,
+                        batch=batch if pgls_enabled else None,
+                    )
                     if not loss.requires_grad or not torch.isfinite(loss):
                         raise ValueError(
                             f"The selected-leaf {loss_identifier} loss must be "
@@ -329,16 +401,24 @@ def fit_leaf_regression(
                 )
                 if config.early_stopping:
                     model.eval()
+                    if pgls_enabled:
+                        pgls_head.eval()
                     with torch.no_grad():
-                        validation_predictions, _ = _normalize_model_output(
-                            model(representations, position_mask),
+                        validation_predictions, _ = _forward_fit_predictions(
+                            model,
+                            representations,
+                            position_mask,
                             leaf_count,
                             representations.size(1),
-                            position_mask,
+                            pgls_head=pgls_head if pgls_enabled else None,
                         )
-                        validation_loss = loss_module(
-                            validation_predictions[validation_indices],
-                            targets[validation_indices],
+                        validation_loss = _fit_partition_loss(
+                            validation_predictions,
+                            targets,
+                            validation_indices,
+                            loss_module,
+                            covariances=covariances if pgls_enabled else None,
+                            batch=batch if pgls_enabled else None,
                         )
                     if not torch.isfinite(validation_loss):
                         raise ValueError(
@@ -351,10 +431,14 @@ def fit_leaf_regression(
                     if validation_loss_value < best_validation_loss:
                         best_validation_loss = validation_loss_value
                         best_model_state = copy.deepcopy(model.state_dict())
+                        if pgls_enabled:
+                            best_pgls_head_state = copy.deepcopy(pgls_head.state_dict())
                         consecutive_non_improvements = 0
                     else:
                         consecutive_non_improvements += 1
                     model.train()
+                    if pgls_enabled:
+                        pgls_head.train()
                 coordinator.log_epoch(
                     tracking_stage,
                     train_predictions=predictions[selected_indices].detach(),
@@ -379,13 +463,21 @@ def fit_leaf_regression(
                 if best_model_state is None:
                     raise RuntimeError("Early stopping did not observe a held-out validation loss.")
                 model.load_state_dict(best_model_state)
+                if pgls_enabled:
+                    if best_pgls_head_state is None:
+                        raise RuntimeError("Early stopping did not retain PGLS head state.")
+                    pgls_head.load_state_dict(best_pgls_head_state)
             model.eval()
+            if pgls_enabled:
+                pgls_head.eval()
             with torch.no_grad():
-                predictions, attention = _normalize_model_output(
-                    model(representations, position_mask),
+                predictions, attention = _forward_fit_predictions(
+                    model,
+                    representations,
+                    position_mask,
                     leaf_count,
                     representations.size(1),
-                    position_mask,
+                    pgls_head=pgls_head if pgls_enabled else None,
                 )
         result = LeafFitResult(
             predictions=predictions,
@@ -455,6 +547,163 @@ def _construct_model(
     if not isinstance(model_class, type) or not issubclass(model_class, torch.nn.Module):
         raise TypeError("`model_class` must be a torch.nn.Module subclass or None.")
     return model_class(**options)
+
+
+def _forward_fit_predictions(
+    model: torch.nn.Module,
+    representations: torch.Tensor,
+    position_mask: torch.Tensor,
+    leaf_count: int,
+    position_count: int,
+    *,
+    pgls_head: torch.nn.Module | None,
+) -> tuple[torch.Tensor, torch.Tensor | None]:
+    """Run either the legacy prediction path or the explicit PGLS composition."""
+    if pgls_head is None:
+        return _normalize_model_output(
+            model(representations, position_mask),
+            leaf_count,
+            position_count,
+            position_mask,
+        )
+
+    representation_forward = getattr(model, "forward_leaf_representations", None)
+    if not callable(representation_forward):
+        raise TypeError(
+            "PGLS backbones must define callable "
+            "`forward_leaf_representations(representations, position_mask)`."
+        )
+    try:
+        inspect.signature(representation_forward).bind(representations, position_mask)
+    except (TypeError, ValueError) as error:
+        raise TypeError(
+            "PGLS backbone has an incompatible "
+            "`forward_leaf_representations(representations, position_mask)` contract."
+        ) from error
+    leaf_features = representation_forward(representations, position_mask)
+    if not torch.is_tensor(leaf_features) or not leaf_features.is_floating_point():
+        raise TypeError("PGLS leaf representations must be a floating torch.Tensor.")
+    if leaf_features.ndim != 2 or leaf_features.shape[0] != leaf_count:
+        raise ValueError("PGLS leaf representations must have ordered shape [N, D].")
+    if leaf_features.shape[1] == 0 or not torch.isfinite(leaf_features).all():
+        raise ValueError("PGLS leaf representations must be nonempty and finite.")
+    predictions = pgls_head(leaf_features)
+    if not torch.is_tensor(predictions) or not predictions.is_floating_point():
+        raise TypeError("PGLS predictions must be a floating torch.Tensor.")
+    if predictions.ndim != 2 or predictions.shape[0] != leaf_count or predictions.shape[1] == 0:
+        raise ValueError("PGLS predictions must have nonempty shape [N, T].")
+    if not torch.isfinite(predictions).all():
+        raise ValueError("PGLS predictions must contain only finite values.")
+    return predictions, None
+
+
+def _fit_partition_loss(
+    predictions: torch.Tensor,
+    targets: torch.Tensor,
+    indices: torch.Tensor,
+    loss_module: torch.nn.Module,
+    *,
+    covariances: list[torch.Tensor] | None,
+    batch: torch.Tensor | None,
+) -> torch.Tensor:
+    """Compute the legacy loss or a deterministically subset PGLS objective."""
+    if covariances is None or batch is None:
+        return loss_module(predictions[indices], targets[indices])
+    ordered_indices, subset_covariances, subset_batch = _subset_pgls_metadata(
+        indices, covariances, batch
+    )
+    prediction_indices = ordered_indices.to(device=predictions.device)
+    target_indices = ordered_indices.to(device=targets.device)
+    return loss_module(
+        predictions.index_select(0, prediction_indices),
+        targets.index_select(0, target_indices),
+        subset_covariances,
+        subset_batch,
+    )
+
+
+def _subset_pgls_metadata(
+    indices: torch.Tensor,
+    covariances: list[torch.Tensor],
+    batch: torch.Tensor,
+) -> tuple[torch.Tensor, list[torch.Tensor], torch.Tensor]:
+    """Subset leaves stably and compact retained tree IDs in ascending order."""
+    selected = torch.zeros(batch.shape[0], dtype=torch.bool, device=batch.device)
+    selected[indices.to(device=batch.device)] = True
+    ordered_indices: list[torch.Tensor] = []
+    subset_covariances: list[torch.Tensor] = []
+    subset_batches: list[torch.Tensor] = []
+    compact_tree_id = 0
+    for tree_id, covariance in enumerate(covariances):
+        tree_indices = torch.where(batch == tree_id)[0]
+        retained_positions = torch.where(selected.index_select(0, tree_indices))[0]
+        if retained_positions.numel() == 0:
+            continue
+        retained_indices = tree_indices.index_select(0, retained_positions)
+        covariance_positions = retained_positions.to(device=covariance.device)
+        subset_covariance = covariance.index_select(0, covariance_positions).index_select(
+            1, covariance_positions
+        )
+        ordered_indices.append(retained_indices)
+        subset_covariances.append(subset_covariance)
+        subset_batches.append(
+            torch.full(
+                (retained_indices.numel(),),
+                compact_tree_id,
+                dtype=torch.long,
+                device=batch.device,
+            )
+        )
+        compact_tree_id += 1
+    if not ordered_indices:
+        raise ValueError("The selected PGLS partition must contain at least one represented tree.")
+    return (
+        torch.cat(ordered_indices),
+        subset_covariances,
+        torch.cat(subset_batches),
+    )
+
+
+def _validate_pgls_metadata(
+    covariances: object,
+    batch: object,
+    leaf_count: int,
+    device: torch.device,
+) -> None:
+    """Validate full-batch metadata before deterministic partition subsetting."""
+    if not isinstance(covariances, list):
+        raise TypeError("`covariances` must be a list of torch.Tensor objects.")
+    if not torch.is_tensor(batch):
+        raise TypeError("`batch` must be a torch.Tensor.")
+    if not covariances:
+        raise ValueError("`covariances` must be a non-empty list.")
+    if batch.ndim != 1 or batch.shape[0] != leaf_count:
+        raise ValueError("`batch` must have shape [N] matching the prepared leaf count.")
+    if batch.dtype != torch.long:
+        raise ValueError("`batch` dtype must be torch.int64.")
+    if batch.device != device:
+        raise ValueError("`batch` device must match the fitting device.")
+
+    represented_trees = torch.unique(batch, sorted=True)
+    if represented_trees[0].item() < 0:
+        raise ValueError("`batch` identifiers must be non-negative.")
+    expected_trees = torch.arange(represented_trees.numel(), dtype=torch.long, device=batch.device)
+    if not torch.equal(represented_trees, expected_trees):
+        raise ValueError("`batch` identifiers must be contiguous and cover 0..K-1.")
+    if represented_trees.numel() != len(covariances):
+        raise ValueError("The covariance count must match the represented batch tree count.")
+
+    for tree_id, covariance in enumerate(covariances):
+        if not torch.is_tensor(covariance):
+            raise TypeError("Each covariance must be a torch.Tensor.")
+        if covariance.device != device:
+            raise ValueError("Each covariance device must match the fitting device.")
+        tree_leaf_count = torch.count_nonzero(batch == tree_id).item()
+        if covariance.ndim != 2 or covariance.shape != (tree_leaf_count, tree_leaf_count):
+            raise ValueError(
+                f"Covariance {tree_id} shape must match its tree leaf count "
+                f"({tree_leaf_count})."
+            )
 
 
 def _normalize_model_output(

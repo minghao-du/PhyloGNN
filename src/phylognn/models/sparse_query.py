@@ -420,6 +420,26 @@ class SparseQueryPhyloRegressor(nn.Module):
         prediction = sequence_prediction + torch.sigmoid(self.raw_beta) * phylogeny_prediction
         return prediction, sequence_prediction, phylogeny_prediction
 
+    def forward_leaf_representations(
+        self, representations: torch.Tensor, position_mask: torch.Tensor
+    ) -> torch.Tensor:
+        """Return ordered final leaf features with shape ``[N, species_dim]``.
+
+        Args:
+            representations: Validated float32 position features with shape
+                ``[N, L, input_dim]``.
+            position_mask: Boolean valid-position mask with shape ``[N, L]``.
+
+        Returns:
+            Nonempty ordered species features immediately before scalar prediction.
+
+        Raises:
+            TypeError: If either input is not a compatible tensor.
+            ValueError: If shape, dtype, device, mask, or finiteness contracts fail.
+        """
+        species_embeddings, _ = self.encode_sequences(representations, position_mask)
+        return species_embeddings
+
     def forward(
         self, representations: torch.Tensor, position_mask: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:

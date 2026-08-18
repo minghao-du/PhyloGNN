@@ -26,6 +26,7 @@ _EXPORT_MAP: Dict[str, Tuple[str, str]] = {
         "SparseQueryPhyloRegressor",
     ),
     "TemporalBiLSTMEncoder": ("phylognn.models.layers", "TemporalBiLSTMEncoder"),
+    "PGLSRegressionHead": ("phylognn.models.pgls", "PGLSRegressionHead"),
 }
 
 __all__ = [
@@ -37,6 +38,7 @@ __all__ = [
     "OneHotPhyloRegressor",
     "SparseQueryPhyloRegressor",
     "TemporalBiLSTMEncoder",
+    "PGLSRegressionHead",
 ]
 
 

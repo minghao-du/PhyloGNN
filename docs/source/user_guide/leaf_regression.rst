@@ -45,6 +45,58 @@ group together:
        training_config=LeafRegressionConfig(loss="huber", huber_delta=1.5),
    )
 
+Opt-in PGLS fitting
+-------------------
+
+Direct fitting can replace the backbone's scalar prediction layer with a PGLS
+regression head. Supply all four keyword arguments ``pgls_head``,
+``pgls_loss``, ``covariances``, and ``batch`` to
+:func:`phylognn.leaf_regression.fit_leaf_regression`; supplying only part of
+the group is an error. Omitting all four preserves the existing scalar output
+and configured loss behavior.
+
+.. code-block:: python
+
+   import torch
+
+   from phylognn import LeafRegressionConfig, fit_leaf_regression
+   from phylognn.models import PGLSRegressionHead
+   from phylognn.training import PGLSLoss
+
+   head = PGLSRegressionHead(input_dim=32, output_dim=1)
+   result = fit_leaf_regression(
+       data,
+       training_config=LeafRegressionConfig(epochs=100, seed=7),
+       pgls_head=head,
+       pgls_loss=PGLSLoss(),
+       covariances=[tree_covariance],
+       batch=torch.zeros(len(data.leaf_names), dtype=torch.int64),
+   )
+
+The built-in backbones expose
+``forward_leaf_representations(representations, position_mask)``. A custom
+``torch.nn.Module`` can opt in through the same structural protocol without a
+PhyloGNN base class. The method receives the complete target-device-prepared
+``representations [N, L, D_input]`` and boolean ``position_mask [N, L]`` before
+fit rows are selected, and must return finite ordered features ``[N, D]`` for
+the same leaves. ``D`` must match the head's ``input_dim``; an existing scalar
+prediction is not a valid substitute for these features.
+
+Predictions are always ``[N, T]`` in PGLS mode. Targets may be ``[N]`` only
+when ``T=1``, in which case the loss normalizes them to ``[N, 1]``. Covariance
+rows and columns, target rows, representation rows, and ``batch`` entries must
+share the same leaf order. Matrix ``covariances[i]`` belongs to contiguous
+batch identifier ``i``. During a training or held-out split, trees with no
+selected leaves are removed, retained covariance matrices are subset in stable
+within-tree order, and retained tree identifiers are compacted in ascending
+original-tree order.
+
+PGLS validates tensor types, nonempty shapes, finiteness, shared
+``float32``/``float64`` dtype and device, ``int64`` batch identifiers,
+covariance alignment, symmetry, positive definiteness, and the minimum
+eigenvalue ratio before solving. Invalid object types raise ``TypeError``;
+other contract violations raise ``ValueError`` with the affected input named.
+
 Recommended workflow
 --------------------
 

@@ -46,6 +46,31 @@ def test_forward_returns_prediction_only_and_matches_two_stage_api():
     assert torch.equal(predictions, expected)
 
 
+def test_one_hot_pgls_composition_supports_forward_and_backward():
+    """The ordered species embeddings compose with a differentiable PGLS head."""
+    from phylognn.models import PGLSRegressionHead
+    from phylognn.training import PGLSLoss
+
+    model = _make_model().train()
+    head = PGLSRegressionHead(6, 2)
+    representations, position_mask = _inputs()
+    features = model.forward_leaf_representations(representations, position_mask)
+    predictions = head(features)
+    loss = PGLSLoss()(
+        predictions,
+        torch.randn(3, 2),
+        [torch.eye(3)],
+        torch.zeros(3, dtype=torch.long),
+    )
+    loss.backward()
+
+    assert features.shape == (3, 6)
+    assert predictions.shape == (3, 2)
+    assert torch.isfinite(loss)
+    assert model.species_encoder[0].weight.grad is not None
+    assert head.linear.weight.grad is not None
+
+
 def test_padding_values_and_padding_width_do_not_change_predictions():
     """Only valid positions and effective lengths should affect the model."""
     model = _make_model().eval()

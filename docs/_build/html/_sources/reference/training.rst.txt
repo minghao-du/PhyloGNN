@@ -6,7 +6,12 @@ Import path
 
 .. code-block:: python
 
-   from phylognn.training import TrainingConfig, Trainer, load_training_config
+   from phylognn.training import (
+       PGLSLoss,
+       TrainingConfig,
+       Trainer,
+       load_training_config,
+   )
 
 Configuration and trainer
 -------------------------
@@ -121,6 +126,30 @@ Supported losses
      - none
    * - `huber`
      - `delta` (positive finite float, default `1.0`)
+
+.. py:class:: PGLSLoss
+
+   Differentiable phylogenetic generalized least-squares objective for ordered
+   predictions ``[N, T]``. Targets normally have the same shape; for a
+   single-trait prediction ``[N, 1]``, targets ``[N]`` are normalized to
+   ``[N, 1]``.
+
+   Call the loss as ``loss(predictions, targets, covariances, batch)``.
+   ``covariances`` is a nonempty list whose matrix at index ``i`` describes
+   exactly the leaves assigned batch identifier ``i``. ``batch`` is a
+   contiguous ``int64`` vector with identifiers ``0..K-1``. All floating
+   tensors must share ``float32`` or ``float64`` dtype and one device.
+
+   Each covariance must be finite, square, symmetric under
+   ``torch.allclose(rtol=1e-5, atol=1e-6)``, positive definite, and have
+   ``lambda_min / lambda_max >= 1e-6``. The loss solves once per tree with all
+   traits as right-hand sides, divides each quadratic form by that tree's leaf
+   count, averages traits, and then averages trees. Invalid types raise
+   ``TypeError``; invalid shapes, values, alignment, dtype, device, or numerical
+   conditions raise ``ValueError`` before solving.
+
+   ``PGLSLoss`` is an explicit module passed to leaf regression and is not a
+   string entry in ``LeafRegressionConfig.loss`` or ``supported_loss_names()``.
 
 .. py:function:: create_default_trainer(model, **kwargs)
 

@@ -86,6 +86,33 @@ def test_masked_attention_regressor_pools_only_valid_positions(
     assert torch_module.allclose(attention.sum(dim=1), torch_module.ones(6), atol=1e-6, rtol=0)
 
 
+def test_masked_attention_pgls_composition_supports_forward_and_backward(torch_module):
+    """The ordered pre-prediction features compose with a differentiable PGLS head."""
+    from phylognn.models import PGLSRegressionHead
+    from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor
+    from phylognn.training import PGLSLoss
+
+    model = MaskedAttentionPhyloRegressor(2, 4, torch_module.eye(3), dropout_prob=0.0)
+    head = PGLSRegressionHead(4, 2)
+    representations = torch_module.randn(3, 4, 2)
+    position_mask = torch_module.ones((3, 4), dtype=torch_module.bool)
+    features = model.forward_leaf_representations(representations, position_mask)
+    predictions = head(features)
+    loss = PGLSLoss()(
+        predictions,
+        torch_module.randn(3, 2),
+        [torch_module.eye(3)],
+        torch_module.zeros(3, dtype=torch_module.long),
+    )
+    loss.backward()
+
+    assert features.shape == (3, 4)
+    assert predictions.shape == (3, 2)
+    assert torch_module.isfinite(loss)
+    assert model.position_projection.weight.grad is not None
+    assert head.linear.weight.grad is not None
+
+
 def test_masked_attention_regressor_registers_bounded_smoothing_laplacian(torch_module):
     """The smoothing parameter starts at 0.1 and the Laplacian is model state."""
     from phylognn.models.masked_attention import MaskedAttentionPhyloRegressor

@@ -106,7 +106,12 @@
 <h1>Training Reference<a class="headerlink" href="#training-reference" title="Link to this heading"></a></h1>
 <section id="import-path">
 <h2>Import path<a class="headerlink" href="#import-path" title="Link to this heading"></a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">phylognn.training</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrainingConfig</span><span class="p">,</span> <span class="n">Trainer</span><span class="p">,</span> <span class="n">load_training_config</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">phylognn.training</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">PGLSLoss</span><span class="p">,</span>
+    <span class="n">TrainingConfig</span><span class="p">,</span>
+    <span class="n">Trainer</span><span class="p">,</span>
+    <span class="n">load_training_config</span><span class="p">,</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -269,6 +274,29 @@ unchanged.</p>
 </tr>
 </tbody>
 </table>
+<dl class="py class">
+<dt class="sig sig-object py" id="PGLSLoss">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">PGLSLoss</span></span><a class="headerlink" href="#PGLSLoss" title="Link to this definition"></a></dt>
+<dd><p>Differentiable phylogenetic generalized least-squares objective for ordered
+predictions <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">T]</span></code>. Targets normally have the same shape; for a
+single-trait prediction <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">1]</span></code>, targets <code class="docutils literal notranslate"><span class="pre">[N]</span></code> are normalized to
+<code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">1]</span></code>.</p>
+<p>Call the loss as <code class="docutils literal notranslate"><span class="pre">loss(predictions,</span> <span class="pre">targets,</span> <span class="pre">covariances,</span> <span class="pre">batch)</span></code>.
+<code class="docutils literal notranslate"><span class="pre">covariances</span></code> is a nonempty list whose matrix at index <code class="docutils literal notranslate"><span class="pre">i</span></code> describes
+exactly the leaves assigned batch identifier <code class="docutils literal notranslate"><span class="pre">i</span></code>. <code class="docutils literal notranslate"><span class="pre">batch</span></code> is a
+contiguous <code class="docutils literal notranslate"><span class="pre">int64</span></code> vector with identifiers <code class="docutils literal notranslate"><span class="pre">0..K-1</span></code>. All floating
+tensors must share <code class="docutils literal notranslate"><span class="pre">float32</span></code> or <code class="docutils literal notranslate"><span class="pre">float64</span></code> dtype and one device.</p>
+<p>Each covariance must be finite, square, symmetric under
+<code class="docutils literal notranslate"><span class="pre">torch.allclose(rtol=1e-5,</span> <span class="pre">atol=1e-6)</span></code>, positive definite, and have
+<code class="docutils literal notranslate"><span class="pre">lambda_min</span> <span class="pre">/</span> <span class="pre">lambda_max</span> <span class="pre">&gt;=</span> <span class="pre">1e-6</span></code>. The loss solves once per tree with all
+traits as right-hand sides, divides each quadratic form by that tree’s leaf
+count, averages traits, and then averages trees. Invalid types raise
+<code class="docutils literal notranslate"><span class="pre">TypeError</span></code>; invalid shapes, values, alignment, dtype, device, or numerical
+conditions raise <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> before solving.</p>
+<p><code class="docutils literal notranslate"><span class="pre">PGLSLoss</span></code> is an explicit module passed to leaf regression and is not a
+string entry in <code class="docutils literal notranslate"><span class="pre">LeafRegressionConfig.loss</span></code> or <code class="docutils literal notranslate"><span class="pre">supported_loss_names()</span></code>.</p>
+</dd></dl>
+
 <dl class="py function">
 <dt class="sig sig-object py" id="create_default_trainer">
 <span class="sig-name descname"><span class="pre">create_default_trainer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#create_default_trainer" title="Link to this definition"></a></dt>

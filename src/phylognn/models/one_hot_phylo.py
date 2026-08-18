@@ -205,9 +205,9 @@ class OneHotPhyloRegressor(nn.Module):
         lengths = mask.sum(dim=1).to(dtype=torch.long)
         batch_size, sequence_length, _ = representations.shape
         positions = torch.arange(sequence_length, device=representations.device)
-        bin_indices = (
-            positions.unsqueeze(0) * self.num_bins // lengths.unsqueeze(1)
-        ).clamp(max=self.num_bins - 1)
+        bin_indices = (positions.unsqueeze(0) * self.num_bins // lengths.unsqueeze(1)).clamp(
+            max=self.num_bins - 1
+        )
 
         mask_values = mask.unsqueeze(-1).to(dtype=representations.dtype)
         valid_values = representations * mask_values
@@ -282,7 +282,26 @@ class OneHotPhyloRegressor(nn.Module):
         phylogeny_prediction = self.phylogeny_head(phylogeny_features).squeeze(-1)
         return sequence_prediction + torch.sigmoid(self.raw_phylogeny_gate) * phylogeny_prediction
 
+    def forward_leaf_representations(
+        self, representations: torch.Tensor, position_mask: torch.Tensor
+    ) -> torch.Tensor:
+        """Return ordered final leaf features with shape ``[N, species_dim]``.
+
+        Args:
+            representations: Validated float32 position features with shape
+                ``[N, L, input_dim]``.
+            position_mask: Boolean valid-position mask with shape ``[N, L]``.
+
+        Returns:
+            Nonempty ordered species features immediately before scalar prediction.
+
+        Raises:
+            TypeError: If either input is not a compatible tensor.
+            ValueError: If shape, dtype, device, mask, or finiteness contracts fail.
+        """
+        return self.encode_sequences(representations, position_mask)
+
     def forward(self, representations: torch.Tensor, position_mask: torch.Tensor) -> torch.Tensor:
         """Return one phenotype prediction for each leaf."""
-        species_embeddings = self.encode_sequences(representations, position_mask)
+        species_embeddings = self.forward_leaf_representations(representations, position_mask)
         return self.predict_from_embeddings(species_embeddings)

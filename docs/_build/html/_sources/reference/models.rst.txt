@@ -10,6 +10,7 @@ Import path
        BaseGATNet,
        BasePhyloGNN,
        GATBiLSTMNet,
+       PGLSRegressionHead,
        TemporalBiLSTMEncoder,
    )
 
@@ -51,6 +52,24 @@ End-user model
    Inputs follow the graph field contract documented in
    :doc:`../user_guide/graph_conversion`. The output tensor has shape
    `[batch_size, output_dim]`.
+
+PGLS regression head
+--------------------
+
+.. py:class:: PGLSRegressionHead(input_dim, output_dim)
+
+   Trainable linear projection from ordered leaf representations ``[N, D]``
+   to trait predictions ``[N, T]``. ``input_dim`` and ``output_dim`` must be
+   positive. Inputs must be finite ``float32`` or ``float64`` tensors whose
+   dtype and device match the head parameters; the output preserves both and
+   no implicit conversion is performed.
+
+   .. py:method:: forward(representations)
+
+      Validate a nonempty two-dimensional tensor with width ``input_dim`` and
+      return predictions with ``output_dim`` traits without changing leaf row
+      order. Covariance data is supplied separately to
+      ``phylognn.training.PGLSLoss``.
 
 Temporal encoder
 ----------------

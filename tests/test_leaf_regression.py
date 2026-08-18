@@ -1,12 +1,29 @@
 """Tests for the recommended leaf-regression workflow."""
 
 import copy
+import inspect
 import random
 import warnings
 
 import numpy as np
 import pytest
 import torch
+
+
+def test_fit_leaf_regression_public_exports_and_pgls_signature():
+    import phylognn
+    import phylognn.leaf_regression as leaf_regression
+
+    fit = leaf_regression.fit_leaf_regression
+    assert phylognn.fit_leaf_regression is fit
+    assert "fit_leaf_regression" in leaf_regression.__all__
+    assert "fit_leaf_regression" in phylognn.__all__
+
+    signature = inspect.signature(fit)
+    for name in ("pgls_head", "pgls_loss", "covariances", "batch"):
+        parameter = signature.parameters[name]
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY
+        assert parameter.default is None
 
 
 def test_prepare_leaf_regression_defers_representation_finiteness_to_model(
@@ -340,6 +357,83 @@ class _PredictionOnlyRegressor(torch.nn.Module):
     def forward(self, representations: torch.Tensor, position_mask: torch.Tensor) -> torch.Tensor:
         del position_mask
         return representations[:, 0, 0] * self.weight + self.offset
+
+
+class _LeafRepresentationBackbone(torch.nn.Module):
+    """Minimal custom provider of ordered leaf representations for PGLS tests."""
+
+    instances: list["_LeafRepresentationBackbone"] = []
+
+    def __init__(self, input_dim: int = 3, output_dim: int = 2) -> None:
+        super().__init__()
+        self.projection = torch.nn.Linear(input_dim, output_dim)
+        self.received_representations: torch.Tensor | None = None
+        self.received_position_mask: torch.Tensor | None = None
+        type(self).instances.append(self)
+
+    def forward_leaf_representations(
+        self, representations: torch.Tensor, position_mask: torch.Tensor
+    ) -> torch.Tensor:
+        """Pool validated ``[N, L, D_input]`` inputs into ordered ``[N, D]`` features."""
+        self.received_representations = representations
+        self.received_position_mask = position_mask
+        mask = position_mask.unsqueeze(-1).to(dtype=representations.dtype)
+        pooled = (representations * mask).sum(dim=1) / mask.sum(dim=1)
+        return self.projection(pooled)
+
+
+class _NonCallableLeafRepresentationBackbone(_LeafRepresentationBackbone):
+    forward_leaf_representations = None
+
+
+class _MissingLeafRepresentationBackbone(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.weight = torch.nn.Parameter(torch.ones(()))
+
+
+class _IncompatibleLeafRepresentationBackbone(_LeafRepresentationBackbone):
+    def forward_leaf_representations(self, representations: torch.Tensor) -> torch.Tensor:
+        return representations[:, 0]
+
+
+def _pgls_fitting_covariances(
+    *, dtype: torch.dtype = torch.float32, device: torch.device | str = "cpu"
+) -> list[torch.Tensor]:
+    """Return known SPD covariance blocks for three ordered two-leaf trees."""
+    return [
+        torch.tensor([[1.0, 0.2], [0.2, 0.9]], dtype=dtype, device=device),
+        torch.tensor([[1.1, 0.1], [0.1, 0.8]], dtype=dtype, device=device),
+        torch.tensor([[0.7, 0.15], [0.15, 1.2]], dtype=dtype, device=device),
+    ]
+
+
+def _pgls_fitting_batch(*, device: torch.device | str = "cpu") -> torch.Tensor:
+    """Map six ordered leaves to the three covariance blocks used by fitting tests."""
+    return torch.tensor([0, 0, 1, 1, 2, 2], dtype=torch.long, device=device)
+
+
+class _RecordingMultiTraitPGLSLoss(torch.nn.Module):
+    """Record fitting subsets while applying PGLS to repeated scalar targets."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls: list[tuple[list[torch.Tensor], torch.Tensor]] = []
+
+    def forward(
+        self,
+        predictions: torch.Tensor,
+        targets: torch.Tensor,
+        covariances: list[torch.Tensor],
+        batch: torch.Tensor,
+    ) -> torch.Tensor:
+        from phylognn.training import PGLSLoss
+
+        self.calls.append(
+            ([covariance.detach().clone() for covariance in covariances], batch.detach().clone())
+        )
+        expanded_targets = targets.unsqueeze(1).expand_as(predictions)
+        return PGLSLoss()(predictions, expanded_targets, covariances, batch)
 
 
 class _NoParameterRegressor(torch.nn.Module):
@@ -2081,6 +2175,236 @@ def test_fit_leaf_regression_returns_selected_indices_all_predictions_and_losses
     assert result.attention.shape == data.position_mask.shape
     assert len(result.losses) == 3
     assert all(np.isfinite(loss) for loss in result.losses)
+
+
+def test_fit_leaf_regression_composes_custom_backbone_with_pgls_and_stable_subsets(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """PGLS receives full backbone inputs and compact split-specific covariance batches."""
+    from phylognn import LeafRegressionConfig, fit_leaf_regression, prepare_leaf_regression
+    from phylognn.models import PGLSRegressionHead
+
+    _LeafRepresentationBackbone.instances.clear()
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    covariances = _pgls_fitting_covariances()
+    pgls_loss = _RecordingMultiTraitPGLSLoss()
+    pgls_head = PGLSRegressionHead(2, 2)
+    result = fit_leaf_regression(
+        data,
+        train_indices=[5, 0, 1],
+        training_config=LeafRegressionConfig(
+            epochs=1,
+            learning_rate=0.01,
+            seed=19,
+            early_stopping=True,
+            early_stopping_patience=1,
+        ),
+        model_class=_LeafRepresentationBackbone,
+        pgls_head=pgls_head,
+        pgls_loss=pgls_loss,
+        covariances=covariances,
+        batch=_pgls_fitting_batch(),
+        _tracking_validation_indices=torch.tensor([2]),
+    )
+
+    backbone = _LeafRepresentationBackbone.instances[-1]
+    assert backbone.received_representations is not None
+    assert backbone.received_position_mask is not None
+    assert torch.equal(backbone.received_representations, data.representations)
+    assert torch.equal(backbone.received_position_mask, data.position_mask)
+    assert backbone.received_representations.device == result.predictions.device
+    assert result.predictions.shape == (6, 2)
+    assert torch.isfinite(result.predictions).all()
+    assert all(
+        parameter.grad is not None and torch.isfinite(parameter.grad).all()
+        for parameter in backbone.parameters()
+    )
+    assert all(
+        parameter.grad is not None and torch.isfinite(parameter.grad).all()
+        for parameter in pgls_head.parameters()
+    )
+
+    training_covariances, training_batch = pgls_loss.calls[0]
+    assert torch.equal(training_batch, torch.tensor([0, 0, 1]))
+    assert len(training_covariances) == 2
+    assert torch.equal(training_covariances[0], covariances[0])
+    assert torch.equal(training_covariances[1], covariances[2][1:, 1:])
+    validation_covariances, validation_batch = pgls_loss.calls[1]
+    assert torch.equal(validation_batch, torch.tensor([0]))
+    assert len(validation_covariances) == 1
+    assert torch.equal(validation_covariances[0], covariances[1][:1, :1])
+
+
+@pytest.mark.parametrize("missing", ["pgls_head", "pgls_loss", "covariances", "batch"])
+def test_fit_leaf_regression_requires_all_or_none_pgls_configuration(
+    missing,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """A partial explicit PGLS group fails before model construction."""
+    from phylognn import LeafRegressionConfig, fit_leaf_regression, prepare_leaf_regression
+    from phylognn.models import PGLSRegressionHead
+    from phylognn.training import PGLSLoss
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    kwargs = {
+        "pgls_head": PGLSRegressionHead(2, 1),
+        "pgls_loss": PGLSLoss(),
+        "covariances": _pgls_fitting_covariances(),
+        "batch": _pgls_fitting_batch(),
+    }
+    kwargs[missing] = None
+
+    with pytest.raises(ValueError, match="all be provided or all omitted"):
+        fit_leaf_regression(
+            data,
+            training_config=LeafRegressionConfig(epochs=1),
+            model_class=_LeafRepresentationBackbone,
+            **kwargs,
+        )
+
+
+@pytest.mark.parametrize(
+    ("model_class", "message"),
+    [
+        (_MissingLeafRepresentationBackbone, "callable.*forward_leaf_representations"),
+        (_NonCallableLeafRepresentationBackbone, "callable.*forward_leaf_representations"),
+        (_IncompatibleLeafRepresentationBackbone, "incompatible.*representations.*position_mask"),
+    ],
+)
+def test_fit_leaf_regression_rejects_invalid_pgls_backbone_protocol(
+    model_class,
+    message,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    from phylognn import LeafRegressionConfig, fit_leaf_regression, prepare_leaf_regression
+    from phylognn.models import PGLSRegressionHead
+    from phylognn.training import PGLSLoss
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    with pytest.raises(TypeError, match=message):
+        fit_leaf_regression(
+            data,
+            training_config=LeafRegressionConfig(epochs=1),
+            model_class=model_class,
+            pgls_head=PGLSRegressionHead(2, 1),
+            pgls_loss=PGLSLoss(),
+            covariances=_pgls_fitting_covariances(),
+            batch=_pgls_fitting_batch(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("metadata_case", "message"),
+    [
+        ("empty_covariances", "covariances.*non-empty list"),
+        ("batch_rank", r"batch.*shape \[N\]"),
+        ("batch_dtype", "batch.*int64"),
+        ("negative_batch", "batch.*non-negative"),
+        ("noncontiguous_batch", "batch.*contiguous.*0..K-1"),
+        ("missing_identifier", "batch.*contiguous.*0..K-1"),
+        ("covariance_count", "covariance count"),
+        ("leaf_count", "leaf count"),
+        ("device", "covariance.*device"),
+    ],
+)
+def test_fit_leaf_regression_rejects_invalid_pgls_metadata(
+    metadata_case,
+    message,
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    from phylognn import LeafRegressionConfig, fit_leaf_regression, prepare_leaf_regression
+    from phylognn.models import PGLSRegressionHead
+    from phylognn.training import PGLSLoss
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    covariances = _pgls_fitting_covariances()
+    batch = _pgls_fitting_batch()
+    if metadata_case == "empty_covariances":
+        covariances = []
+    elif metadata_case == "batch_rank":
+        batch = batch.unsqueeze(1)
+    elif metadata_case == "batch_dtype":
+        batch = batch.to(torch.float32)
+    elif metadata_case == "negative_batch":
+        batch = batch - 1
+    elif metadata_case == "noncontiguous_batch":
+        batch = torch.tensor([0, 0, 2, 2, 3, 3])
+    elif metadata_case == "missing_identifier":
+        batch = torch.tensor([0, 0, 0, 0, 2, 2])
+    elif metadata_case == "covariance_count":
+        covariances = covariances[:2]
+    elif metadata_case == "leaf_count":
+        covariances[0] = torch.eye(3)
+    elif metadata_case == "device":
+        covariances[0] = covariances[0].to("meta")
+
+    with pytest.raises(ValueError, match=message):
+        fit_leaf_regression(
+            data,
+            training_config=LeafRegressionConfig(epochs=1),
+            model_class=_LeafRepresentationBackbone,
+            pgls_head=PGLSRegressionHead(2, 1),
+            pgls_loss=PGLSLoss(),
+            covariances=covariances,
+            batch=batch,
+        )
+
+
+def test_fit_leaf_regression_pgls_disabled_preserves_scalar_output(
+    leaf_regression_position_mask,
+    leaf_regression_representations,
+    leaf_regression_targets,
+    leaf_regression_tree,
+):
+    """Omitting the PGLS group retains the legacy one-dimensional result contract."""
+    from phylognn import LeafRegressionConfig, fit_leaf_regression, prepare_leaf_regression
+
+    data = prepare_leaf_regression(
+        leaf_regression_tree,
+        leaf_regression_representations,
+        leaf_regression_position_mask,
+        leaf_regression_targets,
+    )
+    result = fit_leaf_regression(
+        data,
+        training_config=LeafRegressionConfig(epochs=1, seed=19),
+        model_class=_ConfiguredRegressor,
+        model_config={"offset": 0.0},
+    )
+
+    assert result.predictions.shape == (6,)
 
 
 @pytest.mark.parametrize(

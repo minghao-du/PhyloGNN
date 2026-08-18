@@ -20,7 +20,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Association Reference" href="association.html" />
+    <link rel="next" title="Leaf Regression Reference" href="leaf_regression.html" />
     <link rel="prev" title="Data Reference" href="data.html" /> 
 </head>
 
@@ -57,12 +57,13 @@
 <li class="toctree-l4"><a class="reference internal" href="#import-path">Import path</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#base-classes">Base classes</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#end-user-model">End-user model</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#pgls-regression-head">PGLS regression head</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#temporal-encoder">Temporal encoder</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#excluded-internals">Excluded internals</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#related-guide">Related guide</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="association.html">Association Reference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="leaf_regression.html">Leaf Regression Reference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="training.html">Training Reference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="io.html">Tree I/O Reference</a></li>
 <li class="toctree-l3"><a class="reference internal" href="utils.html">Utilities Reference</a></li>
@@ -107,6 +108,7 @@
     <span class="n">BaseGATNet</span><span class="p">,</span>
     <span class="n">BasePhyloGNN</span><span class="p">,</span>
     <span class="n">GATBiLSTMNet</span><span class="p">,</span>
+    <span class="n">PGLSRegressionHead</span><span class="p">,</span>
     <span class="n">TemporalBiLSTMEncoder</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -164,6 +166,28 @@ temporal encoding, or <code class="docutils literal notranslate"><span class="pr
 </dd></dl>
 
 </section>
+<section id="pgls-regression-head">
+<h2>PGLS regression head<a class="headerlink" href="#pgls-regression-head" title="Link to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="PGLSRegressionHead">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">PGLSRegressionHead</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dim</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PGLSRegressionHead" title="Link to this definition"></a></dt>
+<dd><p>Trainable linear projection from ordered leaf representations <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">D]</span></code>
+to trait predictions <code class="docutils literal notranslate"><span class="pre">[N,</span> <span class="pre">T]</span></code>. <code class="docutils literal notranslate"><span class="pre">input_dim</span></code> and <code class="docutils literal notranslate"><span class="pre">output_dim</span></code> must be
+positive. Inputs must be finite <code class="docutils literal notranslate"><span class="pre">float32</span></code> or <code class="docutils literal notranslate"><span class="pre">float64</span></code> tensors whose
+dtype and device match the head parameters; the output preserves both and
+no implicit conversion is performed.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="PGLSRegressionHead.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">representations</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#PGLSRegressionHead.forward" title="Link to this definition"></a></dt>
+<dd><p>Validate a nonempty two-dimensional tensor with width <code class="docutils literal notranslate"><span class="pre">input_dim</span></code> and
+return predictions with <code class="docutils literal notranslate"><span class="pre">output_dim</span></code> traits without changing leaf row
+order. Covariance data is supplied separately to
+<code class="docutils literal notranslate"><span class="pre">phylognn.training.PGLSLoss</span></code>.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
 <section id="temporal-encoder">
 <h2>Temporal encoder<a class="headerlink" href="#temporal-encoder" title="Link to this heading"></a></h2>
 <dl class="py class">
@@ -189,7 +213,7 @@ and <code class="docutils literal notranslate"><span class="pre">MLPHead</span><
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="data.html" class="btn btn-neutral float-left" title="Data Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="association.html" class="btn btn-neutral float-right" title="Association Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="leaf_regression.html" class="btn btn-neutral float-right" title="Leaf Regression Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

@@ -24,6 +24,7 @@ def test_training_package_uses_canonical_all_exports():
         "create_trainer_from_config",
         "load_training_config",
         "supported_loss_names",
+        "PGLSLoss",
     ]
     assert not hasattr(training, "all")
 

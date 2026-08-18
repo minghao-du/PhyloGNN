@@ -16,7 +16,131 @@ from numbers import Real
 from types import MappingProxyType
 from typing import NamedTuple
 
+import torch
 import torch.nn as nn
+
+
+class PGLSLoss(nn.Module):
+    """Differentiable per-tree phylogenetic generalized least-squares loss.
+
+    ``predictions`` and ``targets`` are ``[N, T]`` tensors (targets may be
+    ``[N]`` for one trait). ``covariances[i]`` belongs to leaves whose
+    ``batch`` identifier is ``i``. For each tree the GLS quadratic form is
+    normalized by leaf count and averaged over traits, then tree losses are
+    arithmetically averaged. Covariances and tensors must share dtype/device.
+
+    Returns
+    -------
+    torch.Tensor
+        A differentiable scalar loss in the prediction dtype and device.
+
+    Raises
+    ------
+    TypeError
+        If a tensor object or covariance container is invalid.
+    ValueError
+        If a tensor shape, dtype, device, tree mapping, or value is invalid.
+    """
+
+    def forward(
+        self,
+        predictions: torch.Tensor,
+        targets: torch.Tensor,
+        covariances: list[torch.Tensor],
+        batch: torch.Tensor,
+    ) -> torch.Tensor:
+        """Compute the scalar objective while preserving prediction gradients.
+
+        Parameters follow the class-level ``[N, T]`` prediction/target,
+        per-tree covariance-list, and ``[N]`` batch mapping contract.
+        """
+        if not torch.is_tensor(predictions):
+            raise TypeError("predictions must be a torch.Tensor.")
+        if not torch.is_tensor(targets):
+            raise TypeError("targets must be a torch.Tensor.")
+        if not torch.is_tensor(batch):
+            raise TypeError("batch must be a torch.Tensor.")
+        if not isinstance(covariances, list):
+            raise TypeError("covariances must be a list of torch.Tensor objects.")
+        if any(not torch.is_tensor(covariance) for covariance in covariances):
+            raise TypeError("each covariance must be a torch.Tensor.")
+
+        if predictions.ndim != 2:
+            raise ValueError("predictions must have shape [N, T].")
+        if targets.ndim == 1 and predictions.shape[1] == 1:
+            targets = targets.unsqueeze(1)
+        elif targets.ndim != 2:
+            raise ValueError("targets must have shape [N, T].")
+        if batch.ndim != 1:
+            raise ValueError("batch must have shape [N].")
+        if predictions.shape[0] == 0 or predictions.shape[1] == 0:
+            raise ValueError("predictions and targets must be non-empty.")
+        if predictions.shape != targets.shape:
+            raise ValueError("predictions and targets must have matching shapes.")
+        if batch.shape[0] != predictions.shape[0]:
+            raise ValueError("batch must have shape [N] matching predictions.")
+        if not covariances:
+            raise ValueError("covariances must be a non-empty list.")
+
+        if predictions.dtype not in (torch.float32, torch.float64):
+            raise ValueError("predictions dtype must be torch.float32 or torch.float64.")
+        if targets.dtype != predictions.dtype:
+            raise ValueError("targets must use the same dtype as predictions.")
+        if batch.dtype != torch.long:
+            raise ValueError("batch dtype must be torch.int64.")
+        if targets.device != predictions.device:
+            raise ValueError("targets device must match the predictions device.")
+        if batch.device != predictions.device:
+            raise ValueError("batch device must match the predictions device.")
+        if not torch.isfinite(predictions).all():
+            raise ValueError("predictions must contain only finite values.")
+        if not torch.isfinite(targets).all():
+            raise ValueError("targets must contain only finite values.")
+
+        represented_trees = torch.unique(batch, sorted=True)
+        if represented_trees[0].item() < 0:
+            raise ValueError("batch identifiers must be non-negative.")
+        expected_trees = torch.arange(
+            represented_trees.numel(), dtype=torch.long, device=batch.device
+        )
+        if not torch.equal(represented_trees, expected_trees):
+            raise ValueError("batch identifiers must be contiguous and cover 0..K-1.")
+        if represented_trees.numel() != len(covariances):
+            raise ValueError("covariance count must match the represented batch tree count.")
+
+        tree_indices: list[torch.Tensor] = []
+        for tree_id, covariance in enumerate(covariances):
+            indices = torch.where(batch == tree_id)[0]
+            if covariance.ndim != 2 or covariance.shape[0] != covariance.shape[1]:
+                raise ValueError(f"covariance {tree_id} must be a square matrix.")
+            if covariance.shape[0] != indices.numel():
+                raise ValueError(f"covariance {tree_id} shape must match its tree leaf count.")
+            if covariance.dtype != predictions.dtype:
+                raise ValueError("each covariance must use the same dtype as predictions.")
+            if covariance.device != predictions.device:
+                raise ValueError("covariances device must match the predictions device.")
+            if not torch.isfinite(covariance).all():
+                raise ValueError("covariances must contain only finite values.")
+            if not torch.allclose(covariance, covariance.T, rtol=1e-5, atol=1e-6):
+                raise ValueError(f"covariance {tree_id} must be symmetric.")
+            eigenvalues = torch.linalg.eigvalsh(covariance)
+            minimum = eigenvalues[0]
+            maximum = eigenvalues[-1]
+            if minimum.item() <= 0 or maximum.item() <= 0:
+                raise ValueError(f"covariance {tree_id} must be positive definite.")
+            if (minimum / maximum).item() < 1e-6:
+                raise ValueError(
+                    f"covariance {tree_id} condition ratio must be greater than or equal to 1e-6."
+                )
+            tree_indices.append(indices)
+
+        tree_losses: list[torch.Tensor] = []
+        for covariance, indices in zip(covariances, tree_indices):
+            residual = targets.index_select(0, indices) - predictions.index_select(0, indices)
+            solved = torch.linalg.solve(covariance, residual)
+            tree_losses.append((residual * solved).sum(dim=0).mean() / residual.shape[0])
+        return torch.stack(tree_losses).mean()
+
 
 # ---------------------------------------------------------------------------
 # Catalog entry

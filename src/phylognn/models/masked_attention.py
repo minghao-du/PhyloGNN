@@ -107,10 +107,10 @@ class MaskedAttentionPhyloRegressor(nn.Module):
         self.raw_alpha = nn.Parameter(torch.tensor(math.log(0.1 / 0.9)))
         self.register_buffer("leaf_laplacian", leaf_laplacian.detach().clone())
 
-    def forward(
+    def _forward_leaf_features(
         self, representations: torch.Tensor, position_mask: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Return one prediction and attention distribution for each leaf.
+        """Return ordered pre-prediction features and attention for each leaf.
 
         Global shape, dtype, device, and mask contracts are validated before
         raw position encoding. The downstream attention and graph computation
@@ -178,4 +178,31 @@ class MaskedAttentionPhyloRegressor(nn.Module):
         attention = attention * mask.to(dtype=attention.dtype)
         pooled = (attention.unsqueeze(-1) * projected).sum(dim=1)
         smoothed = pooled - torch.sigmoid(self.raw_alpha) * (self.leaf_laplacian @ pooled)
-        return self.regression_head(smoothed).squeeze(-1), attention
+        return smoothed, attention
+
+    def forward_leaf_representations(
+        self, representations: torch.Tensor, position_mask: torch.Tensor
+    ) -> torch.Tensor:
+        """Return ordered final leaf features with shape ``[N, hidden_dim]``.
+
+        Args:
+            representations: Validated float32 position features with shape
+                ``[N, L, input_dim]``.
+            position_mask: Boolean valid-position mask with shape ``[N, L]``.
+
+        Returns:
+            Nonempty ordered features immediately before scalar prediction.
+
+        Raises:
+            TypeError: If either input is not a compatible tensor.
+            ValueError: If shape, dtype, device, mask, or finiteness contracts fail.
+        """
+        features, _ = self._forward_leaf_features(representations, position_mask)
+        return features
+
+    def forward(
+        self, representations: torch.Tensor, position_mask: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return one prediction and attention distribution for each leaf."""
+        features, attention = self._forward_leaf_features(representations, position_mask)
+        return self.regression_head(features).squeeze(-1), attention
